@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+.env
+reports/*.json
+!reports/.gitkeep
+prisma/dev.db

@@ -1,0 +1,20 @@
+{
+  "name": "payproof-standalone-callback-example",
+  "private": true,
+  "type": "module",
+  "description": "Independent TypeScript example using PayProof package archives",
+  "scripts": {
+    "test": "vitest run --config ./vitest.config.ts"
+  },
+  "dependencies": {
+    "@payproof/bachs": "file:../../reports/payproof-bachs-1.1.0.tgz",
+    "@payproof/core": "file:../../reports/payproof-core-1.1.0.tgz",
+    "express": "^5.1.0",
+    "vitest": "^2.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "@payproof/core": "file:../../reports/payproof-core-1.1.0.tgz"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "payproof",
+  "private": true,
+  "version": "1.1.0",
+  "description": "Payment correctness testing for TypeScript applications",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm build && vitest run",
+    "test:postgres": "vitest run apps/reference-wallet/tests/wallet.postgres.integration.test.ts",
+    "test:watch": "vitest",
+    "typecheck": "pnpm build && pnpm -r exec tsc --noEmit --pretty false",
+    "pack:check": "pnpm build && pnpm --filter @payproof/core pack --pack-destination ./reports && pnpm --filter @payproof/sdk pack --pack-destination ./reports && pnpm --filter @payproof/bachs pack --pack-destination ./reports && pnpm --filter @payproof/cli pack --pack-destination ./reports"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

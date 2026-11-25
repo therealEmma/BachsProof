@@ -1,0 +1,13 @@
+{
+  "name": "@payproof/example-vitest-integration",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsup" },
+  "dependencies": {
+    "@payproof/bachs": "workspace:*",
+    "@payproof/core": "workspace:*",
+    "@payproof/reference-wallet": "workspace:*"
+  },
+  "devDependencies": { "tsup": "^8.3.5", "typescript": "^5.7.2", "vitest": "^2.1.8" }
+}

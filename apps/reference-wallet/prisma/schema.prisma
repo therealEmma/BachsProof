@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Wallet {
+  id           String         @id @default(cuid())
+  customerId   String         @unique
+  balanceMinor BigInt         @default(0)
+  currency     String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  credits      WalletCredit[]
+}
+
+model Payment {
+  id           String         @id @default(cuid())
+  reference    String         @unique
+  customerId   String
+  amountMinor  BigInt
+  amountScale  Int            @default(2)
+  currency     String
+  status       String
+  providerPaymentId String?    @unique
+  checkoutId   String?
+  lastEventCreatedAt DateTime?
+  lastEventId  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  credits      WalletCredit[]
+  events       WebhookEvent[]
+}
+
+model WalletCredit {
+  idempotencyKey String?  @unique
+  id             String   @id @default(cuid())
+  walletId       String
+  paymentId      String
+  reference      String
+  amountMinor    BigInt
+  amountScale    Int
+  currency       String
+  type           String
+  eventId        String
+  createdAt      DateTime @default(now())
+  wallet         Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([reference])
+  @@index([paymentId])
+}
+
+model WebhookEvent {
+  id                String    @id @default(cuid())
+  eventId           String    @unique
+  eventType         String
+  eventCreatedAt    DateTime
+  receivedAt        DateTime  @default(now())
+  reference         String?
+  providerPaymentId String?
+  status            String
+  paymentId         String?
+  payment           Payment?  @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([reference])
+  @@index([providerPaymentId])
+}
