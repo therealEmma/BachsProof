@@ -1,8 +1,8 @@
 import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { PayProof } from "@payproof/core";
-import { bachsAdapter } from "@payproof/bachs";
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 import { createReferenceWallet, PrismaWalletStore } from "../src/index.js";
 
 /**
@@ -15,7 +15,7 @@ let databaseReady = false;
 let databaseError = "";
 
 if (!databaseUrl) {
-  console.warn("[PayProof] PostgreSQL integration tests skipped: DATABASE_URL is not configured.");
+  console.warn("[BachsProof] PostgreSQL integration tests skipped: DATABASE_URL is not configured.");
 }
 
 describe("reference wallet against real PostgreSQL", () => {
@@ -28,7 +28,7 @@ describe("reference wallet against real PostgreSQL", () => {
       databaseReady = true;
     } catch (error) {
       databaseError = error instanceof Error ? error.message : String(error);
-      console.warn(`[PayProof] PostgreSQL integration tests skipped: ${databaseError}`);
+      console.warn(`[BachsProof] PostgreSQL integration tests skipped: ${databaseError}`);
     } finally {
       await probe.close();
     }
@@ -36,7 +36,7 @@ describe("reference wallet against real PostgreSQL", () => {
 
   afterAll(() => {
     if (!databaseReady && databaseError) {
-      console.warn(`[PayProof] No PostgreSQL result was claimed: ${databaseError}`);
+      console.warn(`[BachsProof] No PostgreSQL result was claimed: ${databaseError}`);
     }
   });
 
@@ -65,7 +65,7 @@ describe("reference wallet against real PostgreSQL", () => {
 /**
  * Start one isolated app/store pair. The unique reference and customer ID
  * make cleanup safe even when the Railway database is shared by a developer's
- * other PayProof runs.
+ * other BachsProof runs.
  */
 async function runScenario(mode: "vulnerable" | "corrected", url: string) {
   const store = new PrismaWalletStore(url);
@@ -84,7 +84,7 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
 
   // This callback reads the committed PostgreSQL records directly. The HTTP
   // state endpoint is deliberately not configured in this demonstration.
-  const payproof = new PayProof({
+  const bachsproof = new BachsProof({
     provider: bachsAdapter({ mode: "mock", customerId }),
     target: {
       baseUrl: `http://127.0.0.1:${address.port}`,
@@ -106,7 +106,7 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
   });
 
   try {
-    return await payproof.run({
+    return await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       concurrency: 2,
       reference,

@@ -3,30 +3,40 @@ title: "Concurrent duplicate credit"
 description: "Exercise a duplicate-credit race with concurrent webhook deliveries."
 ---
 
-## In plain English
+## What problem does it test?
 
-Two or more requests try to credit the same payment at the same time. A
-check-then-insert handler can let both requests pass its “not completed” check.
+Two requests try to credit the same ₦5,000 payment at the same time. A handler
+that reads “not completed” and writes later can let both requests add
+`500_000` kobo.
 
-## What PayProof does
+## What BachsProof sends
 
 It creates one eligible `collection.succeeded` event and sends the same body to
-the configured webhook concurrently. The default generated test uses
-`concurrency: 3`. The runner uses `Promise.allSettled` and records every
-delivery error.
+the configured webhook in a concurrent wave. The generated test uses
+`concurrency: 3`, although two participants are enough to show the race. The
+runner uses `Promise.allSettled` and records every delivery error.
 
 ```js
 {
-  name: "concurrent duplicate",
+  name: "concurrent duplicate ₦5,000 credit",
   scenario: "concurrent-duplicate-credit",
-  concurrency: 3,
+  concurrency: 2,
+  amountMinor: 500_000,
+  currency: "NGN",
   reference: "prepared-payment"
 }
 ```
 
-## Expected result
+## Expected result and limitations
 
-One credit. A vulnerable handler can fail with `INV-001` and an aggregate amount
-that is too high. Ordinary HTTP concurrency is not deterministic; use the
-[checkpoint mode](/advanced/controlled-concurrency) for a repeatable
-after-read interleaving.
+One credit is expected, with normal 2xx responses. Two credits fail `INV-001`
+and usually produce an aggregate amount failure. Missing credit fails `INV-003`.
+The relevant rules are `INV-001`, `INV-002`, `INV-003`, and `INV-005`.
+
+Ordinary HTTP concurrency is not deterministic: the operating system may let
+one request finish its critical section before the other reads. Add the
+[checkpoint mode](/advanced/controlled-concurrency) to coordinate the named
+after-read point. Controlled mode still requires an atomic database design.
+
+The delivery branch is in `packages/core/src/orchestrator.ts`; the checkpoint
+controller is `packages/core/src/race-controller.ts`.

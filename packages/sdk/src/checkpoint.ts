@@ -46,7 +46,7 @@ export function configureCheckpoint(config: CheckpointConfig): void {
   }
 
   if (!config.controllerUrl || !config.sessionId || !config.participantId || !config.token) {
-    throw new Error("Enabled PayProof checkpoints require controllerUrl, sessionId, participantId, and token");
+    throw new Error("Enabled BachsProof checkpoints require controllerUrl, sessionId, participantId, and token");
   }
 
   globalConfig = {
@@ -97,15 +97,15 @@ export function checkpointMiddleware(options: {
     };
 
     // Both switches are required: the host must enable the middleware and the
-    // process must explicitly allow PayProof request headers.
+    // process must explicitly allow BachsProof request headers.
     const requestEnabled = options.enabled && requestHeadersEnabled;
-    const context: CheckpointContext | undefined = requestEnabled && header("x-payproof-enabled") === "true"
+    const context: CheckpointContext | undefined = requestEnabled && header("x-bachsproof-enabled") === "true"
       ? {
           enabled: true,
-          controllerUrl: header("x-payproof-controller") ?? "",
-          sessionId: header("x-payproof-session") ?? "",
-          participantId: header("x-payproof-participant") ?? "",
-          token: header("x-payproof-token") ?? "",
+          controllerUrl: header("x-bachsproof-controller") ?? "",
+          sessionId: header("x-bachsproof-session") ?? "",
+          participantId: header("x-bachsproof-participant") ?? "",
+          token: header("x-bachsproof-token") ?? "",
           timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS
         }
       : undefined;
@@ -129,7 +129,7 @@ function currentContext(): CheckpointContext | undefined {
 export async function checkpoint(name: string, options: CheckpointOptions = {}): Promise<void> {
   const context = currentContext();
   if (!context?.enabled) return;
-  if (options.signal?.aborted) throw new Error(`PayProof checkpoint ${name} was cancelled`);
+  if (options.signal?.aborted) throw new Error(`BachsProof checkpoint ${name} was cancelled`);
 
   const controllerUrl = context.controllerUrl.replace(/\/$/, "");
   const url = `${controllerUrl}/sessions/${encodeURIComponent(context.sessionId)}/checkpoints/${encodeURIComponent(name)}/arrive`;
@@ -158,11 +158,11 @@ export async function checkpoint(name: string, options: CheckpointOptions = {}):
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(`PayProof checkpoint ${name} was not released (${response.status}${detail ? `: ${detail}` : ""})`);
+      throw new Error(`BachsProof checkpoint ${name} was not released (${response.status}${detail ? `: ${detail}` : ""})`);
     }
   } catch (error) {
     if ((error as { name?: string }).name === "AbortError") {
-      throw new Error(`PayProof checkpoint ${name} timed out after ${context.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms`);
+      throw new Error(`BachsProof checkpoint ${name} timed out after ${context.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms`);
     }
     throw error;
   } finally {

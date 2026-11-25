@@ -3,19 +3,29 @@ title: "Invalid webhook signature"
 description: "Check that an event with an invalid signature is rejected."
 ---
 
-## In plain English
+## What problem does it test?
 
-The event looks valid, but the authentication proof is wrong. The handler must
-not process it as a payment.
+The event looks valid, but its authentication proof is wrong. The handler must
+not process it as a payment or add a ₦5,000 credit.
 
-## What PayProof does
+## What BachsProof sends
 
-It sends a valid-shaped event with a deliberately invalid `X-Bachs-Signature-V2`
-header. The generated test expects a `4xx` response.
+It sends a valid-shaped `collection.succeeded` body with a deliberately invalid
+`X-Bachs-Signature-V2` header. The generated test expects a `4xx` response.
 
-## Expected result
+```js
+{
+  name: "invalid signature is rejected",
+  scenario: "invalid-webhook-signature",
+  expectedStatus: "4xx",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-The request is rejected and no credit is committed. Use `verify` to establish
-the zero-credit result; a rejection status alone does not inspect your ledger.
+## Expected result and failure
 
-The scenario does not test secret rotation or a live provider delivery.
+The request should be rejected and zero credits should be committed. A 4xx
+alone is only an HTTP observation; configure `verify` so `INV-004` checks the
+financial result. The scenario does not test secret rotation or a live Bachs
+delivery. The invalid header is created in `packages/bachs/src/fixtures.ts`.

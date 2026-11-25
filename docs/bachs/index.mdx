@@ -3,19 +3,30 @@ title: "Bachs integration"
 description: "Understand the first provider adapter and its documented boundaries."
 ---
 
-Bachs is PayProof's first supported provider. The adapter is deliberately
+Bachs is BachsProof's first supported provider. The adapter is deliberately
 explicit: `bachsAdapter({ mode: "mock" })` creates local fixtures shaped like
 the documented Bachs webhook envelopes.
 
-```ts
-import { bachsAdapter } from "@payproof/bachs";
+## What the adapter does
 
-const provider = bachsAdapter({ mode: "mock" });
-```
+- Creates provider-shaped checkout and collection events.
+- Builds the 15 scenario plans used by the CLI.
+- Serializes only the provider envelope sent over HTTP.
+- Signs a raw test body with `signBachsWebhook` when requested.
+- Parses decimal-string amounts exactly with `bigint` before converting to
+  provider-neutral integer minor units.
+- Normalizes eligibility for the core's expected-state comparison.
 
-The adapter does not make API calls, create a checkout, or represent a live
-provider delivery. It exists to exercise your webhook controller with stable,
-documented-shaped test inputs.
+## What it does not do
 
-For provider behavior outside PayProof's fixture boundary, read the [official
-Bachs documentation](https://docs.bachs.io/llms.txt) and use the sandbox.
+- It does not create a Bachs checkout or call a Bachs API.
+- It does not retrieve a live payment or prove settlement.
+- It does not emulate provider retry timing, a real customer, or every Bachs
+  event family.
+- It does not replace your application's order matching, durable deduplication,
+  or ledger transaction.
+
+The reference wallet uses the official `@bachs/sdk` server-side webhook helper
+when a secret is configured. That application boundary is separate from
+BachsProof's local mock adapter. Use a Bachs sandbox separately for provider-side
+evidence.

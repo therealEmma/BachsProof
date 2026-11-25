@@ -1,13 +1,14 @@
 ---
 title: "Custom provider adapters"
-description: "Extend PayProof with another documented provider contract."
+description: "Extend BachsProof with another documented provider contract."
 ---
 
 The core is provider-neutral. A custom adapter must define the event shape and
-the wire behavior; PayProof will not invent a provider contract.
+wire behavior; BachsProof will not invent a provider contract or guess event
+eligibility.
 
 ```ts
-import type { ProviderAdapter } from "@payproof/core";
+import type { ProviderAdapter } from "@bachsproof/core";
 
 export const myAdapter: ProviderAdapter<MyEvent> = {
   name: "MyProvider",
@@ -27,7 +28,7 @@ export const myAdapter: ProviderAdapter<MyEvent> = {
       expectedCreditCount: event.status === "paid" ? 1 : 0
     };
   },
-  headersForBody(event, body) {
+  headersForBody(_event, body) {
     return signDocumentedBody(body);
   },
   createScenario(scenario, input) {
@@ -36,6 +37,14 @@ export const myAdapter: ProviderAdapter<MyEvent> = {
 };
 ```
 
-The adapter is responsible for documented event construction, exact body
-serialization, signing, and scenario semantics. Add tests for each supported
-scenario before describing it as supported by the provider.
+The helper names in this example are application/provider code. The required
+adapter methods are the BachsProof contract. `createPayment` must return the
+provider event object; `serialize` must produce the exact body your application
+expects; `expectedState` describes the financial outcome; `headersForBody` is
+the safe place to sign the exact body; and `createScenario` may define ordered
+or concurrent deliveries, body overrides, delays, expected statuses, and
+verification events.
+
+Start with one scenario and tests for passing, failing, malformed, and
+signature cases. Only describe a provider as supported after checking its
+authoritative event contract and the adapter's real serialized output.

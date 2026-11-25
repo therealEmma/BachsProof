@@ -11,17 +11,20 @@ FAIL concurrent duplicate credit (financially verified; 31ms; 1 financial violat
 Summary: 1/2 passed, 1 failed, 2 financially verified, 0 unverified, 1 financial violations, 55ms
 ```
 
-Investigate the failure by category:
+Investigate the failure by layer:
 
 | Symptom | Likely layer |
 | --- | --- |
 | Preparation failed | Test data or `createPayment` |
-| Connection error / unexpected status | Target URL, route, server, or webhook handler |
-| Expected 4xx did not occur | Signature, parser, or scenario expectation |
+| Connection error or unexpected status | Target URL, route, server, or webhook handler |
+| Expected 4xx did not occur | Signing, parser, or scenario expectation |
 | Verifier timeout | Async worker, verifier query, or missing `pending` handling |
 | `INV-001` | Duplicate financial effect or missing durable idempotency |
-| `INV-002` / `INV-005` | Amount or currency matching |
-| `INV-003` | Eligible payment was not credited |
+| `INV-002` | Observed aggregate amount or currency differs from expected |
+| `INV-003` | Eligible payment was not credited by the deadline |
 | `INV-004` | Ineligible event created a credit |
+| `INV-005` | Eligible aggregate credit is wrong when the expected count is present |
 
 Use `--json` when a CI job needs the full delivery and verification evidence.
+Remember that `passed: true` without a verifier means delivery-only, not proof
+that a ₦5,000 credit was saved correctly.

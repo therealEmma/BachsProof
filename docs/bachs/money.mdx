@@ -1,23 +1,27 @@
 ---
 title: "Amounts and currency handling"
-description: "Understand decimal-string money and PayProof minor-unit comparisons."
+description: "Understand decimal-string money and BachsProof minor-unit comparisons."
 ---
 
 Bachs represents money as decimal strings at the currency's precision, such as
-`"5000.00"`. The Bachs adapter parses those strings into an exact coefficient
-and scale using `bigint`, without passing through floating-point arithmetic.
-
-PayProof's provider-neutral core compares integer minor units because the
-financial invariants need exact equality:
+`"5000.00"`. The Bachs package parses the coefficient and scale with `bigint`
+instead of passing through JavaScript floating-point arithmetic.
 
 ```text
-"5000.00" NGN → 500000 minor units at scale 2
+"5000.00" NGN -> 500000 minor units at scale 2 -> NGN 5,000
 ```
 
-The adapter exports `parseBachsMoney`, `compareBachsMoney`,
-`toBachsMinorUnits`, `safeNumberMoney`, and `formatBachsMoney` for package users
-who need the same boundary behavior.
+BachsProof's provider-neutral core compares integer minor units because financial
+rules need exact equality. The application should also avoid doing money
+comparisons with binary floating point. Store the scale when a currency may
+have a precision different from two decimal places.
+
+The package exports `parseBachsMoney`, `compareBachsMoney`,
+`toBachsMinorUnits`, `safeNumberMoney`, and `formatBachsMoney`. The conversion
+rejects an amount that has more precision than the requested storage scale and
+rejects values outside JavaScript's safe integer range at the number boundary.
 
 The provider's own rule remains authoritative: [Bachs money is sent as decimal
-strings, never numbers](https://docs.bachs.io/sdks/node#send-requests). Do not
-use JavaScript floating-point arithmetic for financial comparisons.
+strings, not numbers](https://docs.bachs.io/sdks/node#send-requests). These
+helpers document and test the adapter boundary; they do not define a live
+provider settlement rule.

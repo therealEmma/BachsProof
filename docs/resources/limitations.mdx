@@ -1,6 +1,6 @@
 ---
 title: "Known limitations"
-description: "What PayProof deliberately does not guarantee."
+description: "What BachsProof deliberately does not guarantee."
 ---
 
 - The current Bachs adapter is mock-only; it does not create or retrieve live
@@ -12,7 +12,7 @@ description: "What PayProof deliberately does not guarantee."
   OS, network, or database scheduling decision.
 - Bounded polling cannot prove that an erroneous credit will never appear after
   the observation window closes.
-- PayProof does not reset, migrate, or clean up your application database.
+- BachsProof does not reset, migrate, or clean up your application database.
 - The verifier trusts the state your callback reads; it cannot independently
   audit a database it cannot access.
 - The current scenario set focuses on one-time payment webhook correctness, not

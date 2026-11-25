@@ -1,1 +1,1 @@
-export { createVitestPayProof } from "./setup.js";
+export { createVitestBachsProof } from "./setup.js";

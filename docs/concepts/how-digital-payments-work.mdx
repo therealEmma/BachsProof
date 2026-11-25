@@ -8,31 +8,36 @@ the customer, the provider, and your application.
 
 ```mermaid
 flowchart LR
-  Customer --> Checkout
+  Customer[Customer] --> Checkout[Checkout page]
   Checkout --> Provider[Payment provider]
-  Provider --> Event[Webhook event]
-  Event --> App[Your application]
-  App --> Ledger[Committed financial records]
+  Provider --> Collection[Collection result]
+  Collection --> Event[Webhook event]
+  Event --> App[Your server]
+  App --> Ledger[Committed ledger and balance]
 ```
 
-The browser may show a success page, but the application should decide whether
-to fulfil an order or credit a wallet from verified provider state received by
-the server.
+## A ₦5,000 wallet deposit
 
-## A concrete example
+Imagine a customer wants to add ₦5,000 to a wallet:
 
-1. Your application creates an order for NGN 5,000.
-2. The customer completes checkout.
-3. The provider collects or fails to collect the money.
-4. The provider sends an event describing what happened.
-5. Your application authenticates the event, matches it to the order, and
-   commits the financial result.
+1. Your application creates an order or payment record for `500_000` kobo.
+2. Your server creates or displays a provider checkout.
+3. The customer tries to pay. The attempt may succeed, fail, or be incomplete.
+4. The provider sends a server-to-server event describing the state it knows.
+5. Your webhook authenticates the event and matches its reference to the order.
+6. Your database transaction records one financial effect and updates the wallet.
 
-The important engineering question is not merely “did the provider send an
-event?” It is “what state did our application commit after processing it?”
+The browser's success page is only a user-interface signal. The server should
+decide whether to fulfil from authenticated provider state and the application's
+own order, amount, and currency checks.
 
-## Where correctness bugs appear
+## Why tests need more than an HTTP assertion
 
-Failures often come from retries, simultaneous requests, wrong amounts, stale
-events, incomplete payments, or a database write that is not atomic with the
-idempotency decision. PayProof focuses on those boundaries.
+An endpoint test can confirm that a route returned `200`. It cannot see whether
+the handler wrote two credits, credited the wrong wallet, used the wrong
+currency, or accepted an expired payment. BachsProof sends the event over the
+real HTTP boundary and can then call your test-side `verify` function to read
+the committed result.
+
+These are test fixtures, not live Bachs payments. Use a provider sandbox when
+you need evidence about checkout creation, settlement, or provider retries.

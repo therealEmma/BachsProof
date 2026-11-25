@@ -5,8 +5,8 @@ description: "Reference for ProviderAdapter and ProviderScenario."
 
 ```ts
 interface ProviderAdapter<TEvent extends PaymentEvent> {
-  name: string;
-  mode: string;
+  readonly name: string;
+  readonly mode: string;
   createPayment(input?): TEvent;
   serialize(event: TEvent): string;
   expectedState(event: TEvent): ExpectedPaymentState;
@@ -16,7 +16,29 @@ interface ProviderAdapter<TEvent extends PaymentEvent> {
 }
 ```
 
-`createScenario` can describe ordered or concurrent deliveries, body/signing
-overrides, delays, expected statuses, and scenario-specific verification events.
-The adapter must only implement event contracts it can support from authoritative
-provider documentation.
+`createPayment` creates a provider event object. `serialize` returns the exact
+wire body. `expectedState` tells the core whether that event should create a
+credit and for what amount. `headers` adds provider headers; prefer
+`headersForBody` when a signature must cover a body override. `createScenario`
+can describe ordered or concurrent deliveries, body/signing overrides, delays,
+expected statuses, and scenario-specific verification events.
+
+```ts
+interface ProviderScenario<TEvent extends PaymentEvent> {
+  deliveries: Array<{
+    event?: TEvent;
+    body?: string | Uint8Array;
+    signingBody?: string | Uint8Array;
+    headers?: Record<string, string>;
+    participantId?: string;
+    delayMs?: number;
+    expectedStatus?: number | number[] | "2xx" | "4xx" | "5xx";
+  }>;
+  concurrent?: boolean;
+  verification?: Array<{ event: TEvent; expected?: ExpectedPaymentState }>;
+}
+```
+
+The adapter must only implement event contracts supported by authoritative
+provider documentation. The core never assumes Bachs fields and never invents
+another provider's eligibility rules.

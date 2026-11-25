@@ -1,0 +1,50 @@
+---
+title: "Payment preparation"
+description: "Choose automatic, manual, or synthetic references without state contamination."
+---
+
+A webhook normally points to a payment or order that already exists in your
+application. BachsProof needs that reference before it can test a real
+application. It cannot guess the reference from your database because every
+application names and stores payments differently.
+
+## Three ways to supply a reference
+
+| Mode | Use it when | Financial evidence |
+| --- | --- | --- |
+| Automatic `createPayment` | You want repeatable runs and fresh records | Real application evidence when paired with `verify` |
+| Manual `reference` / `references` | You already created isolated records | Real application evidence when paired with `verify` |
+| `syntheticReferences: true` | You are testing a fixture or adapter in isolation | Never evidence that the application stored money |
+
+Automatic preparation receives the scenario, amount in minor units, currency,
+zero-based payment index, and payment count. For the recurring example in these
+docs, create an NGN order for `500_000` kobo (₦5,000) and return its reference.
+For `concurrent-unique-payments`, BachsProof calls the callback once per
+participant; the returned references must be distinct.
+
+## Precedence and validation
+
+The precedence is deliberate:
+
+1. An explicit `reference` or `references` value wins.
+2. Explicit `syntheticReferences: true` opts into generated fixture references.
+3. Otherwise BachsProof calls `createPayment` when it is available.
+
+BachsProof rejects an empty reference, callback errors, and duplicate references
+reused by selected CLI tests. It sends no webhook for a scenario whose
+preparation failed. A missing reference with no callback and no synthetic opt-in
+is a configuration error, so BachsProof does not send a webhook to an unknown
+record.
+
+The implementation is `preparePaymentReferences` in
+`packages/core/src/preparation.ts`; the CLI's cross-test duplicate check is in
+`packages/cli/src/runner.ts`.
+
+## Cleanup is application-owned
+
+BachsProof never truncates your database or calls a reset endpoint. A callback
+that creates a payment must use a test API, test service, or isolated database
+seeder. Give each run fresh references or a scoped cleanup strategy so an old
+credit cannot change the next result. The callback must not charge a real card,
+call a live provider, or reuse a customer record in a way that contaminates
+another test.

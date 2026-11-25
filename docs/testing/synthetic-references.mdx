@@ -7,14 +7,16 @@ Set `syntheticReferences: true` on a run, or use the generated environment
 switch:
 
 ```powershell
-$env:PAYPROOF_USE_SYNTHETIC_REFERENCES = "true"
-npx payproof test
+$env:BACHSPROOF_USE_SYNTHETIC_REFERENCES = "true"
+npx bachsproof test
 ```
 
 Synthetic mode lets the provider adapter generate a local reference when no
 application payment exists. It is useful for testing adapter serialization,
-signature handling, or a fixture-only route.
+signature handling, or a fixture-only route. The `createPayment` callback is
+not invoked in this mode.
 
 It is not a real application payment. It cannot prove that your database found
-the reference, that Bachs created a charge, or that a ledger was committed.
-The `createPayment` callback is not invoked in synthetic mode.
+the reference, that Bachs created a charge, that a customer paid ₦5,000, or
+that a ledger was committed. Use real references and `verify` for financial
+evidence. Never send synthetic events to production.

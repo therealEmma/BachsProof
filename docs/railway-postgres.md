@@ -6,8 +6,8 @@ Create a dedicated Railway database for tests, then run:
 
 ```powershell
 $env:DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/railway?sslmode=require"
-pnpm --filter @payproof/reference-wallet db:generate
-pnpm --filter @payproof/reference-wallet db:migrate:deploy
+pnpm --filter @bachsproof/reference-wallet db:generate
+pnpm --filter @bachsproof/reference-wallet db:migrate:deploy
 pnpm test:postgres
 ```
 

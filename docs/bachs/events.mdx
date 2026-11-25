@@ -3,22 +3,23 @@ title: "Supported payment events"
 description: "The Bachs event types represented by the current adapter."
 ---
 
-The current adapter validates and generates these payment lifecycle event
-types:
+The current adapter validates and generates five one-time payment lifecycle
+event types:
 
-| Event | Adapter use |
-| --- | --- |
-| `checkout.completed` | Eligible only when the fixture is a paid payment checkout with a charge; also used for incomplete checkout |
-| `checkout.expired` | Non-fulfilling lifecycle event |
-| `collection.succeeded` | Eligible payment event |
-| `collection.underpaid` | Non-fulfilling event with a shortfall |
-| `collection.failed` | Non-fulfilling failed collection |
+| Event | Meaning used by BachsProof | Fulfilment eligibility in the adapter |
+| --- | --- | --- |
+| `checkout.completed` | Checkout finished; it may have no collected charge | Only when it is payment mode, completed, paid, has a charge, and has currency |
+| `checkout.expired` | An open checkout expired | Never |
+| `collection.succeeded` | A collection succeeded | When `data.status` is `SUCCEEDED` |
+| `collection.underpaid` | Only part of the expected amount arrived | Never |
+| `collection.failed` | A collection attempt failed | Never |
 
-These names and their high-level meanings align with the [Bachs webhook event
-index](https://docs.bachs.io/llms.txt#webhooks). PayProof does not claim support
-for subscription, payout, refund, dispute, or Connect events in the current
-adapter.
+`checkout.completed` and `collection.succeeded` can describe the same underlying
+payment. BachsProof deliberately sends that pair in the cross-event duplicate
+scenario. Event IDs identify deliveries; a local reference and provider
+payment/checkout IDs help the application identify the business payment.
 
-The adapter uses `checkout.completed` and `collection.succeeded` together only
-in the cross-event duplicate scenario, where they share the underlying fixture
-reference and provider payment identity.
+These are the only event families implemented by `packages/bachs/src/fixtures.ts`.
+The current adapter does not claim support for subscriptions, payouts, refunds,
+disputes, or Connect events. Check the [official Bachs webhook index](https://docs.bachs.io/llms.txt#webhooks)
+for the provider's current contract before extending the adapter.

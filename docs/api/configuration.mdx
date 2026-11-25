@@ -1,34 +1,40 @@
 ---
 title: "CLI configuration"
-description: "Reference for PayProofConfig and its defaults."
+description: "Reference for BachsProofConfig and its defaults."
 ---
 
 | Field | Type | Required | Default / behavior |
 | --- | --- | --- | --- |
 | `provider` | `ProviderAdapter` | Yes | No default |
-| `target.baseUrl` | `string` | Yes | No default |
-| `target.webhookPath` | `string` | Yes | No default |
+| `target.baseUrl` | `string` | Yes | Base URL for the application |
+| `target.webhookPath` | `string` | Yes | Path appended with `new URL` |
 | `target.headers` | `Record<string,string>` | No | Added to every delivery |
-| `tests` | `PayProofCliTest[]` | Yes, non-empty | No default |
+| `tests` | `BachsProofCliTest[]` | Yes, non-empty | Selected sequentially by the CLI |
 | `createPayment` | `PaymentReferenceCreator` | No | Called only when a reference is missing |
-| `verify` | `FinancialVerifier` | No | No financial observation when absent |
-| `financialVerification` | `FinancialVerificationOptions` | No | 10,000ms completion; 25ms polling; 250ms negative window |
-| `checkpoint.name` | `string` | No | Checkpoint mode disabled |
-| `checkpoint.timeoutMs` | `number` | No | 10,000ms in the core controller |
-| `signing.type` | `"bachs"` | No | No adapter signing wrapper |
-| `signing.secret` | `string` | When signing is used | Non-empty test secret |
-| `signing.timestamp` | `number` | No | Current Unix timestamp |
-| `requireFinancialVerification` | `boolean` | No | `false`; set true to fail without a verifier/pass |
-
-Example:
+| `verify` | `FinancialVerifier` | No | No committed-state observation when absent |
+| `financialVerification` | `FinancialVerificationOptions` | No | 10,000ms completion, 25ms polling, 250ms negative window |
+| `checkpoint.name` | `string` | No | Controlled mode disabled |
+| `checkpoint.timeoutMs` | `number` | No | 10,000ms controller wait |
+| `signing.type` | `"bachs"` | No | No CLI signing wrapper |
+| `signing.secret` | `string` | With Bachs signing | Must be non-empty |
+| `signing.timestamp` | `number` | No | Current Unix timestamp when omitted |
+| `requireFinancialVerification` | `boolean` | No | `false`; fails config loading when true and `verify` is absent |
 
 ```js
-import { defineConfig, bachsAdapter } from "@payproof/cli";
-import { tests } from "./tests/payproof.test.mjs";
+import { defineConfig, bachsAdapter } from "@bachsproof/cli";
+import { tests } from "./tests/bachsproof.test.mjs";
 
 export default defineConfig({
   provider: bachsAdapter({ mode: "mock" }),
-  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
-  tests
+  target: {
+    baseUrl: "http://127.0.0.1:3000",
+    webhookPath: "/webhooks/bachs"
+  },
+  tests,
+  requireFinancialVerification: true
 });
 ```
+
+`defineConfig` returns the same object; it exists to preserve TypeScript
+inference and editor feedback. Config loading is implemented in
+`packages/cli/src/runner.ts`.

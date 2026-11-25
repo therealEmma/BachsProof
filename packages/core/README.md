@@ -1,4 +1,4 @@
-# @payproof/core
+# @bachsproof/core
 
 Provider-neutral payment correctness testing for TypeScript applications.
 
@@ -7,10 +7,10 @@ records every delivery, optionally coordinates an instrumented checkpoint, and
 applies financial invariants to state returned by the application's
 verify(reference, context) callback.
 
-    import { PayProof } from "@payproof/core";
-    import { bachsAdapter } from "@payproof/bachs";
+    import { BachsProof } from "@bachsproof/core";
+    import { bachsAdapter } from "@bachsproof/bachs";
 
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider: bachsAdapter({ mode: "mock" }),
       target: {
         baseUrl: "http://127.0.0.1:3000",
@@ -24,7 +24,7 @@ verify(reference, context) callback.
       }
     });
 
-    const result = await payproof.run({
+    const result = await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       reference: "isolated-test-order-001",
       amountMinor: 5_000_000,
@@ -48,5 +48,5 @@ manual preparation, or syntheticReferences: true for isolated fixture runs.
 
 The core does not reset application state or call a state-inspection endpoint.
 The target application owns preparation, isolation, cleanup, and state access.
-For optional controlled concurrency testing, install @payproof/sdk only in a
+For optional controlled concurrency testing, install @bachsproof/sdk only in a
 test-enabled application build.

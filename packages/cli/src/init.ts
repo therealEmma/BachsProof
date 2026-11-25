@@ -3,32 +3,32 @@ import { constants } from "node:fs";
 import { join, resolve } from "node:path";
 
 const configTemplate = `/**
- * PayProof test configuration.
+ * BachsProof test configuration.
  *
  * Follow the two application-specific steps:
  *   1. createPayment prepares a fresh test payment or order;
  *   2. verify reads the committed payment and ledger state.
  *
- * Both helpers are test-only. PayProof does not add routes or modify the
+ * Both helpers are test-only. BachsProof does not add routes or modify the
  * production application.
  */
-import { bachsAdapter } from "@payproof/cli";
-import { tests } from "./tests/payproof.test.mjs";
+import { bachsAdapter } from "@bachsproof/cli";
+import { tests } from "./tests/bachsproof.test.mjs";
 
 const provider = bachsAdapter({ mode: "mock" });
 const target = {
-  baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-  webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
+  baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+  webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
 };
 
 const signingSecret = process.env.BACHS_WEBHOOK_SECRET;
 const signing = signingSecret ? { type: "bachs", secret: signingSecret } : undefined;
 
-// Uncomment after implementing tests/payproof.setup.mjs.
-// import { createPayment } from "./tests/payproof.setup.mjs";
+// Uncomment after implementing tests/bachsproof.setup.mjs.
+// import { createPayment } from "./tests/bachsproof.setup.mjs";
 
-// Uncomment after implementing tests/payproof.verify.mjs.
-// import { verify } from "./tests/payproof.verify.mjs";
+// Uncomment after implementing tests/bachsproof.verify.mjs.
+// import { verify } from "./tests/bachsproof.verify.mjs";
 
 export default {
   provider,
@@ -47,19 +47,19 @@ export default {
 `;
 
 const testTemplate = `/**
- * PayProof scenarios.
+ * BachsProof scenarios.
  *
  * Real application references are the default. Implement createPayment in
- * payproof.setup.mjs to create fresh test records automatically, or put an
+ * bachsproof.setup.mjs to create fresh test records automatically, or put an
  * explicit reference on a selected test. Synthetic references are only for
  * isolated fixture tests.
  *
- * Run one: pnpm exec payproof test --name "sequential duplicate webhook"
- * Run all: pnpm exec payproof test
+ * Run one: pnpm exec bachsproof test --name "sequential duplicate webhook"
+ * Run all: pnpm exec bachsproof test
  */
-const amountMinor = Number(process.env.PAYPROOF_AMOUNT_MINOR ?? 5_000_000);
-const currency = process.env.PAYPROOF_CURRENCY ?? "NGN";
-const syntheticReferences = process.env.PAYPROOF_USE_SYNTHETIC_REFERENCES === "true";
+const amountMinor = Number(process.env.BACHSPROOF_AMOUNT_MINOR ?? 5_000_000);
+const currency = process.env.BACHSPROOF_CURRENCY ?? "NGN";
+const syntheticReferences = process.env.BACHSPROOF_USE_SYNTHETIC_REFERENCES === "true";
 
 export const tests = [
   // Same successful payment twice in sequence: tests idempotency.
@@ -110,12 +110,12 @@ export const tests = [
 `;
 
 const setupTemplate = `/**
- * Create isolated application payment records for PayProof.
+ * Create isolated application payment records for BachsProof.
  *
  * This callback is optional when tests provide real references directly. It is
  * recommended for repeatedly running the complete suite.
  *
- * PayProof calls it only for selected scenarios that need a reference. Every
+ * BachsProof calls it only for selected scenarios that need a reference. Every
  * call must create a fresh test payment or order and return its reference.
  * It must not charge a card, call a live provider, or move real money.
  *
@@ -125,7 +125,7 @@ const setupTemplate = `/**
  */
 export async function createPayment(context) {
   throw new Error(
-    "Implement createPayment in tests/payproof.setup.mjs. " +
+    "Implement createPayment in tests/bachsproof.setup.mjs. " +
     "Create an isolated test payment and return its fresh reference for " +
     context.scenario + " (" + (context.paymentIndex + 1) + " of " +
     context.paymentCount + ")."
@@ -143,7 +143,7 @@ export async function createPayment(context) {
 `;
 
 const verifierTemplate = `/**
- * Read committed financial state for PayProof.
+ * Read committed financial state for BachsProof.
  *
  * HTTP 200 only proves that the webhook route acknowledged a request. This
  * callback must read the payment and actual credit or ledger records.
@@ -154,7 +154,7 @@ const verifierTemplate = `/**
  */
 export async function verify(reference, context) {
   throw new Error(
-    "Implement verify in tests/payproof.verify.mjs by reading committed " +
+    "Implement verify in tests/bachsproof.verify.mjs by reading committed " +
     "financial records for " + reference + " before enabling it."
   );
 
@@ -185,17 +185,17 @@ async function exists(path: string): Promise<boolean> {
 }
 export async function initProject(directory = process.cwd(), force = false): Promise<string[]> {
   const root = resolve(directory);
-  const configPath = join(root, "payproof.config.mjs");
+  const configPath = join(root, "bachsproof.config.mjs");
   const testDirectory = join(root, "tests");
-  const testPath = join(testDirectory, "payproof.test.mjs");
-  const setupPath = join(testDirectory, "payproof.setup.mjs");
-  const verifierPath = join(testDirectory, "payproof.verify.mjs");
+  const testPath = join(testDirectory, "bachsproof.test.mjs");
+  const setupPath = join(testDirectory, "bachsproof.setup.mjs");
+  const verifierPath = join(testDirectory, "bachsproof.verify.mjs");
   const paths = [configPath, testPath, setupPath, verifierPath];
   if (!force) {
     const existing = [];
     for (const path of paths) if (await exists(path)) existing.push(path);
     if (existing.length > 0) {
-      throw new Error("Refusing to overwrite existing PayProof files: " + existing.join(", ") + ". Use --force to replace them.");
+      throw new Error("Refusing to overwrite existing BachsProof files: " + existing.join(", ") + ". Use --force to replace them.");
     }
   }
   await mkdir(testDirectory, { recursive: true });

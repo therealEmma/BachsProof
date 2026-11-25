@@ -1,33 +1,46 @@
 ---
 title: "Webhook payload structure"
-description: "See the validated Bachs envelope and the fields PayProof normalizes."
+description: "See the validated Bachs envelope and the fields BachsProof normalizes."
 ---
 
-Every generated event has the provider envelope fields `id`, `type`,
-`created_at`, `organization_id`, and `data`. The data shape depends on the event
-type.
+Every generated body has the provider envelope fields `id`, `type`,
+`created_at`, `organization_id`, and `data`. The data shape depends on the
+event type.
 
-For a collection event, the current fixture includes fields such as:
+For a collection event, the current fixture includes:
 
 ```json
 {
-  "charge_id": "ch_example",
-  "checkout_id": "chk_example",
-  "reference": "payment-123",
-  "status": "SUCCEEDED",
-  "amount": "5000.00",
-  "currency": "NGN",
-  "customer": { "id": "customer-1" },
-  "metadata": { "order_id": "payment-123" }
+  "id": "evt_example",
+  "type": "collection.succeeded",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "organization_id": "acct_bachsproof_test",
+  "data": {
+    "charge_id": "ch_example",
+    "checkout_id": "chk_example",
+    "reference": "wallet-deposit-001",
+    "status": "SUCCEEDED",
+    "amount": "5000.00",
+    "currency": "NGN",
+    "customer": { "id": "customer-1" },
+    "metadata": { "order_id": "wallet-deposit-001" }
+  }
 }
 ```
 
+Important identities have different jobs:
+
+- `id` is the provider event/delivery identity;
+- `charge_id` or the normalized provider payment ID identifies the collection;
+- `checkout_id` identifies the checkout;
+- `reference` links the provider data to the application's order or wallet
+  deposit;
+- `amount` and `currency` describe the provider event, while the application
+  must compare them with its stored order.
+
 For `collection.underpaid`, the adapter validates `amount_paid`,
 `amount_expected`, `amount_remaining`, `currency`, and `status: "UNDERPAID"`.
-For failed collections, it validates the documented failure fields represented
-by the fixture.
-
-The schema is intentionally strict for known fields and passthrough for extra
-provider fields. Do not copy a fixture into production code as if it were a
-complete provider contract. Consult the [official event reference](https://docs.bachs.io/llms.txt#webhooks)
-for the provider's current payload documentation.
+For failed collections, it validates the failure fields represented by the
+fixture. The schema is strict for known fields and passthrough for extra
+provider fields. Do not copy a fixture into production as a complete provider
+contract; consult the [official event reference](https://docs.bachs.io/llms.txt#webhooks).

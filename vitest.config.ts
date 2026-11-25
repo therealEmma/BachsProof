@@ -18,10 +18,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@payproof/sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
-      "@payproof/core": resolve(__dirname, "packages/core/src/index.ts"),
-      "@payproof/bachs": resolve(__dirname, "packages/bachs/src/index.ts"),
-      "@payproof/reference-wallet": resolve(__dirname, "apps/reference-wallet/src/index.ts")
+      "@bachsproof/sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
+      "@bachsproof/core": resolve(__dirname, "packages/core/src/index.ts"),
+      "@bachsproof/bachs": resolve(__dirname, "packages/bachs/src/index.ts"),
+      "@bachsproof/reference-wallet": resolve(__dirname, "apps/reference-wallet/src/index.ts")
     }
   }
 });

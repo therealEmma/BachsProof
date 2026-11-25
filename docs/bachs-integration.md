@@ -1,8 +1,8 @@
 # Bachs integration boundary
 
-PayProof now has two deliberately separate Bachs paths:
+BachsProof now has two deliberately separate Bachs paths:
 
-- `@payproof/bachs` mock mode emits deterministic local fixtures using the documented Bachs webhook envelope. The payloads are synthetic and do not claim to be sandbox deliveries.
+- `@bachsproof/bachs` mock mode emits deterministic local fixtures using the documented Bachs webhook envelope. The payloads are synthetic and do not claim to be sandbox deliveries.
 - The reference wallet accepts the documented `checkout.completed`, `checkout.expired`, `collection.succeeded`, `collection.underpaid`, and `collection.failed` event names. It uses the official Node SDK `webhooks.constructEvent` helper when `BACHS_WEBHOOK_SECRET` is configured.
 
 The webhook route reads the original raw bytes before parsing. The SDK verifies `X-Bachs-Signature-V2`, the timestamp tolerance, and any matching `v1` signature during secret rotation. The application then validates the event envelope with Zod and persists event identity separately from financial idempotency.

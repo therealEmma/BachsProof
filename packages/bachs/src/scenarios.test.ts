@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { PayProof, type FinancialVerificationInput } from "@payproof/core";
+import { BachsProof, type FinancialVerificationInput } from "@bachsproof/core";
 import { bachsAdapter, signBachsWebhook, type BachsPaymentEvent } from "./index.js";
 
 const servers: Server[] = [];
@@ -65,7 +65,7 @@ describe("Bachs provider scenarios", () => {
         };
       }
     };
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider,
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
@@ -89,9 +89,9 @@ describe("Bachs provider scenarios", () => {
       }
     });
 
-    const result = await payproof.run({
+    const result = await bachsproof.run({
       scenario,
-      reference: `PAYPROOF-SCENARIO-${scenario}`,
+      reference: `BACHSPROOF-SCENARIO-${scenario}`,
       amountMinor: 5_000_000,
       currency: "NGN",
       expectedStatus: shouldReject ? 400 : undefined
@@ -123,7 +123,7 @@ describe("Bachs provider scenarios", () => {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("unique-payment server did not start");
     const provider = bachsAdapter({ mode: "mock" });
-    const result = await new PayProof({
+    const result = await new BachsProof({
       provider,
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs" },
       verify(reference) {
@@ -132,13 +132,13 @@ describe("Bachs provider scenarios", () => {
       }
     }).run({
       scenario: "concurrent-unique-payments",
-      references: ["PAYPROOF-UNIQUE-A", "PAYPROOF-UNIQUE-B"],
+      references: ["BACHSPROOF-UNIQUE-A", "BACHSPROOF-UNIQUE-B"],
       amountMinor: 5_000_000,
       currency: "NGN"
     });
 
     expect(result.passed).toBe(true);
-    expect(seen.sort()).toEqual(["PAYPROOF-UNIQUE-A", "PAYPROOF-UNIQUE-B"]);
+    expect(seen.sort()).toEqual(["BACHSPROOF-UNIQUE-A", "BACHSPROOF-UNIQUE-B"]);
     expect(result.report.payments).toHaveLength(2);
   });
 });

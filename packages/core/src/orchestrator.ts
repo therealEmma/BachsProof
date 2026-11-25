@@ -8,9 +8,9 @@ import type {
   DeliveryRecord,
   FinancialVerificationContext,
   ObservedPaymentState,
-  PayProofOptions,
-  PayProofReport,
-  PayProofResult,
+  BachsProofOptions,
+  BachsProofReport,
+  BachsProofResult,
   PaymentEvent,
   ProviderScenario,
   ProviderScenarioDelivery,
@@ -80,14 +80,14 @@ function formatExpectedStatus(expected: import("./types.js").ExpectedHttpStatus)
 }
 
 /**
- * High-level PayProof runner. It owns only test orchestration; the application
+ * High-level BachsProof runner. It owns only test orchestration; the application
  * remains responsible for webhook authentication and business persistence.
  */
-export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
+export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
   /** Store the immutable configuration used by every run and replay. */
-  constructor(private readonly options: PayProofOptions<TEvent>) {}
+  constructor(private readonly options: BachsProofOptions<TEvent>) {}
 
-  async run(input: RunOptions): Promise<PayProofResult> {
+  async run(input: RunOptions): Promise<BachsProofResult> {
     const requestedInput = input;
     const validationError = validateRunOptions(input, Boolean(this.options.createPayment));
     if (validationError) return this.invalidInputResult(input, validationError);
@@ -131,7 +131,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     let eventsForVerification = verificationCases;
     // The report is initialized before network work so preparation/controller
     // failures produce a useful artifact.
-    const report: PayProofReport = {
+    const report: BachsProofReport = {
       reportVersion: "1.1",
       scenario: input.scenario,
       provider: this.options.provider.name,
@@ -261,7 +261,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     return { passed: report.errors.length === 0 && financialPass, report };
   }
 
-  async replay(report: PayProofReport): Promise<PayProofResult> {
+  async replay(report: BachsProofReport): Promise<BachsProofResult> {
     // Application-owned preparation/isolation is delegated to the caller;
     // replay only supplies the prior event and schedule metadata.
     return this.run({
@@ -272,7 +272,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     });
   }
 
-  private invalidInputResult(input: RunOptions, message: string): PayProofResult {
+  private invalidInputResult(input: RunOptions, message: string): BachsProofResult {
     const startedAt = new Date().toISOString();
     const reference = input.reference ?? input.references?.[0] ?? "<missing-reference>";
     const event: PaymentEvent = {
@@ -281,7 +281,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
       currency: input.currency ?? "NGN",
       status: "INVALID_INPUT"
     };
-    const report: PayProofReport = {
+    const report: BachsProofReport = {
       reportVersion: "1.1",
       scenario: input.scenario,
       provider: this.options.provider.name,
@@ -309,7 +309,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
   private async runScenarioPlan(
     plan: ProviderScenario<TEvent>,
     primaryEvent: TEvent,
-    report: PayProofReport
+    report: BachsProofReport
   ): Promise<void> {
     if (plan.concurrent) {
       await this.settleConcurrentDeliveries(plan.deliveries.map((delivery, index) => this.deliver(
@@ -336,7 +336,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     }
   }
 
-  private async settleConcurrentDeliveries(deliveries: Promise<void>[], report: PayProofReport): Promise<void> {
+  private async settleConcurrentDeliveries(deliveries: Promise<void>[], report: BachsProofReport): Promise<void> {
     const settled = await Promise.allSettled(deliveries);
     for (const result of settled) {
       if (result.status === "rejected") {
@@ -349,7 +349,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     event: TEvent,
     participantId: string,
     session: { id: string; token: string; controllerUrl: string } | undefined,
-    report: PayProofReport,
+    report: BachsProofReport,
     scenarioDelivery: ProviderScenarioDelivery<TEvent> = {}
   ): Promise<void> {
     // Delivery records are created before fetch so connection errors still have
@@ -372,11 +372,11 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
       ...scenarioDelivery.headers
     };
     if (session) {
-      headers["x-payproof-enabled"] = "true";
-      headers["x-payproof-controller"] = session.controllerUrl;
-      headers["x-payproof-session"] = session.id;
-      headers["x-payproof-participant"] = participantId;
-      headers["x-payproof-token"] = session.token;
+      headers["x-bachsproof-enabled"] = "true";
+      headers["x-bachsproof-controller"] = session.controllerUrl;
+      headers["x-bachsproof-session"] = session.id;
+      headers["x-bachsproof-participant"] = participantId;
+      headers["x-bachsproof-token"] = session.token;
     }
     try {
       if (scenarioDelivery.delayMs && scenarioDelivery.delayMs > 0) {

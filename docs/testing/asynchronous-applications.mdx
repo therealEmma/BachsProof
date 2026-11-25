@@ -3,11 +3,11 @@ title: "Testing asynchronous applications"
 description: "Use bounded polling when a worker commits financial state later."
 ---
 
-Some webhook handlers enqueue work and return before a worker writes the ledger.
-That is valid architecture, but a verifier called immediately may observe
-`pending` state.
+Some webhook handlers enqueue work and return before a worker writes the
+ledger. That is a valid architecture, but a verifier called immediately may
+observe a payment that is still processing.
 
-Return `pending: true` while the application is still processing:
+Return `pending: true` while the worker is still responsible for the result:
 
 ```js
 export async function verify(reference) {
@@ -33,6 +33,12 @@ financialVerification: {
 }
 ```
 
-The deadline prevents a hung worker from hanging the test forever. A negative
-scenario also gets a short observation window; zero credits immediately after a
-delivery is not proof that a delayed worker will never create one.
+For an eligible ₦5,000 deposit, BachsProof waits until the callback is no longer
+pending and the expected credit is observed, or until the completion deadline.
+For an ineligible event, it waits through the negative observation window so a
+queued job has a bounded chance to reveal an incorrect credit. A zero after the
+window is not a promise that no future job can ever write money.
+
+The callback should return `pending: true` for unfinished work, not silently
+return a made-up complete state. Callback errors and malformed values fail the
+run immediately.

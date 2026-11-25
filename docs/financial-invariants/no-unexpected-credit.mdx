@@ -3,16 +3,24 @@ title: "INV-004: No Unexpected Credit"
 description: "An ineligible payment must not create a financial credit."
 ---
 
-## Meaning
+## What it means
 
 Expired, incomplete, failed, underpaid, tampered, or unauthenticated events
-must not create money in the application.
+must not create money in the application. For an incomplete checkout for a
+₦5,000 order, zero credits is the passing result.
 
-## How PayProof evaluates it
+```text
+Passing: expected eligible false; observed creditCount 0
+Failing: expected eligible false; observed creditCount 1, amount 500000 NGN
+```
 
-If `expected.eligible` is false and `creditCount` is greater than zero, the
-invariant fails.
+## How BachsProof evaluates it
 
-Investigate whether the handler fulfilled from checkout status alone, skipped
-signature verification, trusted an event before amount/currency matching, or
-treated an error state as success.
+If `expected.eligible` is false and `observed.creditCount > 0`, the invariant
+fails. HTTP rejection and financial observation are separate: even when a 4xx
+is expected, use `verify` to establish that no credit was committed.
+
+Investigate fulfilment based on checkout status alone, skipped signature
+verification, missing amount/currency matching, or treating an error state as a
+success. The negative observation window gives queued work a bounded chance to
+appear before this rule is evaluated.

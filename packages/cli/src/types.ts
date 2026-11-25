@@ -2,13 +2,13 @@ import type {
   FinancialVerifier,
   FinancialVerificationOptions,
   PaymentReferenceCreator,
-  PayProofTarget,
+  BachsProofTarget,
   PaymentEvent,
   ProviderAdapter,
   RunOptions
-} from "@payproof/core";
+} from "@bachsproof/core";
 
-export interface PayProofCliTest extends Omit<RunOptions, "scenario"> {
+export interface BachsProofCliTest extends Omit<RunOptions, "scenario"> {
   name: string;
   scenario: RunOptions["scenario"];
 }
@@ -19,10 +19,10 @@ export interface BachsSigningConfig {
   timestamp?: number;
 }
 
-export interface PayProofConfig<TEvent extends PaymentEvent = PaymentEvent> {
+export interface BachsProofConfig<TEvent extends PaymentEvent = PaymentEvent> {
   provider: ProviderAdapter<TEvent>;
-  target: PayProofTarget;
-  tests: PayProofCliTest[];
+  target: BachsProofTarget;
+  tests: BachsProofCliTest[];
   /** Optional test-only callback that creates fresh application payments. */
   createPayment?: PaymentReferenceCreator;
   verify?: FinancialVerifier;
@@ -36,12 +36,12 @@ export interface PayProofConfig<TEvent extends PaymentEvent = PaymentEvent> {
   requireFinancialVerification?: boolean;
 }
 
-export interface PayProofCliRun {
+export interface BachsProofCliRun {
   name: string;
-  result: import("@payproof/core").PayProofResult;
+  result: import("@bachsproof/core").BachsProofResult;
 }
 
-export interface PayProofSummary {
+export interface BachsProofSummary {
   total: number;
   passed: number;
   failed: number;

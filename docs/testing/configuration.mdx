@@ -3,33 +3,51 @@ title: "Configuring your application"
 description: "Configure the target URL, provider adapter, signing, and callbacks."
 ---
 
-The generated config is an ordinary JavaScript module. PayProof loads it from
-the independent repository at test time.
+The generated config is an ordinary JavaScript module. BachsProof loads it from
+the application repository at test time. The application server does not import
+this file.
 
 ```js
-import { bachsAdapter } from "@payproof/cli";
-import { tests } from "./tests/payproof.test.mjs";
-import { createPayment } from "./tests/payproof.setup.mjs";
-import { verify } from "./tests/payproof.verify.mjs";
+import { bachsAdapter } from "@bachsproof/cli";
+import { tests } from "./tests/bachsproof.test.mjs";
+import { createPayment } from "./tests/bachsproof.setup.mjs";
+import { verify } from "./tests/bachsproof.verify.mjs";
 
 export default {
   provider: bachsAdapter({ mode: "mock" }),
   target: {
-    baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-    webhookPath: "/webhooks/bachs"
+    baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+    webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
   },
-  signing: { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET },
+  signing: process.env.BACHS_WEBHOOK_SECRET
+    ? { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET }
+    : undefined,
   createPayment,
   verify,
   requireFinancialVerification: true,
+  financialVerification: {
+    completionDeadlineMs: 10_000,
+    pollIntervalMs: 25,
+    negativeObservationWindowMs: 250
+  },
   tests
 };
 ```
 
-Use `defineConfig` from `@payproof/cli` in a TypeScript config when you want
-editor type checking. The CLI supports `.mjs`, `.js`, `.cjs`, and TypeScript
-config files through its loader.
+## What each part does
 
-Do not enable `requireFinancialVerification` until `verify` reads real committed
-test state. A missing verifier must fail clearly rather than create a false
-pass.
+- `provider` creates and serializes provider-shaped events.
+- `target` tells the core where to send them.
+- `signing` adds a Bachs test signature to the exact body.
+- `createPayment` prepares a real application reference when a test does not
+  supply one.
+- `verify` reads committed financial state.
+- `requireFinancialVerification` makes a missing `verify` callback a config
+  error instead of allowing an unverified CLI run.
+- `financialVerification` controls polling and bounded observation.
+- `tests` is the named scenario list.
+
+Use `defineConfig` from `@bachsproof/cli` in a TypeScript config when you want
+editor type checking. The CLI supports `.mjs`, `.js`, `.cjs`, and TypeScript
+config files through its loader. Do not enable required financial verification
+until `verify` reads real committed test state.

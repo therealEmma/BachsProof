@@ -1,7 +1,7 @@
-# PayProof beginner quickstart
+# BachsProof beginner quickstart
 
-This guide shows how to run PayProof against an existing Express or TypeScript
-payment application. PayProof sends test webhooks to your application. It does
+This guide shows how to run BachsProof against an existing Express or TypeScript
+payment application. BachsProof sends test webhooks to your application. It does
 not add routes, change production code, call Bachs, or move real money.
 
 Use an isolated test application and test database throughout this guide.
@@ -11,16 +11,16 @@ Use an isolated test application and test database throughout this guide.
 From the application repository:
 
 ```bash
-pnpm add -D @payproof/cli
-pnpm exec payproof init
+pnpm add -D @bachsproof/cli@1.1.0
+pnpm exec bachsproof init
 ```
 
 The command creates four files:
 
-- `payproof.config.mjs` tells PayProof where the webhook is and which helpers to use.
-- `tests/payproof.test.mjs` lists the payment situations to test.
-- `tests/payproof.setup.mjs` creates fresh test payment records.
-- `tests/payproof.verify.mjs` reads the financial records your application committed.
+- `bachsproof.config.mjs` tells BachsProof where the webhook is and which helpers to use.
+- `tests/bachsproof.test.mjs` lists the payment situations to test.
+- `tests/bachsproof.setup.mjs` creates fresh test payment records.
+- `tests/bachsproof.verify.mjs` reads the financial records your application committed.
 
 The last two files are test-only helpers. Your production server does not import them.
 
@@ -33,8 +33,8 @@ webhook URL is `http://127.0.0.1:3000/webhooks/bachs`.
 On PowerShell:
 
 ```powershell
-$env:PAYPROOF_TARGET_URL = "http://127.0.0.1:3000"
-$env:PAYPROOF_WEBHOOK_PATH = "/webhooks/bachs"
+$env:BACHSPROOF_TARGET_URL = "http://127.0.0.1:3000"
+$env:BACHSPROOF_WEBHOOK_PATH = "/webhooks/bachs"
 $env:BACHS_WEBHOOK_SECRET = "your-test-only-secret"
 ```
 
@@ -43,12 +43,12 @@ test-only secret on both sides. Never use a production secret.
 
 ## 3. Prepare a test payment
 
-Open `tests/payproof.setup.mjs`. A webhook normally contains a payment or order
+Open `tests/bachsproof.setup.mjs`. A webhook normally contains a payment or order
 reference, so the application needs a matching test record before the webhook arrives.
 
 Replace the intentional error with your existing payment creation logic. You can use
 an ORM, repository function, database seed helper, or internal test API. You do not
-need to build a new API for PayProof.
+need to build a new API for BachsProof.
 
 Here is a realistic Prisma-style example. Change the import and field names to match
 your application:
@@ -58,7 +58,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../src/db.mjs";
 
 export async function createPayment({ scenario, amountMinor, currency, paymentIndex }) {
-  const reference = `payproof-${scenario}-${paymentIndex}-${randomUUID()}`;
+  const reference = `bachsproof-${scenario}-${paymentIndex}-${randomUUID()}`;
   const payment = await prisma.payment.create({
     data: { reference, amountMinor, currency, status: "PENDING" }
   });
@@ -67,7 +67,7 @@ export async function createPayment({ scenario, amountMinor, currency, paymentIn
 ```
 
 The returned value must be a fresh reference that your webhook handler understands.
-It might be an order ID, payment reference, or application idempotency key. PayProof
+It might be an order ID, payment reference, or application idempotency key. BachsProof
 calls this helper for every applicable scenario and once per payment when needed.
 
 `amountMinor: 500000` means ₦5,000 when the currency has two decimal places.
@@ -79,7 +79,7 @@ financial transaction.
 
 ## 4. Verify actual financial records
 
-Open `tests/payproof.verify.mjs`. HTTP 200 only means that the route accepted a
+Open `tests/bachsproof.verify.mjs`. HTTP 200 only means that the route accepted a
 webhook. It does not prove that the customer was credited once, for the correct
 amount, or at all.
 
@@ -114,24 +114,24 @@ export async function verify(reference, context) {
 }
 ```
 
-Do not return hardcoded expected values. PayProof already knows the expected outcome;
+Do not return hardcoded expected values. BachsProof already knows the expected outcome;
 your callback must report what the database says really happened.
 
 For example, two ₦5,000 credit records should be reported as `creditCount: 2` and
-`creditedAmountMinor: 1000000`. PayProof will report the duplicate-credit violation.
+`creditedAmountMinor: 1000000`. BachsProof will report the duplicate-credit violation.
 
-If a background worker is still processing, return `pending: true`. PayProof polls
+If a background worker is still processing, return `pending: true`. BachsProof polls
 for a bounded period. For negative scenarios, do not return zero credits merely
 because you expect no credit while processing is unfinished.
 
 ## 5. Enable both helpers
 
-In `payproof.config.mjs`, uncomment the generated imports and properties. Keep the
+In `bachsproof.config.mjs`, uncomment the generated imports and properties. Keep the
 generated provider, target, signing, and tests properties:
 
 ```js
-import { createPayment } from "./tests/payproof.setup.mjs";
-import { verify } from "./tests/payproof.verify.mjs";
+import { createPayment } from "./tests/bachsproof.setup.mjs";
+import { verify } from "./tests/bachsproof.verify.mjs";
 
 export default {
   provider,
@@ -150,19 +150,19 @@ makes a scenario fail if committed financial state was not independently checked
 ## 6. Run one test, then all tests
 
 ```bash
-pnpm exec payproof test --name "sequential duplicate webhook"
-pnpm exec payproof test
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+pnpm exec bachsproof test
 ```
 
 The first scenario sends the same successful event twice and checks that the
 application created one credit. The full generated suite contains all 15 scenarios.
-PayProof runs scenarios one after another, while delivery waves inside a scenario
+BachsProof runs scenarios one after another, while delivery waves inside a scenario
 remain concurrent when required.
 
 Run machine-readable output in CI:
 
 ```bash
-pnpm exec payproof test --json
+pnpm exec bachsproof test --json
 ```
 
 The summary reports passed and failed scenarios, financially verified and unverified
@@ -181,8 +181,8 @@ reference per participant in `references`.
 Synthetic references are available only as an explicit fixture mode:
 
 ```powershell
-$env:PAYPROOF_USE_SYNTHETIC_REFERENCES = "true"
-pnpm exec payproof test --name "sequential duplicate webhook"
+$env:BACHSPROOF_USE_SYNTHETIC_REFERENCES = "true"
+pnpm exec bachsproof test --name "sequential duplicate webhook"
 ```
 
 Synthetic runs check delivery and adapter behavior. They do not prove that a real
@@ -194,11 +194,11 @@ You provide isolated test payment creation, the returned reference, a reader for
 committed payment and financial records, and the application URL, path, and test
 secret.
 
-PayProof provides test events, Bachs test signing for the exact request body,
+BachsProof provides test events, Bachs test signing for the exact request body,
 webhook delivery, duplicate/concurrent/delayed/lifecycle scenarios, financial
 invariant evaluation, and reports.
 
-PayProof does not guarantee production readiness. You remain responsible for
+BachsProof does not guarantee production readiness. You remain responsible for
 webhook security, idempotency, transaction design, reconciliation, and financial
 integrity.
 
@@ -208,8 +208,8 @@ integrity.
 or add a real reference to the test definition. Do not use a made-up reference
 against a real application.
 
-**Payment preparation failed.** Open `tests/payproof.setup.mjs`. Check that the
-callback creates a test record and returns a non-empty string. PayProof sends no
+**Payment preparation failed.** Open `tests/bachsproof.setup.mjs`. Check that the
+callback creates a test record and returns a non-empty string. BachsProof sends no
 webhook for a scenario whose preparation failed.
 
 **The webhook returns 401 or 400.** Check the test secret, webhook path, and that
@@ -223,7 +223,7 @@ return `pending: true` until committed state is readable.
 and read committed records from the same isolated test environment.
 
 **Two scenarios reuse a reference.** Create a fresh record for each scenario.
-PayProof rejects accidental reuse so one scenario cannot contaminate another.
+BachsProof rejects accidental reuse so one scenario cannot contaminate another.
 
 For optional deterministic checkpoint testing, see the advanced section in
 [`cli.md`](./cli.md). Ordinary black-box delivery is not deterministic race coverage.

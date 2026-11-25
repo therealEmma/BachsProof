@@ -1,0 +1,51 @@
+---
+title: "Architecture overview"
+description: "See how the provider adapter, runner, application, and verifier fit together."
+---
+
+BachsProof separates provider-specific event construction from provider-neutral
+test orchestration. This keeps Bachs field names out of the generic runner and
+leaves the application's database decisions in application-owned code.
+
+```mermaid
+flowchart LR
+  Config[bachsproof.config.mjs] --> CLI[@bachsproof/cli]
+  CLI --> Core[@bachsproof/core]
+  CLI --> Adapter[@bachsproof/bachs]
+  Adapter --> Core
+  Core --> Events[Provider event plan]
+  Events --> HTTP[HTTP webhook delivery]
+  HTTP --> App[Existing application]
+  App --> DB[(Committed app state)]
+  DB --> Callback[verify callback]
+  Callback --> Invariants[Five financial invariants]
+  Invariants --> Report[BachsProof report]
+  SDK[@bachsproof/sdk] -. optional test instrumentation .-> App
+```
+
+## Four packages
+
+| Package | Purpose | Important public surface |
+| --- | --- | --- |
+| `@bachsproof/core` | Provider-neutral engine | `BachsProof`, `ProviderAdapter`, `verifyPaymentState`, `writeReport`, and all runner types |
+| `@bachsproof/bachs` | First provider adapter | `bachsAdapter`, fixture/scenario helpers, `signBachsWebhook`, and exact money helpers |
+| `@bachsproof/cli` | User-facing workflow | `bachsproof init`, `bachsproof test`, `defineConfig`, config loading, signing composition |
+| `@bachsproof/sdk` | Optional application checkpoint | `checkpointMiddleware`, `checkpoint`, and request-context helpers |
+
+The CLI depends on the core and Bachs packages. The Bachs package depends on
+the core types. The SDK is separate because ordinary black-box testing does not
+need it. The reference wallet is an application, not one of BachsProof's four
+packages; it demonstrates the webhook and persistence boundary.
+
+## What belongs to the application?
+
+The application owns authentication, order matching, amount and currency
+checks, database transactions, event persistence, ledger semantics, background
+jobs, and cleanup. BachsProof does not add a production route or require a
+database dependency. The `verify` callback is the narrow test-side boundary
+where your code returns the committed count, amount, currency, and optional
+ledger entries.
+
+The implementation for the normal flow is in `packages/cli/src/runner.ts`,
+`packages/core/src/orchestrator.ts`, `packages/bachs/src/adapter.ts`, and
+`packages/sdk/src/checkpoint.ts`.

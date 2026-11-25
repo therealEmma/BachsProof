@@ -3,7 +3,7 @@ title: "Webhook authentication and signing"
 description: "Verify Bachs test webhooks using the original raw body."
 ---
 
-The CLI can sign test bodies with:
+Enable the CLI's Bachs test signing with:
 
 ```js
 signing: {
@@ -12,23 +12,35 @@ signing: {
 }
 ```
 
-The adapter emits `X-Bachs-Signature-V2`. PayProof signs the exact body it sends.
-For tampered-body tests, it signs one body and deliberately sends another.
+BachsProof signs the exact body it sends. The helper returns
+`X-Bachs-Signature-V2` in the form:
 
-In a Node or TypeScript application, use the official SDK on the raw request
-body:
+```text
+t=<unix timestamp>,v1=<hex HMAC-SHA256 digest>
+```
+
+The signed message is the timestamp, a period, and the original UTF-8 body.
+For tampered-body tests, BachsProof signs one body and deliberately sends
+another, so a correct verifier must reject it.
+
+## Verify before parsing
+
+In a Node/TypeScript application, use the official SDK on raw bytes or the raw
+text supplied by your framework:
 
 ```ts
-const body = await request.text();
+const rawBody = req.body; // Buffer captured by route-local raw middleware
 const event = webhooks.constructEvent(
-  body,
-  request.headers,
+  rawBody,
+  req.headers,
   process.env.BACHS_WEBHOOK_SECRET!
 );
 ```
 
-The official SDK checks the V2 signature and timestamp tolerance. It does not
-deduplicate events or run your business handler; your application must persist
-event identity and decide how to fulfil. See the [Bachs Node SDK webhook guide](https://docs.bachs.io/sdks/node#verify-webhooks).
+The reference wallet uses `express.raw` on the webhook route and then calls
+`webhooks.constructEvent` before `JSON.parse`/Zod normalization. The SDK checks
+signature validity and timestamp tolerance. It does not store processed event
+IDs or run your business handler; your application owns those steps.
 
-Never reuse a production secret in a local or CI test job.
+Never reuse a production secret in local or CI tests. Synthetic signing proves
+your raw-body verification path, not that Bachs sent or settled a live payment.

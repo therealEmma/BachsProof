@@ -3,19 +3,21 @@ title: "Concurrent unique payments"
 description: "Check that independent payments remain independent under load."
 ---
 
-## In plain English
+## What problem does it test?
 
 Two different customers pay at the same time. Processing one payment must not
-credit the other or make either one disappear.
+credit the other customer or make either payment disappear. For example, two
+customers can each deposit ₦5,000 and should receive one credit each.
 
-## What PayProof does
+## What BachsProof sends
 
-It sends one eligible `collection.succeeded` event for every reference in
-`references`, concurrently. Automatic preparation is called once per payment.
+It creates one eligible `collection.succeeded` event for every reference in
+`references` and delivers them concurrently. Automatic preparation is called
+once per payment.
 
 ```js
 {
-  name: "two unique payments",
+  name: "two unique ₦5,000 payments",
   scenario: "concurrent-unique-payments",
   references: ["payment-a", "payment-b"],
   concurrency: 2,
@@ -24,11 +26,17 @@ It sends one eligible `collection.succeeded` event for every reference in
 }
 ```
 
-## Expected result
+## Expected result and failure
 
-Each reference receives exactly one credit for its own amount and currency.
-PayProof verifies each reference independently, so an over-credit on one cannot
-be hidden by an under-credit on another.
+Each reference should receive exactly one credit for its own amount and
+currency. BachsProof verifies every reference independently, so an over-credit on
+one cannot be hidden by an under-credit on another. Missing credits fail
+`INV-003`; duplicate credits fail `INV-001`; wrong totals or currencies fail
+`INV-002` and possibly `INV-005`.
 
-References must be non-empty, distinct, and match `concurrency`. This scenario
-does not by itself prove that a provider created or settled either payment.
+HTTP delivery normally expects 2xx. References must be non-empty, distinct, and
+match `concurrency`. This scenario does not prove that a provider created or
+settled either payment.
+
+The reference loop and per-payment verification are in
+`packages/core/src/orchestrator.ts`.

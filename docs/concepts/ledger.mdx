@@ -1,17 +1,18 @@
 ---
 title: "What is a financial ledger?"
-description: "Understand the committed records PayProof verifies."
+description: "Understand the committed records BachsProof verifies."
 ---
 
 A ledger is a durable record of money movements. For a wallet deposit, it may
 contain a credit row linked to a payment and a wallet balance update.
 
-Think of a paper cashbook: when NGN 5,000 arrives, you write one entry saying
-which payment caused it, which wallet received it, and how much was posted.
-The application may also store a current balance for fast reads.
+Think of a paper cashbook: when ₦5,000 arrives, you write one entry saying
+which payment caused it, which wallet received it, and how much was posted. The
+application may also store a current balance for fast reads. The ledger entry
+is the audit trail; the balance is a convenient total.
 
-PayProof does not require a particular database or schema. Its verifier asks
-your test code to return a small normalized view:
+BachsProof does not require a particular database or schema. Your verifier returns
+a small normalized view:
 
 ```ts
 {
@@ -26,6 +27,8 @@ your test code to return a small normalized view:
 }
 ```
 
-The verifier can read this from Prisma, SQL, an application service, an
-in-memory store, or another test-safe source. It must observe committed state,
-not calculate what the application ought to have written.
+`500_000` is ₦5,000 at two decimal places. The verifier can read this from
+Prisma, SQL, an in-memory store, an application service, or another test-safe
+source. It must observe committed state, not calculate what the application
+ought to have written. Inspecting only a balance can hide one over-credit and
+one under-credit cancelling out, so return credit rows when possible.

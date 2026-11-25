@@ -1,31 +1,32 @@
 ---
-title: "Running PayProof in CI/CD"
+title: "Running BachsProof in CI/CD"
 description: "Build a safe, repeatable payment correctness job."
 ---
 
-Run PayProof against a dedicated test application and database. The application
-may be started as a CI service, a preview deployment, or a local process in
-the job.
+Run BachsProof against a dedicated test application and database. The application
+may be a CI service, a preview deployment, or a local process started in the
+job.
 
 ```yaml
 # Illustrative CI steps
 - run: pnpm install --frozen-lockfile
-- run: pnpm exec payproof test --json > payproof-results.json
+- run: pnpm exec bachsproof test --json > bachsproof-results.json
   env:
-    PAYPROOF_TARGET_URL: http://127.0.0.1:3000
-    BACHS_WEBHOOK_SECRET: ${{ secrets.PAYPROOF_WEBHOOK_SECRET }}
+    BACHSPROOF_TARGET_URL: http://127.0.0.1:3000
+    BACHS_WEBHOOK_SECRET: ${{ secrets.BACHSPROOF_WEBHOOK_SECRET }}
 ```
 
 Recommended controls:
 
 - create fresh payment records through `createPayment`;
 - use an isolated database or a scoped cleanup strategy;
-- use test-only secrets and synthetic events;
+- use test-only secrets and synthetic provider-shaped events;
 - set `requireFinancialVerification: true`;
 - retain the JSON output as a CI artifact;
 - fail the job when the CLI exits non-zero;
 - never expose database URLs or webhook secrets in logs.
 
-The suite runs configured scenarios sequentially by default, which reduces
+The suite runs configured scenarios sequentially by default, reducing
 cross-scenario contamination. Concurrency still occurs inside scenarios that
-require it.
+require it. A green delivery-only result is not a financial correctness result;
+make the verifier a required part of CI when committed state matters.

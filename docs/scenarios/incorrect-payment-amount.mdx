@@ -3,18 +3,30 @@ title: "Incorrect payment amount"
 description: "Prevent fulfilment when the event amount does not match the order."
 ---
 
-## In plain English
+## What problem does it test?
 
-Your order expects NGN 5,000, but the incoming successful-looking event says a
-different amount. The application must not credit the order.
+Your order expects ₦5,000 (`500_000` kobo), but a successful-looking event
+reports one minor unit more. The application must not credit the order until
+the event amount matches the amount it stored for that reference.
 
-## What PayProof does
+## What BachsProof sends
 
-It creates a `collection.succeeded`-shaped event for the reference with an
-amount one minor unit higher than the configured amount.
+It creates a `collection.succeeded`-shaped event with the same reference and
+currency but `amountMinor + 1`. The event is valid-shaped, so a handler may
+return 2xx while deciding not to fulfil it.
 
-## Expected result
+```js
+{
+  name: "wrong amount is not fulfilled",
+  scenario: "incorrect-payment-amount",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-Zero credits. `INV-004` catches fulfilment of an ineligible event. Amount
-matching is the application's responsibility; PayProof does not know your
-order table.
+## Expected result and failure
+
+Zero credits are expected. A credit fails `INV-004`. BachsProof does not know your
+order table and cannot itself decide whether the mismatch is correct; the
+application must compare the provider event with the stored order. The mutated
+fixture is made in `packages/bachs/src/fixtures.ts`.

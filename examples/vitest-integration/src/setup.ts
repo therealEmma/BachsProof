@@ -1,8 +1,8 @@
-import { PayProof, type FinancialVerifier } from "@payproof/core";
-import { bachsAdapter } from "@payproof/bachs";
+import { BachsProof, type FinancialVerifier } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 
-export function createVitestPayProof(baseUrl: string, verify: FinancialVerifier): PayProof {
-  return new PayProof({
+export function createVitestBachsProof(baseUrl: string, verify: FinancialVerifier): BachsProof {
+  return new BachsProof({
     provider: bachsAdapter({ mode: "mock" }),
     target: { baseUrl, webhookPath: "/webhooks/bachs" },
     verify,

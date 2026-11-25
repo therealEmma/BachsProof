@@ -3,18 +3,22 @@ title: "Error handling"
 description: "Understand configuration, preparation, delivery, and verification failures."
 ---
 
-PayProof keeps errors in the report when a run has started. Common categories:
+BachsProof keeps errors in the report when a run has started. Common categories:
 
 | Error | Meaning |
 | --- | --- |
-| Missing provider/target/tests | Config validation failed |
+| Missing provider/target/tests | CLI config validation failed |
 | Real application reference required | No reference, callback, or explicit synthetic opt-in |
-| Payment preparation failed | Callback threw or returned an empty/duplicate reference |
-| Unexpected HTTP status | Delivery did not match `expectedStatus` |
+| Payment preparation failed | Callback threw, returned empty, or returned a reused reference |
+| Unexpected HTTP status | Delivery did not match `expectedStatus` or was non-2xx by default |
 | Financial verification timed out | Callback never returned complete state within its bound |
-| Financial verification returned wrong reference | Callback result was for another payment |
+| Financial verification returned wrong reference | Callback returned state for another payment |
+| Malformed callback result | Required fields or integer/currency validation failed |
 | `INV-*` message | Observed committed state violated a financial rule |
 
-The CLI redacts configured signing secrets from JSON and human-readable error
-output. Your own callback and application logs must also avoid credentials and
-personal data.
+Preparation/configuration validation returns a failed result with no webhook
+delivery and a report note explaining why. Delivery failures retain the
+participant and timing record. The CLI also explains common onboarding errors
+and redacts the configured signing secret from JSON and human-readable output.
+Your callbacks and application logs must avoid credentials and personal data as
+well.

@@ -1,4 +1,4 @@
--- PayProof reference-wallet initial schema.
+-- BachsProof reference-wallet initial schema.
 -- Amounts are BIGINT so PostgreSQL never performs floating-point money math.
 CREATE TABLE "Wallet" (
     "id" TEXT NOT NULL,

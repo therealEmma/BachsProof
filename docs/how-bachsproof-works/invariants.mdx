@@ -1,0 +1,26 @@
+---
+title: "Financial invariants"
+description: "See the rules applied to independently observed financial state."
+---
+
+An invariant is a rule that should remain true after the webhook is processed.
+BachsProof currently evaluates five rules against the normalized state returned by
+`verify`:
+
+| ID | Rule in everyday language |
+| --- | --- |
+| `INV-001` | One eligible payment creates at most one credit |
+| `INV-002` | If a credit exists, its total amount and currency match the expectation |
+| `INV-003` | An eligible payment eventually receives its expected credit |
+| `INV-004` | An ineligible payment creates no credit |
+| `INV-005` | When the expected count is present, the eligible payment's aggregate amount is correct |
+
+Each violation retains an identifier, name, message, and payment reference. A
+single observation may produce more than one violation. For example, two
+credits can violate `INV-001` and also have the wrong aggregate amount.
+
+The implementation is intentionally small and provider-neutral:
+`verifyPaymentState` in `packages/core/src/invariants.ts` compares integer
+minor-unit values and does not inspect a database directly. The
+[Financial invariants](/financial-invariants) section explains each rule with
+passing and failing observations.

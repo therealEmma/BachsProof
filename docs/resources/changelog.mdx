@@ -1,20 +1,24 @@
 ---
 title: "Changelog"
-description: "Document the current PayProof release boundary."
+description: "Document the current BachsProof release boundary."
 ---
 
-## 1.1.0 development release
+## 1.1.0
 
-- Added the CLI onboarding workflow with `payproof init` and `payproof test`.
-- Added automatic payment preparation through `createPayment`.
-- Added callback financial verification and bounded asynchronous polling.
-- Added 15 Bachs payment correctness scenarios.
-- Added optional checkpoint-based controlled concurrency.
-- Added the reference wallet and PostgreSQL correctness experiment.
-- Simplified the public surface by removing target reset and HTTP inspection
-  configuration.
-- Added independent package-installation validation.
+The four BachsProof packages are published publicly at version `1.1.0`:
 
-This repository has not published packages or executed live financial
-transactions. Check the root repository for the release status and package
-version actually available to your team.
+- `@bachsproof/core`: provider-neutral runner, callback verification, five
+  invariants, reports, replay metadata, and the HTTP race controller;
+- `@bachsproof/bachs`: Bachs-shaped fixtures, 15 scenario plans, exact money
+  helpers, parsing, normalization, and test signing;
+- `@bachsproof/cli`: `bachsproof init`, `bachsproof test`, named suites, automatic
+  payment preparation, JSON output, and config validation;
+- `@bachsproof/sdk`: optional request-scoped checkpoint middleware and helpers.
+
+The release also includes bounded asynchronous verification, the reference
+wallet and PostgreSQL demonstration, independent package-installation tests,
+and an explicit boundary between synthetic events and live provider claims.
+
+This release does not add live Bachs checkout creation to BachsProof. Provider
+sandbox validation, settlement, and production readiness remain outside the
+mock adapter's evidence boundary.

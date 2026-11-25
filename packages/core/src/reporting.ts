@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { PayProofReport } from "./types.js";
+import type { BachsProofReport } from "./types.js";
 
 /** Write a human-readable JSON report and create its parent directory. */
-export async function writeReport(report: PayProofReport, path: string): Promise<void> {
+export async function writeReport(report: BachsProofReport, path: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 }

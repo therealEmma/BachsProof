@@ -1,6 +1,6 @@
-# PayProof scenario coverage
+# BachsProof scenario coverage
 
-PayProof delivers synthetic, documented-shaped webhook requests to an
+BachsProof delivers synthetic, documented-shaped webhook requests to an
 authorized test endpoint. The Bachs adapter does not call Bachs, create a
 checkout, or create a real payment. Use it only with isolated test data.
 
@@ -13,13 +13,13 @@ wallet balance, or race-condition outcome.
 
 The generated CLI suite uses real application references by default. The
 recommended workflow is to implement the generated `createPayment(context)`
-callback once. PayProof invokes it only for selected scenarios that need a
+callback once. BachsProof invokes it only for selected scenarios that need a
 reference and passes the scenario, amount in minor units, currency, zero-based
 payment index, and payment count. It invokes the callback twice for
 `concurrent-unique-payments`, so the concurrent payments are independent.
 
 ```js
-// tests/payproof.setup.mjs
+// tests/bachsproof.setup.mjs
 export async function createPayment({ scenario, amountMinor, currency, paymentIndex }) {
   // Call an existing isolated test API, application service, or seed helper.
   const payment = await testSupport.createPayment({ scenario, amountMinor, currency, paymentIndex });
@@ -29,7 +29,7 @@ export async function createPayment({ scenario, amountMinor, currency, paymentIn
 ```
 
 Uncomment the generated import and `createPayment` property in
-`payproof.config.mjs`. PayProof validates every returned reference before
+`bachsproof.config.mjs`. BachsProof validates every returned reference before
 delivery, rejects empty or reused references, and does not send a webhook when
 preparation fails. Repeated suite runs call the callback again; the callback is
 responsible for creating fresh isolated records.
@@ -37,14 +37,14 @@ responsible for creating fresh isolated records.
 Manual preparation remains supported: put a `reference` on each selected test
 definition and put one reference per participant in `references` for
 `concurrent-unique-payments`. Explicit references take precedence over the
-callback. PayProof does not infer payment identity from positional environment-variable
+callback. BachsProof does not infer payment identity from positional environment-variable
 ordering; use explicit references or `createPayment` instead.
 
 For a local adapter or fixture-only demonstration, opt in explicitly:
 
 ```powershell
-$env:PAYPROOF_USE_SYNTHETIC_REFERENCES = "true"
-pnpm exec payproof test
+$env:BACHSPROOF_USE_SYNTHETIC_REFERENCES = "true"
+pnpm exec bachsproof test
 ```
 
 Synthetic references create documented-shaped local webhook envelopes. They do
@@ -53,9 +53,9 @@ payment in the target application. The payment preparation callback is not
 called in synthetic mode. Never use synthetic runs as evidence of production
 financial correctness.
 
-All rows in this matrix are implemented by the `@payproof/bachs` mock adapter.
+All rows in this matrix are implemented by the `@bachsproof/bachs` mock adapter.
 Other providers can use the same core scenario names only when their adapter
-supplies a documented `createScenario` plan; PayProof does not infer or invent
+supplies a documented `createScenario` plan; BachsProof does not infer or invent
 another provider’s event contract.
 
 ## Coverage matrix
@@ -85,8 +85,8 @@ without treating an expected rejection as a runner failure.
 
 ## Individual scenario guide
 
-Each scenario is independently executable with `payproof test --name` or
-`PayProof.run`. Use a fresh test reference for each row unless the purpose of
+Each scenario is independently executable with `bachsproof test --name` or
+`BachsProof.run`. Use a fresh test reference for each row unless the purpose of
 the scenario is to deliver more than one event for the same payment.
 
 - `sequential-duplicate-webhook`: sends the same eligible event twice in
@@ -166,16 +166,16 @@ and the [official Node SDK](https://docs.bachs.io/sdks/node).
 ## CLI
 
 ```powershell
-pnpm add -D @payproof/cli
-pnpm exec payproof init
-$env:PAYPROOF_TARGET_URL = "http://127.0.0.1:3000"
-$env:PAYPROOF_WEBHOOK_PATH = "/webhooks/bachs"
+pnpm add -D @bachsproof/cli
+pnpm exec bachsproof init
+$env:BACHSPROOF_TARGET_URL = "http://127.0.0.1:3000"
+$env:BACHSPROOF_WEBHOOK_PATH = "/webhooks/bachs"
 $env:BACHS_WEBHOOK_SECRET = "test-only-secret"
-pnpm exec payproof test
-pnpm exec payproof test --name "underpaid payment"
+pnpm exec bachsproof test
+pnpm exec bachsproof test --name "underpaid payment"
 ```
 
-`payproof init` creates a commented configuration and a test file containing
+`bachsproof init` creates a commented configuration and a test file containing
 every supported scenario. Edit the generated values for the target endpoint,
 secret, references, amount, and currency. Add a test-only financial verifier
 when committed database state must be checked.
@@ -183,8 +183,8 @@ when committed database state must be checked.
 ## Programmatic SDK
 
 ```ts
-import { PayProof } from "@payproof/core";
-import { bachsAdapter, signBachsWebhook } from "@payproof/bachs";
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter, signBachsWebhook } from "@bachsproof/bachs";
 
 const base = bachsAdapter({ mode: "mock" });
 const provider = {
@@ -197,25 +197,25 @@ const provider = {
   }
 };
 
-const result = await new PayProof({
+const result = await new BachsProof({
   provider,
   target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
   verify: async (reference, context) => readCommittedPaymentState(reference, context)
 }).run({
   scenario: "cross-event-duplicate-payment",
-  reference: "PAYPROOF-CROSS-EVENT-001",
-  amountMinor: 5_000_000,
+  reference: "BACHSPROOF-CROSS-EVENT-001",
+  amountMinor: 500_000,
   currency: "NGN"
 });
 ```
 
-`checkpoint` remains an optional `PayProof` option for applications that
-choose to expose the PayProof controller protocol through test-only
+`checkpoint` remains an optional `BachsProof` option for applications that
+choose to expose the BachsProof controller protocol through test-only
 instrumentation. Without it, duplicate deliveries still run concurrently via
 `Promise.allSettled`, but the result must not be described as deterministic
 database race coverage.
 
-PayProof assists developers with testing under the supplied conditions. It
+BachsProof assists developers with testing under the supplied conditions. It
 does not guarantee production readiness or financial correctness outside those
 conditions. Developers remain responsible for authorization, webhook security,
 idempotency, transaction design, reconciliation, and financial integrity.

@@ -1,7 +1,7 @@
 {
-  "name": "@payproof/bachs",
+  "name": "@bachsproof/bachs",
   "version": "1.1.0",
-  "description": "Bachs-shaped payment event fixtures, signing helpers, and exact money utilities for PayProof",
+  "description": "Synthetic Bachs-shaped fixtures, signing helpers, and exact money utilities for BachsProof",
   "keywords": [
     "payments",
     "bachs",
@@ -12,12 +12,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/therealEmma/PayProof.git",
+    "url": "git+https://github.com/therealEmma/BachsProof.git",
     "directory": "packages/bachs"
   },
-  "homepage": "https://github.com/therealEmma/PayProof#readme",
+  "homepage": "https://github.com/therealEmma/BachsProof#readme",
   "bugs": {
-    "url": "https://github.com/therealEmma/PayProof/issues"
+    "url": "https://github.com/therealEmma/BachsProof/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -34,7 +34,7 @@
   "files": ["dist", "README.md", "LICENSE"],
   "scripts": { "build": "tsup" },
   "engines": { "node": ">=22" },
-  "dependencies": { "@payproof/core": "workspace:*", "zod": "^3.24.1" },
+  "dependencies": { "@bachsproof/core": "workspace:*", "zod": "^3.24.1" },
   "devDependencies": {
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"

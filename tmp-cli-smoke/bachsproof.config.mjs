@@ -1,13 +1,13 @@
-import { bachsAdapter } from "payproof";
-import { tests } from "./tests/payproof.test.mjs";
+import { bachsAdapter } from "@bachsproof/cli";
+import { tests } from "./tests/bachsproof.test.mjs";
 
 const signingSecret = process.env.BACHS_WEBHOOK_SECRET;
 
 export default {
   provider: bachsAdapter({ mode: "mock" }),
   target: {
-    baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-    webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs",
+    baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+    webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs",
     // The CLI is black-box by default; isolation belongs to your test data.
     reset: false
   },

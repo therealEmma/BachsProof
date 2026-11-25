@@ -4,12 +4,13 @@ description: "Read committed state from your own application without production 
 ---
 
 Your verifier is test-side code. It can import a test database client, call an
-existing internal test service, or read an application-owned store.
+existing internal test service, or read an application-owned store. It must
+return what was committed, not what you expected to be committed.
 
 ```ts
 import { prisma } from "./test-support/prisma.js";
 
-export async function verify(reference: string, context?: unknown) {
+export async function verify(reference: string) {
   const payment = await prisma.payment.findUnique({
     where: { reference },
     include: { credits: true }
@@ -19,7 +20,10 @@ export async function verify(reference: string, context?: unknown) {
   return {
     reference,
     creditCount: credits.length,
-    creditedAmountMinor: credits.reduce((sum, credit) => sum + Number(credit.amountMinor), 0),
+    creditedAmountMinor: credits.reduce(
+      (sum, credit) => sum + Number(credit.amountMinor),
+      0
+    ),
     currency: payment?.currency ?? "NGN",
     status: payment?.status ?? "NOT_FOUND",
     ledgerEntries: credits.map((credit) => ({
@@ -32,9 +36,12 @@ export async function verify(reference: string, context?: unknown) {
 }
 ```
 
-The normalized result must include `reference`, `creditCount`,
+The normalized result requires `reference`, `creditCount`,
 `creditedAmountMinor`, and a three-letter `currency`. `status`, `pending`, and
-`ledgerEntries` are optional.
+`ledgerEntries` are optional. `500_000` minor units is ₦5,000 at two decimal
+places.
 
-Do not return `expected.creditCount` or a hardcoded `0`/`1`. That would only
-repeat PayProof's expectation and could hide an application defect.
+Do not return `expected.creditCount`, `context.expectedOutcome`, or a hardcoded
+`0`/`1`. That would only repeat BachsProof's expectation and could hide an
+application defect. Read the same test database or committed store used by the
+webhook process.

@@ -1,26 +1,30 @@
 ---
 title: "Financial invariants"
-description: "The rules PayProof applies to independently observed application state."
+description: "The rules BachsProof applies to independently observed application state."
 ---
 
-PayProof evaluates committed state returned by `verify`. It does not inspect a
-database by itself and does not require a particular schema.
+An invariant is a rule that should remain true after a payment event is
+processed. BachsProof evaluates the state returned by your `verify` callback. It
+does not inspect a database by itself and does not require a particular schema.
 
-The five current invariants are:
+For the recurring example, an eligible NGN ₦5,000 payment has expected state
+`creditCount: 1` and `creditedAmountMinor: 500_000`. An ineligible event has
+expected credit count zero.
 
 | ID | Name | Everyday rule |
 | --- | --- | --- |
 | `INV-001` | Unique Credit | One eligible payment creates at most one credit |
-| `INV-002` | Amount Integrity | A posted credit has the expected amount and currency |
+| `INV-002` | Amount Integrity | If a credit exists, its aggregate amount and currency match |
 | `INV-003` | Completion | An eligible payment receives its expected credit |
 | `INV-004` | No Unexpected Credit | An ineligible payment creates no credit |
-| `INV-005` | Aggregate Integrity | The eligible payment's total credit equals the expected amount |
+| `INV-005` | Aggregate Integrity | An eligible payment's total is correct when the expected count is present |
 
 <Warning>
-The expected state is supplied by the provider adapter. It is not a substitute
-for `verify`. A test that does not inspect committed state is reported as
-financially unverified.
+Expected state comes from the provider adapter. It is not a substitute for
+`verify`. A run without an independent state read is financially unverified.
 </Warning>
 
-Each violation includes an identifier, name, message, and reference. Start with
-the matching page below when investigating a failure.
+The implementation evaluates all applicable rules and keeps all violations so
+one report can show the complete failure. See each page below for a passing
+observation, a failing observation, and the exact condition in
+`packages/core/src/invariants.ts`.

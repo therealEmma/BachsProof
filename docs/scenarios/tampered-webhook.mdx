@@ -3,21 +3,35 @@ title: "Tampered webhook"
 description: "Check that changing the body after signing is rejected."
 ---
 
-## In plain English
+## What problem does it test?
 
-An attacker or broken proxy changes the amount in a signed request. The
-signature should no longer match the body.
+An attacker or broken proxy changes a signed request. If the application checks
+the signature over one body but parses another, it could accept a forged amount
+and credit a wallet.
 
-## What PayProof does
+## What BachsProof sends
 
-It signs the original serialized body, changes the amount in the body, and
-sends both the changed body and the original signature. The generated test
-expects `4xx`.
+The adapter serializes a successful event, signs the original body, changes the
+amount in the body by one minor unit, and sends the changed body with the
+original signature. The generated configuration expects `4xx`.
 
-## Expected result
+```js
+{
+  name: "changed signed body is rejected",
+  scenario: "tampered-webhook",
+  expectedStatus: "4xx",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-The application rejects the request and creates zero credits. The financial
-check is `INV-004`; the HTTP expectation is evaluated separately.
+## Expected result and failure
 
-This scenario is only meaningful when the application actually verifies the
-raw body signature.
+The application should reject the request and commit zero credits. The HTTP
+expectation and financial assertion are separate: a 4xx can pass transport,
+while `INV-004` proves no credit when `verify` is configured. The scenario is
+meaningful only when the target actually verifies the raw Bachs signature.
+
+The body and signing-body override are built by `createBachsScenario` in
+`packages/bachs/src/fixtures.ts`; exact-body signing is delivered by
+`packages/cli/src/runner.ts` or an adapter's `headersForBody`.

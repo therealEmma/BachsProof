@@ -1,36 +1,44 @@
 ---
 title: "Programmatic API"
-description: "Reference for PayProof, run, replay, and core helpers."
+description: "Reference for BachsProof, run, replay, and core helpers."
 ---
 
 ```ts
-import { PayProof, writeReport } from "@payproof/core";
+import { BachsProof, writeReport } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 
-const runner = new PayProof({
-  provider,
-  target,
-  createPayment,
-  verify,
-  financialVerification: { completionDeadlineMs: 5_000 }
+const runner = new BachsProof({
+  provider: bachsAdapter({ mode: "mock" }),
+  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
+  verify: async (reference) => readCommittedPaymentState(reference)
 });
 
 const result = await runner.run({
   scenario: "sequential-duplicate-webhook",
-  reference: "payment-123"
+  reference: "payment-123",
+  amountMinor: 500_000,
+  currency: "NGN"
 });
 
-if (!result.passed) await writeReport(result.report, "artifacts/payproof.json");
+if (!result.passed) await writeReport(result.report, "artifacts/bachsproof.json");
 ```
+
+The `readCommittedPaymentState` function is application test code. `run`
+returns `{ passed, report }`; it does not reset application state or close your
+server/database. `replay(report)` reuses the structured event and schedule
+metadata, but fresh application state remains your responsibility. The report
+does not store the exact raw request body or provider response headers.
 
 | Export | Purpose |
 | --- | --- |
-| `PayProof` | High-level runner |
+| `BachsProof` | High-level runner |
 | `preparePaymentReferences` | Resolve missing references with `createPayment` |
-| `RaceController` | Optional checkpoint barrier controller |
-| `verifyPaymentState` | Evaluate all financial invariants |
+| `RaceController` | Optional local HTTP checkpoint barrier |
+| `verifyPaymentState` | Evaluate all five financial invariants |
 | `verifyWithCallback` | Validate and poll a verifier |
-| `writeReport` | Write a JSON report |
+| `writeReport` | Create the parent directory and write JSON |
 | `redactSecrets` | Remove common secret formats from diagnostic strings |
 
-`replay(report)` reuses the report's event and schedule metadata. It does not
-reset application state; create a fresh reference or perform scoped cleanup.
+The core programmatic API can run without `@bachsproof/sdk`. The SDK is an
+optional application-side instrument that announces arrival at a checkpoint;
+the core's `RaceController` is the barrier that coordinates those arrivals.

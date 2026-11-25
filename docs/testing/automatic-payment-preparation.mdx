@@ -4,7 +4,7 @@ description: "Create fresh application records through createPayment(context)."
 ---
 
 Automatic preparation is the recommended workflow for repeated local and CI
-runs. PayProof calls your callback only when a selected scenario needs a
+runs. BachsProof calls your callback only when a selected scenario needs a
 reference and the test did not supply one.
 
 ```js
@@ -16,19 +16,27 @@ export async function createPayment({
   paymentCount
 }) {
   const payment = await applicationTestApi.createPayment({
-    label: `payproof-${scenario}-${paymentIndex}`,
+    label: `bachsproof-${scenario}-${paymentIndex}`,
     amountMinor,
-    currency
+    currency,
+    paymentIndex,
+    paymentCount
   });
-  if (!payment.reference) throw new Error("payment API returned no reference");
+  if (!payment?.reference) throw new Error("payment API returned no reference");
   return payment.reference;
 }
 ```
 
-For `concurrent-unique-payments`, PayProof calls the callback once per
-participant. The callback must return different references. The CLI rejects an
-empty reference, a callback failure, and a reference reused by another selected
-scenario. It sends no webhook for a scenario whose preparation failed.
+The function above is application-specific. `applicationTestApi` is not
+provided by BachsProof; it might call a test-only endpoint, an application
+service, or a database seeder. It must create an order for the requested
+amount and return its reference. For the recurring example, `500_000` NGN
+minor units represents ₦5,000.
+
+For `concurrent-unique-payments`, BachsProof calls the callback once per
+participant. The callback must return different references. BachsProof validates
+empty values and the CLI rejects a reference reused by another selected test.
+It sends no webhook for a scenario whose preparation failed.
 
 <Warning>
 The callback must create test records without charging real instruments or

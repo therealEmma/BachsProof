@@ -1,12 +1,12 @@
 ---
 title: "CLI commands and flags"
-description: "Reference for payproof init and payproof test."
+description: "Reference for bachsproof init and bachsproof test."
 ---
 
-## `payproof init`
+## `bachsproof init`
 
 ```text
-payproof init [directory] [--force]
+bachsproof init [directory] [--force]
 ```
 
 | Argument | Default | Meaning |
@@ -14,20 +14,24 @@ payproof init [directory] [--force]
 | `directory` | Current working directory | Independent project to initialize |
 | `--force` | Off | Replace generated files that already exist |
 
-The command creates the config, scenario list, payment preparation template,
-and verifier template.
+The command creates `bachsproof.config.mjs`,
+`tests/bachsproof.test.mjs`, `tests/bachsproof.setup.mjs`, and
+`tests/bachsproof.verify.mjs`. Without `--force`, it refuses to overwrite any of
+them.
 
-## `payproof test`
+## `bachsproof test`
 
 ```text
-payproof test [--config <path>] [--name <test-name>] [--json]
+bachsproof test [--config <path>] [--name <test-name>] [--json]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--config` | `payproof.config.mjs` | Config module to load |
+| `--config` | `bachsproof.config.mjs` | Config module to load |
 | `--name` | All configured tests | Run one exact `name` |
 | `--json` | Human-readable output | Print JSON results for CI |
 
 The process exits `0` when all selected results pass and `1` when a selected
-result fails or configuration cannot be loaded.
+result fails or configuration cannot be loaded. The CLI runs configured tests
+sequentially; a scenario can still contain concurrent deliveries. `--json`
+includes the reports and redacts the configured signing secret from output.

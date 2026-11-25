@@ -1,27 +1,30 @@
 ---
 title: "Report structure"
-description: "Reference for PayProofReport, deliveries, verification, and replay metadata."
+description: "Reference for BachsProofReport, deliveries, verification, and replay metadata."
 ---
 
-Important fields on `PayProofReport`:
+Important fields on `BachsProofReport`:
 
 | Field | Meaning |
 | --- | --- |
+| `reportVersion` | Current report shape, `"1.1"` |
 | `scenario` | Scenario that ran |
-| `provider`, `mode` | Adapter identity |
+| `provider`, `mode` | Adapter identity, such as `Bachs` and `mock` |
 | `paymentReference` | Primary reference |
-| `event`, `expected` | Primary generated event and expected state |
+| `event`, `expected` | Primary structured event and expected state |
 | `observed` | First observed financial state |
 | `payments` | Per-reference observations for unique payments |
 | `verificationMode` | `callback` or `none` |
-| `financiallyVerified` | Whether committed state was inspected |
-| `deliveries` | HTTP attempts and errors |
-| `checkpoints` | Arrival/release/abort trace |
-| `errors` | Delivery, preparation, and invariant messages |
-| `replay` | Seed, concurrency, checkpoint, controlled flag, and note |
+| `financiallyVerified` | Whether committed state was inspected; it can be true even when rules failed |
+| `verification` | Overall pass plus all `InvariantViolation` objects |
+| `deliveries` | HTTP attempts, statuses, response bodies, and errors |
+| `checkpoints` | `arrival`, `release`, or `abort` trace events |
+| `errors` | Preparation, delivery, configuration, and invariant messages |
+| `replay` | Seed, concurrency, checkpoint, controlled flag, and limitation note |
 | `startedAt`, `completedAt` | ISO timestamps |
 
-`PayProofResult.passed` is false when delivery/configuration errors exist or a
-financial verification result contains violations. Without a verifier,
-delivery success can return `passed: true` while `financiallyVerified` remains
-false.
+`BachsProofResult.passed` is false when errors exist or a financial verification
+result contains violations. Without a verifier, delivery success can return
+`passed: true` while `financiallyVerified` remains false. The report stores a
+structured event object, not the exact raw serialized body or all request
+headers; replay therefore does not claim byte-for-byte reproduction.

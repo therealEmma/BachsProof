@@ -3,18 +3,31 @@ title: "Incorrect payment currency"
 description: "Prevent fulfilment when the event currency does not match the order."
 ---
 
-## In plain English
+## What problem does it test?
 
 An order priced in NGN must not be fulfilled by an otherwise successful event
-priced in a different currency.
+priced in another currency. ₦5,000 and an amount of 5,000 in USD are not the
+same financial instruction.
 
-## What PayProof does
+## What BachsProof sends
 
-It creates an event with the configured amount but a different currency (the
-fixture uses EUR when the configured currency is not USD, and USD otherwise).
+It creates a success-shaped event with the configured amount but a different
+currency. The fixture uses `USD` unless the configured currency is already USD,
+in which case it uses `EUR`. The normal expectation is 2xx, because the
+application may acknowledge a rejected business event.
 
-## Expected result
+```js
+{
+  name: "wrong currency is not fulfilled",
+  scenario: "incorrect-payment-currency",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-Zero credits. The relevant protection is no unexpected fulfilment, plus the
-application's own currency matching logic. The fixture does not model currency
-conversion.
+## Expected result and failure
+
+Zero credits are expected; a credit fails `INV-004`. Amount and currency
+matching are application responsibilities. The fixture does not model currency
+conversion, exchange rates, or a provider settlement. The mutation is built in
+`packages/bachs/src/fixtures.ts`.

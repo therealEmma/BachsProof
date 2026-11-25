@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
-import { PayProof } from "@payproof/core";
-import { bachsAdapter } from "@payproof/bachs";
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 
 /**
- * A tiny application-shaped test double. The important point is that PayProof
+ * A tiny application-shaped test double. The important point is that BachsProof
  * is imported from package archives and receives financial state through a
  * callback, exactly as an application test could do with Prisma.
  */
@@ -32,7 +32,7 @@ describe("standalone packaged callback integration", () => {
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("standalone server did not start");
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider: bachsAdapter({ mode: "mock" }),
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs" },
       verify: async (reference) => ({
@@ -43,7 +43,7 @@ describe("standalone packaged callback integration", () => {
       })
     });
     try {
-      const result = await payproof.run({ scenario: "sequential-duplicate-webhook", reference: "PAY-PACKAGED" });
+      const result = await bachsproof.run({ scenario: "sequential-duplicate-webhook", reference: "PAY-PACKAGED" });
       expect(result.passed).toBe(false);
       expect(result.report.verificationMode).toBe("callback");
     } finally {

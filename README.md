@@ -1,14 +1,14 @@
-# PayProof
+# BachsProof
 
 **Payment correctness testing beyond HTTP responses.**
 
-PayProof is a payment correctness testing framework that verifies payment integrations from webhook delivery to committed database and ledger state.
+BachsProof is an independent, unofficial testing framework for Bachs integrations. It verifies payment handling from synthetic webhook delivery to committed database and ledger state; it is not affiliated with or endorsed by Bachs.
 
 It helps developers detect duplicate credits, race conditions, incorrect payment fulfillment, and financial inconsistencies before they affect real users.
 
 Bachs is its first supported payment provider.
 
-## Why PayProof?
+## Why BachsProof?
 
 A webhook returning HTTP `200` or `202` does not necessarily mean a payment was processed correctly.
 
@@ -36,7 +36,7 @@ Actual credit:   ₦10,000
 
 Both requests may return successful HTTP responses, even though the application has created an incorrect financial outcome.
 
-PayProof helps detect these problems by generating controlled payment events, delivering them to your application, and verifying the financial state your application actually committed.
+BachsProof helps detect these problems by generating controlled payment events, delivering them to your application, and verifying the financial state your application actually committed.
 
 ## Features
 
@@ -61,79 +61,79 @@ PayProof helps detect these problems by generating controlled payment events, de
 - A test-only webhook signing secret, where applicable.
 - Access to test payment or ledger records for financial verification.
 
-PayProof is database-agnostic. It does not require PostgreSQL, Prisma, Express, or any particular application framework.
+BachsProof is database-agnostic. It does not require PostgreSQL, Prisma, Express, or any particular application framework.
 
-> **Important:** Run PayProof only against isolated, authorized test environments. Never use synthetic payment events against production systems or live payment credentials.
+> **Important:** Run BachsProof only against isolated, authorized test environments. Never use synthetic payment events against production systems or live payment credentials.
 
 ## Getting started
 
-### 1. Install PayProof
+### 1. Install BachsProof
 
 Using pnpm:
 
 ```bash
-pnpm add -D @payproof/cli
+pnpm add -D @bachsproof/cli
 ```
 
 Using npm:
 
 ```bash
-npm install --save-dev @payproof/cli
+npm install --save-dev @bachsproof/cli
 ```
 
-> Public npm installation will be available once the packages are published. During development, PayProof can be installed using locally generated package archives.
+> Public npm installation will be available once the packages are published. During development, BachsProof can be installed using locally generated package archives.
 
 ### 2. Initialize your project
 
 ```bash
-pnpm exec payproof init
+pnpm exec bachsproof init
 ```
 
 Or:
 
 ```bash
-npx payproof init
+npx bachsproof init
 ```
 
-PayProof generates the following files:
+BachsProof generates the following files:
 
 ```text
 your-project/
-├── payproof.config.mjs
+├── bachsproof.config.mjs
 └── tests/
-    ├── payproof.test.mjs
-    ├── payproof.setup.mjs
-    └── payproof.verify.mjs
+    ├── bachsproof.test.mjs
+    ├── bachsproof.setup.mjs
+    └── bachsproof.verify.mjs
 ```
 
 | File | Purpose |
 | --- | --- |
-| `payproof.config.mjs` | Configures the provider, webhook endpoint, signing, and test callbacks. |
-| `payproof.test.mjs` | Contains payment test scenarios. |
-| `payproof.setup.mjs` | Prepares isolated application payment records. |
-| `payproof.verify.mjs` | Reads committed financial state after test execution. |
+| `bachsproof.config.mjs` | Configures the provider, webhook endpoint, signing, and test callbacks. |
+| `bachsproof.test.mjs` | Contains payment test scenarios. |
+| `bachsproof.setup.mjs` | Prepares isolated application payment records. |
+| `bachsproof.verify.mjs` | Reads committed financial state after test execution. |
 
 The generated setup and verification templates must be implemented for your application. They intentionally fail rather than return fabricated financial results.
 
-### 3. Configure PayProof
+### 3. Configure BachsProof
 
 Set your test environment variables.
 
 ```env
-PAYPROOF_TARGET_URL=http://localhost:3000
-PAYPROOF_WEBHOOK_PATH=/webhooks/bachs
+BACHSPROOF_TARGET_URL=http://localhost:3000
+BACHSPROOF_WEBHOOK_PATH=/webhooks/bachs
 BACHS_WEBHOOK_SECRET=your-test-webhook-secret
 ```
 
-Ensure these variables are loaded into the environment before running PayProof.
+Ensure these variables are loaded into the environment before running BachsProof.
 
 Your configuration should look like this:
 
 ```javascript
-import { bachsAdapter } from "@payproof/cli";
-import { tests } from "./tests/payproof.test.mjs";
-import { createPayment } from "./tests/payproof.setup.mjs";
-import { verify } from "./tests/payproof.verify.mjs";
+import { bachsAdapter } from "@bachsproof/cli";
+import { tests } from "./tests/bachsproof.test.mjs";
+import { createPayment } from "./tests/bachsproof.setup.mjs";
+import { verify } from "./tests/bachsproof.verify.mjs";
 
 export default {
   provider: bachsAdapter({
@@ -141,8 +141,8 @@ export default {
   }),
 
   target: {
-    baseUrl: process.env.PAYPROOF_TARGET_URL,
-    webhookPath: process.env.PAYPROOF_WEBHOOK_PATH
+    baseUrl: process.env.BACHSPROOF_TARGET_URL,
+    webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH
   },
 
   signing: {
@@ -159,13 +159,13 @@ export default {
 };
 ```
 
-PayProof sends signed test webhooks to your existing application endpoint.
+BachsProof sends signed test webhooks to your existing application endpoint.
 
 No additional production routes, inspection endpoints, or checkpoint middleware are required for ordinary testing.
 
 ### 4. Prepare test payments
 
-Implement the `createPayment` callback inside `tests/payproof.setup.mjs`.
+Implement the `createPayment` callback inside `tests/bachsproof.setup.mjs`.
 
 This callback creates an isolated payment record that your application can recognize when it receives a test webhook.
 
@@ -189,7 +189,7 @@ export async function createPayment({
 }
 ```
 
-`testSupport.createIsolatedPayment()` is an illustrative application-specific helper, not a function provided by PayProof.
+`testSupport.createIsolatedPayment()` is an illustrative application-specific helper, not a function provided by BachsProof.
 
 You can implement payment preparation using your existing:
 
@@ -201,13 +201,13 @@ You can implement payment preparation using your existing:
 
 The callback must return a fresh payment reference understood by your application's webhook handler.
 
-PayProof automatically invokes this callback before executing the relevant scenario.
+BachsProof automatically invokes this callback before executing the relevant scenario.
 
 All monetary amounts are represented in integer minor units. For example, `500_000` kobo represents ₦5,000.
 
 ### 5. Implement financial verification
 
-Implement the `verify` callback inside `tests/payproof.verify.mjs`.
+Implement the `verify` callback inside `tests/bachsproof.verify.mjs`.
 
 This callback reads the financial records your application actually committed.
 
@@ -238,9 +238,9 @@ export async function verify(reference, context) {
 
 The callback must return actual observed financial state, not expected values copied from the test configuration.
 
-PayProof compares this observed state against the expected financial outcome.
+BachsProof compares this observed state against the expected financial outcome.
 
-For asynchronous applications, return `pending: true` while relevant processing remains incomplete. PayProof supports bounded polling and configurable observation windows to reduce the risk of premature passing results.
+For asynchronous applications, return `pending: true` while relevant processing remains incomplete. BachsProof supports bounded polling and configurable observation windows to reduce the risk of premature passing results.
 
 These observation windows do not guarantee that an erroneous credit cannot occur after testing ends.
 
@@ -249,22 +249,22 @@ These observation windows do not guarantee that an erroneous credit cannot occur
 Run all configured scenarios:
 
 ```bash
-pnpm exec payproof test
+pnpm exec bachsproof test
 ```
 
 Run a specific scenario:
 
 ```bash
-pnpm exec payproof test --name "concurrent duplicate credit"
+pnpm exec bachsproof test --name "concurrent duplicate credit"
 ```
 
 Generate a JSON report:
 
 ```bash
-pnpm exec payproof test --json > payproof-results.json
+pnpm exec bachsproof test --json > bachsproof-results.json
 ```
 
-PayProof handles event generation, signing, delivery, scenario execution, financial verification, and reporting.
+BachsProof handles event generation, signing, delivery, scenario execution, financial verification, and reporting.
 
 ## Example output
 
@@ -295,7 +295,7 @@ A successful webhook delivery does not automatically constitute a financial corr
 
 ## Supported scenarios
 
-PayProof currently provides 15 payment testing scenarios through its Bachs adapter.
+BachsProof currently provides 15 payment testing scenarios through its Bachs adapter.
 
 | Scenario | What it tests | Expected outcome |
 | --- | --- | --- |
@@ -317,7 +317,7 @@ PayProof currently provides 15 payment testing scenarios through its Bachs adapt
 
 Expected HTTP responses can be configured separately from financial outcomes.
 
-For example, an application may intentionally reject an unsupported event with HTTP `400`. PayProof can verify that the response matches the application's contract while independently checking that no financial credit was created.
+For example, an application may intentionally reject an unsupported event with HTTP `400`. BachsProof can verify that the response matches the application's contract while independently checking that no financial credit was created.
 
 See the [scenario documentation](docs/scenarios.md) for detailed event definitions and expected outcomes.
 
@@ -325,7 +325,7 @@ See the [scenario documentation](docs/scenarios.md) for detailed event definitio
 
 Financial invariants are rules that must remain true regardless of how payment events are delivered or processed.
 
-PayProof evaluates the following invariants against observed application state:
+BachsProof evaluates the following invariants against observed application state:
 
 | Invariant | Description |
 | --- | --- |
@@ -335,19 +335,19 @@ PayProof evaluates the following invariants against observed application state:
 | `INV-004` | An ineligible payment must not create a financial credit. |
 | `INV-005` | The aggregate credited amount must match the expected payment amount. |
 
-For scenarios involving multiple independent payments, PayProof verifies each payment separately.
+For scenarios involving multiple independent payments, BachsProof verifies each payment separately.
 
 This prevents an over-credit on one payment from being hidden by an under-credit on another.
 
 When `requireFinancialVerification` is enabled, missing or unsuccessful financial verification causes the test to fail.
 
-PayProof's conclusions depend on the completeness and accuracy of the financial state returned by the application's verification callback.
+BachsProof's conclusions depend on the completeness and accuracy of the financial state returned by the application's verification callback.
 
-## How PayProof works
+## How BachsProof works
 
 ```mermaid
 flowchart TD
-    A[PayProof CLI or Programmatic API]
+    A[BachsProof CLI or Programmatic API]
     B[Core Testing Engine]
     C[Prepare Test Payments]
     D[Bachs Provider Adapter]
@@ -367,27 +367,27 @@ flowchart TD
     H --> I
 ```
 
-PayProof separates test orchestration, provider-specific behaviour, application processing, and financial verification.
+BachsProof separates test orchestration, provider-specific behaviour, application processing, and financial verification.
 
 The application remains responsible for its own payment processing, authentication, database transactions, idempotency, and financial integrity.
 
-PayProof evaluates the outcomes of those operations.
+BachsProof evaluates the outcomes of those operations.
 
 ## Architecture
 
-PayProof is organized as a modular TypeScript monorepo.
+BachsProof is organized as a modular TypeScript monorepo.
 
 | Package | Responsibility |
 | --- | --- |
-| `@payproof/core` | Scenario execution, concurrency coordination, financial invariants, verification, and reporting. |
-| `@payproof/bachs` | Bachs event fixtures, payload normalization, amount handling, and webhook signing. |
-| `@payproof/cli` | Project initialization, configuration loading, test execution, and terminal reporting. |
-| `@payproof/sdk` | Optional test-only checkpoint instrumentation for controlled concurrency experiments. |
+| `@bachsproof/core` | Scenario execution, concurrency coordination, financial invariants, verification, and reporting. |
+| `@bachsproof/bachs` | Bachs event fixtures, payload normalization, amount handling, and webhook signing. |
+| `@bachsproof/cli` | Project initialization, configuration loading, test execution, and terminal reporting. |
+| `@bachsproof/sdk` | Optional test-only checkpoint instrumentation for controlled concurrency experiments. |
 
 The repository also includes a reference wallet application demonstrating vulnerable and corrected payment processing implementations.
 
 ```text
-PayProof/
+BachsProof/
 ├── apps/
 │   └── reference-wallet/
 ├── packages/
@@ -404,11 +404,11 @@ The checkpoint SDK is not required for ordinary CLI or programmatic testing.
 
 ## Concurrency testing
 
-PayProof supports two approaches to testing concurrent payment processing.
+BachsProof supports two approaches to testing concurrent payment processing.
 
 ### Concurrent webhook delivery
 
-PayProof sends multiple webhook requests concurrently and inspects the resulting financial state.
+BachsProof sends multiple webhook requests concurrently and inspects the resulting financial state.
 
 This approach does not require modifications to the application under test.
 
@@ -418,7 +418,7 @@ However, concurrent delivery alone does not guarantee that a particular race con
 
 ### Controlled checkpoint testing
 
-For deeper concurrency experiments, PayProof provides optional checkpoint instrumentation through `@payproof/sdk`.
+For deeper concurrency experiments, BachsProof provides optional checkpoint instrumentation through `@bachsproof/sdk`.
 
 Checkpoints allow developers to coordinate requests at specific points in a test-only application execution flow.
 
@@ -430,11 +430,11 @@ Request B reads payment status: PENDING
 
 Both requests reach the checkpoint.
 
-PayProof releases both requests.
+BachsProof releases both requests.
 
 Both requests attempt to process the payment.
 
-PayProof verifies the committed financial outcome.
+BachsProof verifies the committed financial outcome.
 ```
 
 This makes specific race-condition experiments more reproducible without claiming complete control over database, network, or operating-system scheduling.
@@ -445,7 +445,7 @@ See the [checkpoint documentation](packages/sdk/README.md) for advanced usage.
 
 ## Experimental validation
 
-PayProof has been evaluated using both a controlled reference application and an independent fintech wallet backend.
+BachsProof has been evaluated using both a controlled reference application and an independent fintech wallet backend.
 
 ### Reference wallet experiment
 
@@ -466,7 +466,7 @@ Uses transactional safeguards to prevent duplicate financial credits.
 | Vulnerable handler | 1 | 2 |
 | Corrected handler | 1 | 1 |
 
-PayProof detected the duplicate-credit violation in the vulnerable implementation and verified the corrected implementation.
+BachsProof detected the duplicate-credit violation in the vulnerable implementation and verified the corrected implementation.
 
 The experiments included PostgreSQL-backed verification using a Railway-hosted test database.
 
@@ -486,9 +486,9 @@ Skipped database tests must not be interpreted as successful database verificati
 
 ### Independent application testing — Norma
 
-PayProof was also integrated into Norma, an independent fintech wallet backend using Node.js, TypeScript, Prisma, and PostgreSQL.
+BachsProof was also integrated into Norma, an independent fintech wallet backend using Node.js, TypeScript, Prisma, and PostgreSQL.
 
-Unlike the reference wallet, Norma was not originally built for PayProof.
+Unlike the reference wallet, Norma was not originally built for BachsProof.
 
 The integration used Norma's existing webhook endpoint, payment processing logic, database infrastructure, and ledger records.
 
@@ -496,7 +496,7 @@ No checkpoint instrumentation was required.
 
 The experiments included:
 
-- Installation of locally packaged PayProof dependencies.
+- Installation of locally packaged BachsProof dependencies.
 - Automatic creation of isolated test payment records.
 - Execution of all 15 payment scenarios.
 - Delivery of 100 concurrent duplicate webhooks for a single payment.
@@ -517,14 +517,14 @@ Norma successfully prevented duplicate wallet credits during this experiment.
 
 #### Incomplete checkout experiment
 
-PayProof generated a synthetic checkout completion event representing a checkout without a collected payment.
+BachsProof generated a synthetic checkout completion event representing a checkout without a collected payment.
 
 | Metric | Expected | Observed |
 | --- | ---: | ---: |
 | Financial credits | 0 | 1 |
 | Credited amount | ₦0 | ₦5,000 |
 
-PayProof reported:
+BachsProof reported:
 
 ```text
 FAIL incomplete checkout
@@ -555,13 +555,13 @@ Asynchronous verification behaviour also requires further validation.
 
 These results represent development experiments using synthetic payment events and isolated test records. They do not establish live Bachs settlement behaviour or production readiness.
 
-## Using PayProof with Vitest
+## Using BachsProof with Vitest
 
-PayProof complements existing testing frameworks such as Vitest and Jest.
+BachsProof complements existing testing frameworks such as Vitest and Jest.
 
 Traditional testing frameworks provide general-purpose test execution, assertions, fixtures, mocking, and lifecycle management.
 
-PayProof provides payment-specific testing functionality, including:
+BachsProof provides payment-specific testing functionality, including:
 
 - Provider-specific webhook generation.
 - Webhook signing.
@@ -570,10 +570,10 @@ PayProof provides payment-specific testing functionality, including:
 - Financial invariant verification.
 - Structured payment correctness reports.
 
-A configured PayProof instance can be used programmatically inside an existing test suite:
+A configured BachsProof instance can be used programmatically inside an existing test suite:
 
 ```javascript
-const result = await payproof.run({
+const result = await bachsproof.run({
   scenario: "concurrent-duplicate-credit",
   reference: "isolated-order-001"
 });
@@ -582,33 +582,33 @@ expect(result.passed).toBe(true);
 expect(result.report.financiallyVerified).toBe(true);
 ```
 
-This example assumes that the PayProof instance, provider, target application, and financial verifier have already been configured.
+This example assumes that the BachsProof instance, provider, target application, and financial verifier have already been configured.
 
 Use the CLI for standalone payment testing or the programmatic API when integrating with an existing test suite.
 
 ## Continuous integration
 
-PayProof can be incorporated into CI pipelines to help detect financial correctness regressions.
+BachsProof can be incorporated into CI pipelines to help detect financial correctness regressions.
 
 ```bash
-pnpm exec payproof test
+pnpm exec bachsproof test
 ```
 
 Generate machine-readable reports for automated processing:
 
 ```bash
-pnpm exec payproof test --json > payproof-results.json
+pnpm exec bachsproof test --json > bachsproof-results.json
 ```
 
 CI environments should use isolated application instances, test databases, and test-only credentials.
 
 ## Bachs integration
 
-Bachs is PayProof's first supported payment provider.
+Bachs is BachsProof's first supported payment provider.
 
 The Bachs adapter provides provider-specific synthetic event fixtures, webhook signing, amount normalization, and payment lifecycle scenarios.
 
-PayProof does not:
+BachsProof does not:
 
 - Initiate live Bachs transactions.
 - Collect or transfer money.
@@ -622,7 +622,7 @@ See the [Bachs integration documentation](docs/bachs-integration.md) for provide
 
 ## Limitations
 
-PayProof is an engineering testing tool, not a payment processor, reconciliation platform, or formal verification system.
+BachsProof is an engineering testing tool, not a payment processor, reconciliation platform, or formal verification system.
 
 Developers should understand the following limitations:
 
@@ -635,7 +635,7 @@ Developers should understand the following limitations:
 - The current provider adapter supports Bachs.
 - Application-specific payment preparation and verification callbacks are required for meaningful financial verification.
 
-PayProof should be used alongside unit tests, integration tests, security reviews, reconciliation processes, and appropriate production monitoring.
+BachsProof should be used alongside unit tests, integration tests, security reviews, reconciliation processes, and appropriate production monitoring.
 
 ## Documentation
 
@@ -656,9 +656,9 @@ PayProof should be used alongside unit tests, integration tests, security review
 Clone the repository:
 
 ```bash
-git clone https://github.com/therealEmma/PayProof.git
+git clone https://github.com/therealEmma/BachsProof.git
 
-cd PayProof
+cd BachsProof
 ```
 
 Install dependencies:
@@ -722,4 +722,4 @@ A license has not yet been added to the repository. An explicit open-source lice
 
 ---
 
-**PayProof — Verify the financial outcome, not just the HTTP response.**
+**BachsProof — Verify the financial outcome, not just the HTTP response.**

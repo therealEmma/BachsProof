@@ -1,8 +1,8 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import type { PaymentEvent, ProviderAdapter } from "@payproof/core";
+import type { PaymentEvent, ProviderAdapter } from "@bachsproof/core";
 import { runConfig } from "./runner.js";
-import type { PayProofConfig } from "./types.js";
+import type { BachsProofConfig } from "./types.js";
 
 interface TestEvent extends PaymentEvent {
   providerEventId: string;
@@ -19,7 +19,7 @@ afterEach(async () => {
 describe("CLI configuration runner", () => {
   it("supports a custom provider adapter and committed-state callback", async () => {
     let deliveries = 0;
-    let verificationContext: import("@payproof/core").FinancialVerificationContext | undefined;
+    let verificationContext: import("@bachsproof/core").FinancialVerificationContext | undefined;
     const server = createServer((_request, response) => {
       deliveries += 1;
       response.statusCode = 200;
@@ -62,7 +62,7 @@ describe("CLI configuration runner", () => {
       }
     };
 
-    const config: PayProofConfig<TestEvent> = {
+    const config: BachsProofConfig<TestEvent> = {
       provider,
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
@@ -126,7 +126,7 @@ describe("CLI configuration runner", () => {
       expectedState(event) { return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 }; }
     };
     let referenceNumber = 0;
-    const config: PayProofConfig = {
+    const config: BachsProofConfig = {
       provider,
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       tests: [

@@ -1,24 +1,24 @@
-# @payproof/cli
+# @bachsproof/cli
 
 Package-installable CLI onboarding for black-box payment correctness testing.
 
-    pnpm add -D @payproof/cli
-    pnpm exec payproof init
-    pnpm exec payproof test
+    pnpm add -D @bachsproof/cli
+    pnpm exec bachsproof init
+    pnpm exec bachsproof test
 
-`payproof init` creates a small configuration and test suite in the independent
+`bachsproof init` creates a small configuration and test suite in the independent
 application repository:
 
-- `payproof.config.mjs` for the provider, webhook target, signing secret,
+- `bachsproof.config.mjs` for the provider, webhook target, signing secret,
   payment preparation, verification, and polling settings;
-- `tests/payproof.test.mjs` with all 15 supported scenario definitions;
-- `tests/payproof.setup.mjs` for the optional `createPayment(context)` callback;
-- `tests/payproof.verify.mjs` for the `verify(reference, context)` callback.
+- `tests/bachsproof.test.mjs` with all 15 supported scenario definitions;
+- `tests/bachsproof.setup.mjs` for the optional `createPayment(context)` callback;
+- `tests/bachsproof.verify.mjs` for the `verify(reference, context)` callback.
 
-The generated setup and verifier templates fail until implemented. PayProof does
+The generated setup and verifier templates fail until implemented. BachsProof does
 not invent application references or treat expected values as financial proof.
 
-The target application does not need PayProof routes, controllers, services, or
+The target application does not need BachsProof routes, controllers, services, or
 production instrumentation. It only needs a reachable webhook URL. The
 application owns test payment preparation, isolation, cleanup, and committed
 state access.
@@ -31,15 +31,15 @@ The CLI runs configured scenarios sequentially. Delivery waves inside a
 concurrency scenario remain concurrent. `--name` runs one exact test name and
 `--json` emits machine-readable reports:
 
-    pnpm exec payproof test --name "underpaid payment"
-    pnpm exec payproof test --json
+    pnpm exec bachsproof test --name "underpaid payment"
+    pnpm exec bachsproof test --json
 
 Add `requireFinancialVerification: true` when the suite must fail unless the
-callback has observed committed financial state. Without a callback, PayProof
+callback has observed committed financial state. Without a callback, BachsProof
 can still test HTTP delivery, but it reports the run as financially unverified.
 
 For optional controlled concurrency testing, configure a checkpoint and use
-`@payproof/sdk` in an explicitly enabled test build. Ordinary black-box HTTP
+`@bachsproof/sdk` in an explicitly enabled test build. Ordinary black-box HTTP
 concurrency is not deterministic race-condition coverage.
 
 See the repository [quickstart](../../docs/quickstart.md) and

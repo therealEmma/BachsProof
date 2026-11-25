@@ -3,11 +3,12 @@ title: "Payment eligibility"
 description: "Understand when the adapter considers an event fulfilment-eligible."
 ---
 
-The adapter exposes a normalized `eligible` decision so the provider-neutral
-invariants can distinguish a payment that should credit from an event that must
-not.
+Eligibility answers a narrow question: should this synthetic event represent a
+payment that is allowed to create the expected financial effect? It is not a
+database lookup and it is not a guarantee that your application's order is
+eligible.
 
-For the current fixtures:
+The current adapter decides:
 
 - `collection.succeeded` is eligible when its status is `SUCCEEDED`;
 - `checkout.completed` is eligible only when it is a payment-mode checkout,
@@ -16,7 +17,12 @@ For the current fixtures:
 - `checkout.expired`, `collection.underpaid`, and `collection.failed` are
   ineligible.
 
-This is a test adapter decision, not a replacement for retrieving and matching
-the provider's complete resource state in a production integration. Your
-application should match the event to the expected order, amount, currency, and
-payment status before fulfilment.
+For a ₦5,000 wallet deposit, the adapter's expected eligible state is one credit
+of `500_000` NGN minor units. An ineligible fixture's expected credit count is
+zero. The application's handler must still match the event to its own order,
+amount, currency, customer, and provider transaction before fulfilment.
+
+The rules are implemented by `normalizeBachsWebhookEvent` and
+`expectedBachsState` in `packages/bachs/src/fixtures.ts`. The application should
+not treat this test-adapter decision as a replacement for retrieving and
+matching complete provider state in a live integration.

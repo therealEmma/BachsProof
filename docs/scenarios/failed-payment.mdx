@@ -3,18 +3,31 @@ title: "Failed payment"
 description: "Prevent fulfilment when a collection attempt failed."
 ---
 
-## In plain English
+## What problem does it test?
 
 The collection attempt failed. A failed attempt must not be treated as a paid
-order or wallet deposit.
+order or wallet deposit. The customer must not receive a ₦5,000 credit merely
+because a checkout or charge reference exists.
 
-## What PayProof does
+## What BachsProof sends
 
-It creates a documented-shaped `collection.failed` event with `status: "FAILED"`
-and no eligible financial state. Delivery is sequential and normally accepted
-by a handler that records the event without crediting.
+It creates a documented-shaped `collection.failed` event with `status:
+"FAILED"` and the configured amount and currency. Delivery is sequential and
+normally accepted by a handler that records the event without crediting. A
+failed collection can leave a checkout open for another attempt; this fixture
+does not model that retry.
 
-## Expected result
+```js
+{
+  name: "failed collection is not fulfilled",
+  scenario: "failed-payment",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-Zero credits, checked by `INV-004`. In Bachs, a failed collection can leave the
-checkout open for another attempt; this scenario does not model that retry.
+## Expected result and failure
+
+Zero credits are expected. A credit fails `INV-004`; a verifier is needed to
+prove the ledger remains unchanged. The synthetic failed event is constructed
+in `packages/bachs/src/fixtures.ts`, not received from a live provider.

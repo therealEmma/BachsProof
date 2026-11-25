@@ -23,7 +23,7 @@ importers:
       '@bachs/sdk':
         specifier: ^2.0.0
         version: 2.0.0
-      '@payproof/sdk':
+      '@bachsproof/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
       '@prisma/client':
@@ -36,10 +36,10 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
     devDependencies:
-      '@payproof/bachs':
+      '@bachsproof/bachs':
         specifier: workspace:*
         version: link:../../packages/bachs
-      '@payproof/core':
+      '@bachsproof/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@types/express':
@@ -60,13 +60,13 @@ importers:
 
   examples/vitest-integration:
     dependencies:
-      '@payproof/bachs':
+      '@bachsproof/bachs':
         specifier: workspace:*
         version: link:../../packages/bachs
-      '@payproof/core':
+      '@bachsproof/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@payproof/reference-wallet':
+      '@bachsproof/reference-wallet':
         specifier: workspace:*
         version: link:../../apps/reference-wallet
     devDependencies:
@@ -82,7 +82,7 @@ importers:
 
   packages/bachs:
     dependencies:
-      '@payproof/core':
+      '@bachsproof/core':
         specifier: workspace:*
         version: link:../core
       zod:
@@ -98,10 +98,10 @@ importers:
 
   packages/cli:
     dependencies:
-      '@payproof/bachs':
+      '@bachsproof/bachs':
         specifier: workspace:*
         version: link:../bachs
-      '@payproof/core':
+      '@bachsproof/core':
         specifier: workspace:*
         version: link:../core
       jiti:

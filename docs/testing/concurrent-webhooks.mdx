@@ -3,9 +3,9 @@ title: "Concurrent webhook testing"
 description: "Understand ordinary concurrency and the optional controlled schedule."
 ---
 
-`concurrent-duplicate-credit` sends the same eligible event to the target at
-the same time. The runner uses `Promise.allSettled`, so both successes and all
-delivery errors are retained in the report.
+`concurrent-duplicate-credit` sends the same eligible event to the target in a
+delivery wave. The runner uses `Promise.allSettled`, so successes and every
+delivery error are retained in the report.
 
 ```js
 {
@@ -17,7 +17,11 @@ delivery errors are retained in the report.
 ```
 
 This is black-box HTTP concurrency. It exercises the real route but does not
-guarantee that both requests read the same database state.
+guarantee that two requests read the same database state. A scheduler can let
+one request finish before another begins its critical section.
 
 For a repeatable application interleaving, configure the optional checkpoint
-mode. See [controlled concurrency](/advanced/controlled-concurrency).
+mode and place a checkpoint after the application's idempotency read. See
+[controlled concurrency](/advanced/controlled-concurrency). Even controlled
+mode coordinates only the named application point; the database still needs a
+durable unique constraint or equivalent atomic protection.

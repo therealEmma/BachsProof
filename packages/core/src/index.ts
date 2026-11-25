@@ -1,4 +1,4 @@
-export { PayProof } from "./orchestrator.js";
+export { BachsProof } from "./orchestrator.js";
 export { preparePaymentReferences } from "./preparation.js";
 export { RaceController } from "./race-controller.js";
 export { verifyPaymentState } from "./invariants.js";
@@ -18,10 +18,10 @@ export type {
   InvariantId,
   InvariantViolation,
   ObservedPaymentState,
-  PayProofOptions,
-  PayProofReport,
-  PayProofResult,
-  PayProofTarget,
+  BachsProofOptions,
+  BachsProofReport,
+  BachsProofResult,
+  BachsProofTarget,
   PaymentEvent,
   ProviderAdapter,
   ProviderScenario,

@@ -3,18 +3,30 @@ title: "Malformed webhook"
 description: "Check that invalid JSON is rejected safely."
 ---
 
-## In plain English
+## What problem does it test?
 
 Your endpoint should not crash or create a financial effect when the request
-body is not valid JSON.
+body is not valid JSON. A parser failure must not become a ₦5,000 credit.
 
-## What PayProof does
+## What BachsProof sends
 
 It sends the body `{"invalid":` and expects a `4xx` response in the generated
-configuration.
+configuration. This is not a valid Bachs event, so it checks the error path
+rather than event business logic.
 
-## Expected result
+```js
+{
+  name: "malformed JSON is rejected",
+  scenario: "malformed-webhook",
+  expectedStatus: "4xx",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-The application safely rejects the body and creates zero credits. This scenario
-checks parser/error handling; it does not prove that every malformed content
-type is handled.
+## Expected result and failure
+
+The application should safely reject the body and commit zero credits. With a
+verifier, `INV-004` checks that no ineligible financial effect appeared. The
+scenario does not prove that every malformed content type or oversized body is
+handled. The body override is in `packages/bachs/src/fixtures.ts`.

@@ -1,7 +1,7 @@
 {
-  "name": "@payproof/cli",
+  "name": "@bachsproof/cli",
   "version": "1.1.0",
-  "description": "CLI for black-box and controlled-concurrency payment correctness testing",
+  "description": "CLI for independent, unofficial Bachs integration correctness testing",
   "keywords": [
     "payments",
     "payment-testing",
@@ -13,19 +13,19 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/therealEmma/PayProof.git",
+    "url": "git+https://github.com/therealEmma/BachsProof.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/therealEmma/PayProof#readme",
+  "homepage": "https://github.com/therealEmma/BachsProof#readme",
   "bugs": {
-    "url": "https://github.com/therealEmma/PayProof/issues"
+    "url": "https://github.com/therealEmma/BachsProof/issues"
   },
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
   "bin": {
-    "payproof": "./dist/cli.js"
+    "bachsproof": "./dist/cli.js"
   },
   "exports": {
     ".": {
@@ -39,8 +39,8 @@
   "engines": { "node": ">=22" },
   "scripts": { "build": "tsup" },
   "dependencies": {
-    "@payproof/bachs": "workspace:*",
-    "@payproof/core": "workspace:*",
+    "@bachsproof/bachs": "workspace:*",
+    "@bachsproof/core": "workspace:*",
     "jiti": "^2.7.0"
   },
   "devDependencies": {

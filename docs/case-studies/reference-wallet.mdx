@@ -3,15 +3,16 @@ title: "Reference wallet"
 description: "Reproduce the vulnerable and corrected duplicate-credit experiment."
 ---
 
-The reference wallet is a small Express application with two persistence modes:
+The reference wallet is a small Express application with the same
+`/webhooks/bachs` route in both modes:
 
-- `vulnerable`: checks payment state, waits at a checkpoint, then writes an
+- `vulnerable`: reads payment state, waits at a checkpoint, then writes an
   unrestricted credit;
 - `corrected`: performs event identity, payment matching, idempotent credit,
   balance update, and payment completion inside one Prisma transaction.
 
-It exists to prove that PayProof can fail a real persisted implementation and
-then pass the corrected implementation under the same schedule.
+It exists to prove that BachsProof can fail a real persisted implementation and
+then pass the corrected implementation under the same controlled schedule.
 
 ## The vulnerable sequence
 
@@ -20,7 +21,6 @@ sequenceDiagram
   participant A as Delivery A
   participant B as Delivery B
   participant DB as PostgreSQL
-
   A->>DB: Read payment: PENDING
   B->>DB: Read payment: PENDING
   A-->>A: Checkpoint arrival
@@ -40,46 +40,42 @@ transaction open while waiting.
 The corrected path uses two identities:
 
 1. `WebhookEvent.eventId` deduplicates one provider delivery.
-2. `WalletCredit.idempotencyKey` is derived from the local payment reference,
-   so two distinct provider events for one financial payment cannot create two
-   credits.
+2. `WalletCredit.idempotencyKey` is `bachs:payment:<reference>`, so distinct
+   provider events for one financial payment cannot create distinct credits.
 
-Inside the transaction it re-reads the payment, validates customer/currency/
-amount, records event identity, protects completed state from older events,
-inserts the unique credit, increments the wallet, and marks both payment and
-event state.
+Inside the transaction, `PrismaWalletStore.processCorrected` re-reads the
+payment, checks customer/currency/amount, records event identity, protects
+completed state from older events, inserts the unique credit, increments the
+wallet, and updates payment/event state. A concurrent unique-key loser is
+reconciled as an idempotent duplicate.
+
+The in-memory store has an intentionally unsafe method for the demonstration
+and a synchronous critical section for the corrected fast test. It is not a
+replacement for the PostgreSQL transaction.
 
 ## Reproduce it
 
-The fast in-memory experiment:
+Fast in-memory experiment:
 
 ```bash
 pnpm exec vitest run apps/reference-wallet/tests/wallet.integration.test.ts
 ```
 
-The PostgreSQL experiment uses a supplied `DATABASE_URL`, checked-in Prisma
-migrations, unique per-run references, and scoped cleanup:
+PostgreSQL experiment with a supplied `DATABASE_URL`:
 
 ```bash
 pnpm exec vitest run apps/reference-wallet/tests/wallet.postgres.integration.test.ts
 ```
 
-The suite is skipped when `DATABASE_URL` is absent; a skipped database test is
-not treated as a pass.
+The PostgreSQL suite is skipped when `DATABASE_URL` is absent; a skipped test
+is not a pass. The test files create scoped references and clean up only their
+own records.
 
-## Observed repository evidence
+## Repository evidence
 
-The validated run in this repository showed:
-
-| Experiment | Result |
-| --- | --- |
-| Vulnerable in-memory wallet | Failed as expected with two committed credits and `INV-001` |
-| Corrected in-memory wallet | Passed with one committed credit |
-| Sequential duplicate and replay | Passed |
-| Callback verification | Passed |
-| Vulnerable PostgreSQL wallet | Detected duplicate committed credits |
-| Corrected PostgreSQL wallet | Committed exactly one credit |
-
-This proves the tested race and database behavior for this reference wallet. It
-does not prove that another application has the same transaction boundaries or
-schema.
+The repository's recorded experiment reports the vulnerable in-memory wallet
+failing with two committed credits and `INV-001`, the corrected in-memory path
+passing with one credit, and the PostgreSQL tests detecting the duplicate in
+vulnerable mode and committing one credit in corrected mode when PostgreSQL is
+available. These results apply to this reference wallet and its test data, not
+to another application's schema or production deployment.

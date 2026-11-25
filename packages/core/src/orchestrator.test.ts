@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { PayProof } from "./orchestrator.js";
+import { BachsProof } from "./orchestrator.js";
 import type { PaymentEvent, ProviderAdapter } from "./types.js";
 
 const servers: Server[] = [];
@@ -11,7 +11,7 @@ afterEach(async () => {
   }
 });
 
-describe("PayProof concurrent duplicate delivery", () => {
+describe("BachsProof concurrent duplicate delivery", () => {
   it("rejects missing real references before creating or delivering a webhook", async () => {
     let requests = 0;
     const server = createServer((_request, response) => {
@@ -37,7 +37,7 @@ describe("PayProof concurrent duplicate delivery", () => {
       }
     };
 
-    const result = await new PayProof({
+    const result = await new BachsProof({
       provider,
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" }
     }).run({ scenario: "concurrent-duplicate-credit", concurrency: 2 });
@@ -89,7 +89,7 @@ describe("PayProof concurrent duplicate delivery", () => {
         };
       }
     };
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider,
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
@@ -97,7 +97,7 @@ describe("PayProof concurrent duplicate delivery", () => {
       }
     });
 
-    const successful = await payproof.run({
+    const successful = await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       concurrency: 3,
       reference: "PAY-CONCURRENT-NO-CHECKPOINT"
@@ -108,7 +108,7 @@ describe("PayProof concurrent duplicate delivery", () => {
     expect(new Set(bodies)).toHaveLength(1);
 
     failDeliveries = true;
-    const failed = await payproof.run({
+    const failed = await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       concurrency: 3,
       reference: "PAY-CONCURRENT-ERRORS"
@@ -152,7 +152,7 @@ describe("PayProof concurrent duplicate delivery", () => {
       }
     };
     let nextReference = 1;
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider,
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       createPayment: (context) => {
@@ -161,12 +161,12 @@ describe("PayProof concurrent duplicate delivery", () => {
       }
     });
 
-    const single = await payproof.run({
+    const single = await bachsproof.run({
       scenario: "sequential-duplicate-webhook",
       amountMinor: 7_500,
       currency: "USD"
     });
-    const unique = await payproof.run({
+    const unique = await bachsproof.run({
       scenario: "concurrent-unique-payments",
       amountMinor: 8_500,
       currency: "EUR",
@@ -205,7 +205,7 @@ describe("PayProof concurrent duplicate delivery", () => {
       serialize(event) { return JSON.stringify(event); },
       expectedState(event) { return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 }; }
     };
-    const payproof = new PayProof({
+    const bachsproof = new BachsProof({
       provider,
       target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       createPayment: () => {
@@ -214,9 +214,9 @@ describe("PayProof concurrent duplicate delivery", () => {
       }
     });
 
-    const failed = await payproof.run({ scenario: "sequential-duplicate-webhook" });
-    const manual = await payproof.run({ scenario: "sequential-duplicate-webhook", reference: "MANUAL-001" });
-    const synthetic = await payproof.run({ scenario: "sequential-duplicate-webhook", syntheticReferences: true });
+    const failed = await bachsproof.run({ scenario: "sequential-duplicate-webhook" });
+    const manual = await bachsproof.run({ scenario: "sequential-duplicate-webhook", reference: "MANUAL-001" });
+    const synthetic = await bachsproof.run({ scenario: "sequential-duplicate-webhook", syntheticReferences: true });
 
     expect(failed.passed).toBe(false);
     expect(failed.report.errors[0]).toContain("Payment preparation failed");

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ExpectedPaymentState, PaymentEvent, ProviderScenario, RunOptions, ScenarioName } from "@payproof/core";
+import type { ExpectedPaymentState, PaymentEvent, ProviderScenario, RunOptions, ScenarioName } from "@bachsproof/core";
 import { formatBachsMoney, parseBachsMoney, safeNumberMoney, toBachsMinorUnits } from "./money.js";
 
 const customerSchema = z.object({
@@ -179,7 +179,7 @@ function checkoutFixture(
   };
 }
 
-function delivery(event: BachsPaymentEvent, input: RunOptions, overrides: Partial<import("@payproof/core").ProviderScenarioDelivery<BachsPaymentEvent>> = {}) {
+function delivery(event: BachsPaymentEvent, input: RunOptions, overrides: Partial<import("@bachsproof/core").ProviderScenarioDelivery<BachsPaymentEvent>> = {}) {
   return {
     event,
     expectedStatus: input.expectedStatus,
@@ -195,7 +195,7 @@ function delivery(event: BachsPaymentEvent, input: RunOptions, overrides: Partia
 export function createBachsScenario(scenario: ScenarioName, input: RunOptions, customerId?: string): ProviderScenario<BachsPaymentEvent> | undefined {
   if (["concurrent-duplicate-credit", "sequential-duplicate-webhook", "concurrent-unique-payments"].includes(scenario)) return undefined;
   if (!input.reference && !input.syntheticReferences) throw new Error(`Real application reference is required for ${scenario}`);
-  const reference = input.reference ?? `PAYPROOF-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const reference = input.reference ?? `BACHSPROOF-${randomUUID().slice(0, 8).toUpperCase()}`;
   const amountMinor = input.amountMinor ?? 5_000_000;
   const currency = input.currency ?? "NGN";
   const base = createBachsMockFixture({ reference, amountMinor, currency, customerId });
@@ -385,7 +385,7 @@ export function createBachsMockFixture(options: BachsFixtureOptions = {}): Bachs
     id: `evt_${randomUUID().replaceAll("-", "")}`,
     type: "collection.succeeded",
     created_at: new Date().toISOString(),
-    organization_id: "acct_payproof_test",
+    organization_id: "acct_bachsproof_test",
     data: {
       charge_id: providerPaymentId,
       checkout_id: checkoutId,

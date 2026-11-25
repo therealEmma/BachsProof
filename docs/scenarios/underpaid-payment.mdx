@@ -3,19 +3,30 @@ title: "Underpaid payment"
 description: "Prevent fulfilment when only part of the expected amount arrives."
 ---
 
-## In plain English
+## What problem does it test?
 
-The provider reports that only part of the amount due arrived. The application
-must not credit the full order before the shortfall is resolved.
+The provider reports that only part of the amount due arrived. An application
+must not credit the full ₦5,000 order before the shortfall is resolved.
 
-## What PayProof does
+## What BachsProof sends
 
 It creates a documented-shaped `collection.underpaid` event containing
 `amount_paid`, `amount_expected`, `amount_remaining`, `currency`, and
-`status: "UNDERPAID"`.
+`status: "UNDERPAID"`. The fixture pays half of the configured amount when
+possible. The normal HTTP expectation is 2xx.
 
-## Expected result
+```js
+{
+  name: "underpayment is not fulfilled",
+  scenario: "underpaid-payment",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-Zero credits. `INV-004` is the primary guard. PayProof does not send a later
-top-up success in this scenario; use a separate lifecycle test if your business
-process supports one.
+## Expected result and failure
+
+Zero credits are expected, so a credit fails `INV-004`. BachsProof does not send a
+later top-up success in this scenario. If your business process supports a
+later payment, test that lifecycle separately and allow asynchronous work to
+settle before verifying. The event is built in `packages/bachs/src/fixtures.ts`.

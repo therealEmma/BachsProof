@@ -3,24 +3,36 @@ title: "Delayed payment confirmation"
 description: "Check that a later valid confirmation is not permanently rejected."
 ---
 
-## In plain English
+## What problem does it test?
 
-An early checkout signal can arrive before the payment is confirmed. A later
-successful collection should still be able to fulfil the payment once it is
-valid.
+An early lifecycle signal can arrive before a payment is confirmed. A later
+successful collection should still be able to fulfil the ₦5,000 payment once it
+is valid. An application should not permanently mark an order unusable because
+it saw an earlier expiry-like signal.
 
-## What PayProof does
+## What BachsProof sends
 
 It sends `checkout.expired` first, then delays a later eligible
 `collection.succeeded` delivery. The delay defaults to 25ms and can be set with
-`delayMs`.
-
-## Expected result
-
-One credit after the delayed success. Configure asynchronous verification if
-your worker commits later. The scenario does not prove behavior beyond the
-configured delay and verification deadline.
+`delayMs`. The deliveries normally expect 2xx. The verification case is the
+later successful event.
 
 ```js
-{ name: "delayed confirmation", scenario: "delayed-payment-confirmation", delayMs: 100 }
+{
+  name: "delayed ₦5,000 confirmation",
+  scenario: "delayed-payment-confirmation",
+  delayMs: 100,
+  amountMinor: 500_000,
+  currency: "NGN"
+}
 ```
+
+## Expected result and failure
+
+After the success is processed, the verifier should observe one credit. Missing
+completion fails `INV-003`; a duplicate fails `INV-001`. If a worker commits
+later, use `pending: true` and a bounded completion deadline. The scenario does
+not prove behavior beyond the configured delay and verification deadline.
+
+The ordered plan is built in `packages/bachs/src/fixtures.ts`, and polling is
+implemented in `packages/core/src/verification.ts`.

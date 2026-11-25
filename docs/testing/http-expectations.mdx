@@ -3,8 +3,8 @@ title: "Understanding HTTP expectations"
 description: "Configure accepted responses for successful and deliberately rejected events."
 ---
 
-Every delivery has an HTTP result. A scenario can expect a status such as `400`,
-`[400, 401]`, or a class such as `4xx`.
+Every delivery has an HTTP result. A scenario can expect one status, a list of
+statuses, or a status class.
 
 ```js
 {
@@ -15,7 +15,11 @@ Every delivery has an HTTP result. A scenario can expect a status such as `400`,
 }
 ```
 
-PayProof evaluates the HTTP expectation separately from financial verification.
-An expected rejection can pass delivery while the financial verifier confirms
-that no credit exists. Conversely, an HTTP `200` can still fail financial
-correctness if the application committed the wrong state.
+Supported values are `400`, `[400, 401]`, `"2xx"`, `"4xx"`, and `"5xx"`.
+Without `expectedStatus`, any non-2xx response is a delivery error. With it, a
+deliberate rejection can pass the transport part of the test.
+
+BachsProof evaluates HTTP expectation separately from financial verification. An
+expected rejection can pass delivery while `verify` confirms zero credits.
+Conversely, HTTP `200` can still fail financial correctness if the application
+committed the wrong state.

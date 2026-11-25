@@ -1,10 +1,11 @@
 ---
 title: "Your first payment test"
-description: "Understand the smallest complete PayProof test."
+description: "Understand the smallest complete BachsProof test."
 ---
 
 Start with `sequential-duplicate-webhook`. It delivers the same eligible
-payment twice, in sequence. A correct application should create one credit.
+payment twice, in sequence. The customer paid once, so a correct wallet should
+create one credit, not two.
 
 ```js
 export const tests = [
@@ -18,9 +19,17 @@ export const tests = [
 ];
 ```
 
-The reference must already exist in your isolated application database and must
-be recognizable by your webhook handler. For repeated runs, prefer
-`createPayment` so every run receives a fresh record.
+`500_000` is ₦5,000 when NGN is represented with two decimal places: 100 kobo
+is one naira. The reference must already exist in your isolated application
+database and must be recognizable by your webhook handler. For repeated runs,
+prefer `createPayment` so every run receives a fresh record.
+
+## What the test sends
+
+The Bachs adapter creates one local `collection.succeeded` event. The core
+serializes that same event twice and sends two POST requests to your webhook.
+The adapter does not call Bachs or create a checkout. The two requests are
+deliberately about delivery behavior, not live settlement.
 
 ## What a pass means
 
@@ -29,7 +38,7 @@ With `verify` configured, a pass means:
 - both webhook deliveries matched their expected HTTP behavior;
 - the callback returned state for the requested reference;
 - the application reported one credit;
-- the credited amount and currency matched the expected payment;
+- the credited amount and currency matched the expected payment; and
 - no financial invariant was violated.
 
 Without `verify`, a pass only describes the delivery outcome. It does not prove
@@ -37,13 +46,13 @@ that a database row or ledger entry was committed.
 
 ## What a failure tells you
 
-Read the failure in this order:
+Read the report in this order:
 
-1. `deliveries` — did the request reach the right route and return the expected
+1. `deliveries`: did the request reach the right route and return the expected
    status?
-2. `errors` — did preparation, signing, parsing, or delivery fail?
-3. `verification` — which invariant was violated?
-4. `observed` — what did the application actually commit?
+2. `errors`: did preparation, signing, parsing, or delivery fail?
+3. `observed`: what did the verifier actually read?
+4. `verification.violations`: which rule did that observation break?
 
 Continue with [Understanding test results](/testing/understanding-results) when
 you are ready to run the full suite.

@@ -1,7 +1,7 @@
-import type { PaymentEvent } from "@payproof/core";
-import type { PayProofConfig } from "./types.js";
+import type { PaymentEvent } from "@bachsproof/core";
+import type { BachsProofConfig } from "./types.js";
 
-/** Type helper for payproof.config.mjs and payproof.config.ts files. */
-export function defineConfig<TEvent extends PaymentEvent>(config: PayProofConfig<TEvent>): PayProofConfig<TEvent> {
+/** Type helper for bachsproof.config.mjs and bachsproof.config.ts files. */
+export function defineConfig<TEvent extends PaymentEvent>(config: BachsProofConfig<TEvent>): BachsProofConfig<TEvent> {
   return config;
 }

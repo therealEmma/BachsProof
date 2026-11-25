@@ -3,16 +3,24 @@ title: "INV-002: Amount Integrity"
 description: "A posted credit must match the expected amount and currency."
 ---
 
-## Meaning
+## What it means
 
-If the test expects NGN 5,000, a posted credit must be NGN 5,000. NGN 4,999,
-NGN 5,001, or a different currency is incorrect.
+If the test expects an NGN ₦5,000 payment, the observed aggregate should be
+`500_000` minor units and currency `NGN`. NGN ₦4,999, ₦5,001, or a different
+currency is not the same payment result.
 
-## How PayProof evaluates it
+```text
+Passing: expected 500000 NGN; observed 500000 NGN; creditCount 1
+Failing: expected 500000 NGN; observed 499900 NGN; creditCount 1
+```
 
-When at least one credit exists, PayProof compares
-`creditedAmountMinor` and `currency` with the expected state. Amounts are
-integer minor units in the provider-neutral core.
+## How BachsProof evaluates it
 
-Investigate the order amount, currency matching, decimal-to-minor conversion,
-and whether fees were incorrectly included in the customer credit.
+When at least one credit exists, BachsProof compares
+`observed.creditedAmountMinor` and `observed.currency` with the expected state.
+Values are integers so a floating-point rounding error cannot hide a mismatch.
+The rule checks the normalized aggregate returned by the callback; it does not
+sum arbitrary database rows itself.
+
+Investigate order amount matching, currency checks, decimal-to-minor
+conversion, and whether fees were incorrectly included in the customer credit.

@@ -6,15 +6,22 @@ description: "Reference for RunOptions and expected HTTP outcomes."
 | Field | Type | Required | Meaning |
 | --- | --- | --- | --- |
 | `scenario` | `ScenarioName` | Yes | One of the 15 implemented names |
-| `amountMinor` | `number` | No | Test amount; Bachs fixture default is 5,000,000 |
-| `currency` | `string` | No | ISO-style currency; Bachs fixture default is `NGN` |
+| `amountMinor` | `number` | No | Test amount; current Bachs fixture default is `5_000_000` |
+| `currency` | `string` | No | ISO-style currency; Bachs default is `NGN` |
 | `reference` | `string` | For one-payment real runs unless prepared | Application payment reference |
 | `references` | `string[]` | For unique-payment manual runs | Distinct references, one per participant |
-| `concurrency` | `number` | No | Positive participant count; scenario default is 2 where applicable |
+| `concurrency` | `number` | No | Positive participant count; duplicate/unique default is 2 in core |
 | `syntheticReferences` | `boolean` | No | Explicitly opt into generated local references |
 | `expectedStatus` | `number`, `number[]`, `"2xx"`, `"4xx"`, `"5xx"` | No | Accepted HTTP result for scenario deliveries |
-| `delayMs` | `number` | No | Provider-plan delay for delayed confirmation |
-| `seed` | `string` | No | Replay/debug metadata |
+| `delayMs` | `number` | No | Delay used by the delayed-confirmation plan |
+| `seed` | `string` | No | Replay/debug metadata; it does not seed OS scheduling |
+| `replay` | `BachsProofReport` | No | Reuse the structured event from a prior report |
 
 `concurrent-unique-payments` accepts `references`, not `reference`. All other
-scenarios accept one `reference`, not `references`.
+scenarios accept one `reference`, not `references`. Explicit references win over
+automatic preparation. Without a reference, callback, or explicit synthetic
+opt-in, the core returns an invalid-input result and sends no webhook.
+
+Use `500_000` for the recurring NGN ₦5,000 example. The current implementation
+default is `5_000_000`; that default is documented here so omitted values do not
+look like ₦5,000 by accident.

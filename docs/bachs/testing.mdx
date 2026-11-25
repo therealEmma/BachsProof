@@ -1,13 +1,13 @@
 ---
 title: "Testing a Bachs integration"
-description: "Combine PayProof fixtures with your application webhook handler."
+description: "Combine BachsProof fixtures with your application webhook handler."
 ---
 
-PayProof tests your webhook handling without requiring a Bachs account or a
-live payment. A typical test configuration is:
+BachsProof tests your webhook handling without requiring a Bachs account or a
+live payment. A typical configuration is:
 
 ```js
-import { bachsAdapter } from "@payproof/cli";
+import { bachsAdapter } from "@bachsproof/cli";
 
 export default {
   provider: bachsAdapter({ mode: "mock" }),
@@ -16,14 +16,24 @@ export default {
     webhookPath: "/webhooks/bachs"
   },
   signing: { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET },
+  requireFinancialVerification: true,
   tests
 };
 ```
 
+The local flow is:
+
+1. create or prepare an isolated application payment reference;
+2. let the adapter build a Bachs-shaped event;
+3. sign the raw body if your route verifies signatures;
+4. deliver it to the real test webhook;
+5. have `verify` read the committed payment and ledger state; and
+6. compare that state with the scenario's expected outcome.
+
 Use the Bachs sandbox separately when you need to validate checkout creation,
-provider settlement, or a real signature from Bachs. The [official local testing
+provider settlement, or a genuine provider delivery. The [official local testing
 guide](https://docs.bachs.io/developer-portal/local-testing) covers provider
-event forwarding; PayProof's mock adapter covers deterministic local scenario
+event forwarding; BachsProof's mock adapter covers deterministic local scenario
 construction.
 
 <Warning>

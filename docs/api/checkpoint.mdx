@@ -16,13 +16,16 @@ SDK exports:
 
 | Function | Purpose |
 | --- | --- |
-| `configureCheckpoint` | Enable an explicit process or request context |
-| `disableCheckpoints` | Remove process-wide state |
-| `isCheckpointEnabled` | Check whether a barrier is active |
-| `runWithCheckpointContext` | Run code under a supplied context |
-| `checkpoint` | Wait at a named barrier |
-| `checkpointMiddleware` | Read request headers only when explicitly enabled |
+| `configureCheckpoint` | Set process-wide context or explicitly allow request headers |
+| `disableCheckpoints` | Remove process-wide state and header activation |
+| `isCheckpointEnabled` | Check whether a barrier context is active |
+| `runWithCheckpointContext` | Run code under a supplied request context |
+| `checkpoint` | Announce arrival at a named barrier and wait for release |
+| `checkpointMiddleware` | Attach request context when both opt-in switches are enabled |
 | `getCheckpointContext` | Read the current context |
 
-Checkpoint calls are no-ops when disabled. They are optional test instrumentation
-and must not be treated as a production synchronization mechanism.
+Checkpoint calls are no-ops when disabled. Enabled request contexts contain
+`controllerUrl`, `sessionId`, `participantId`, `token`, and an optional timeout.
+The controller authenticates the token and participant before it can affect a
+barrier. This is optional test instrumentation, not a production lock or
+authorization mechanism.

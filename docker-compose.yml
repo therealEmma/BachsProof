@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: payproof
-      POSTGRES_PASSWORD: payproof
-      POSTGRES_DB: payproof
+      POSTGRES_USER: bachsproof
+      POSTGRES_PASSWORD: bachsproof
+      POSTGRES_DB: bachsproof
     ports:
       - "5432:5432"
     volumes:
-      - payproof-postgres:/var/lib/postgresql/data
+      - bachsproof-postgres:/var/lib/postgresql/data
 
 volumes:
-  payproof-postgres:
+  bachsproof-postgres:

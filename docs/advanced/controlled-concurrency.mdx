@@ -3,28 +3,62 @@ title: "Controlled concurrency"
 description: "Compare ordinary concurrent delivery with an explicit application barrier."
 ---
 
-Sending requests together does not guarantee that both handlers reach the same
-application line together. A checkpoint lets the application pause at a named
-point while the PayProof controller waits for all participants.
+## Why ordinary concurrency is not enough
+
+Sending two requests in the same JavaScript turn does not guarantee that both
+handlers reach the same line together. The operating system, Node event loop,
+HTTP connection, database pool, and database scheduler all influence the
+interleaving.
+
+For a duplicate ₦5,000 deposit, ordinary mode may happen like this:
 
 ```mermaid
 sequenceDiagram
-  participant Core as PayProof runner
+  participant Core as BachsProof runner
+  participant A as Request A
+  participant B as Request B
+  participant DB as Database
+  Core->>A: Send webhook
+  Core->>B: Send webhook
+  A->>DB: Read PENDING
+  A->>DB: Write credit and complete
+  B->>DB: Read COMPLETED
+  B-->>Core: No duplicate credit
+```
+
+That is a useful real HTTP test, but it may miss the vulnerable interleaving.
+
+## What a checkpoint changes
+
+Put a named checkpoint after the application reads idempotency state:
+
+```mermaid
+sequenceDiagram
+  participant Core as BachsProof runner
   participant A as Request A
   participant B as Request B
   participant C as Checkpoint controller
-
+  participant DB as Database
   Core->>A: Send webhook
   Core->>B: Send webhook
-  A->>C: Arrive after idempotency read
-  B->>C: Arrive after idempotency read
+  A->>DB: Read PENDING
+  A->>C: Arrive at after-read
+  B->>DB: Read PENDING
+  B->>C: Arrive at after-read
   C-->>Core: Both participants arrived
   Core->>C: Release checkpoint
   C-->>A: Continue
   C-->>B: Continue
+  A->>DB: Attempt credit
+  B->>DB: Attempt credit
 ```
 
-Configure it on the runner:
+The checkpoint is like a starting gate: participants wait until everyone has
+reached the gate, then the controller opens it. It does not make the database
+safe. A unique constraint, transaction, or equivalent atomic design must still
+allow only one credit.
+
+Configure the runner:
 
 ```ts
 checkpoint: {
@@ -33,10 +67,14 @@ checkpoint: {
 }
 ```
 
-Then call `checkpoint("after-idempotency-check", { key: reference })` in a
-test-only application path. The barrier is only enabled when the application
-explicitly opts into the request headers.
+The core creates a local `RaceController`, registers participants, sends the
+webhooks with checkpoint headers, waits for arrivals, releases the named
+checkpoint, records the trace, and cleans up the session. The controller is an
+HTTP service so a separate application process can participate.
 
-This controls the named application point, not every scheduler, network, or
-database detail. Report fields set `replay.controlled` to false when no
-checkpoint is used.
+## What it can and cannot guarantee
+
+Controlled mode can make the named instrumented point repeatable and records
+which participants arrived. It cannot make all operating-system, network,
+connection-pool, or database scheduling deterministic. It is test-only and
+should be used after ordinary black-box delivery is working.

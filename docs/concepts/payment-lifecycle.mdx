@@ -3,19 +3,17 @@ title: "Payment lifecycle"
 description: "Understand checkout and collection states before testing them."
 ---
 
-PayProof models the Bachs lifecycle signals that are implemented by the current
-adapter:
+The customer may see “checkout completed” before your application has evidence
+that money was collected. BachsProof therefore keeps lifecycle signals separate
+from the final fulfilment decision.
 
-| Signal | Plain meaning | Eligible for the reference wallet? |
+| Signal | Plain meaning | Eligible in the current adapter? |
 | --- | --- | --- |
-| `checkout.completed` | A checkout finished; it may or may not contain a collected payment | Only when the fixture says it is paid and has a charge |
+| `checkout.completed` | The checkout flow finished; it may still have no charge | Only when it is a paid payment checkout with a charge |
 | `checkout.expired` | An open checkout expired | No |
-| `collection.succeeded` | A payment collection succeeded | Yes |
+| `collection.succeeded` | The provider reports a successful collection | Yes |
 | `collection.underpaid` | Less than the expected amount arrived | No |
 | `collection.failed` | A collection attempt failed | No |
-
-The adapter tests the distinction between a completed checkout and a collected
-payment. A checkout completion alone is not permission to credit a wallet.
 
 ```mermaid
 stateDiagram-v2
@@ -25,11 +23,13 @@ stateDiagram-v2
   CheckoutCompleted --> Collected: collection.succeeded
   CheckoutCompleted --> Underpaid: collection.underpaid
   CheckoutCompleted --> Failed: collection.failed
+  CheckoutExpired --> Collected: later success may arrive
   Collected --> [*]
-  CheckoutExpired --> [*]
   Underpaid --> [*]
   Failed --> [*]
 ```
 
-These are test fixtures based on documented Bachs event types. They are not
-live provider state and do not prove settlement.
+For a ₦5,000 wallet deposit, `checkout.completed` by itself is not permission
+to add `500_000` kobo. The application must match the provider state to its
+own order and decide whether the payment is eligible. These are synthetic
+fixtures based on the documented event names; they do not prove live settlement.

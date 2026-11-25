@@ -1,55 +1,74 @@
 ---
 title: "Installation"
-description: "Install PayProof in an independent application repository."
+description: "Install BachsProof in an independent application repository."
 ---
 
-PayProof is installed in the application repository that owns the webhook you
-want to test. It does not need to be part of the PayProof monorepo.
+BachsProof is installed in the application repository that owns the webhook you
+want to test. It does not need to be part of the BachsProof source repository.
 
 <CodeGroup>
 
 ```bash npm
-npm install --save-dev @payproof/cli
+npm install --save-dev @bachsproof/cli@1.1.0
 ```
 
 ```bash pnpm
-pnpm add -D @payproof/cli
+pnpm add -D @bachsproof/cli@1.1.0
 ```
 
 ```bash yarn
-yarn add --dev @payproof/cli
+yarn add --dev @bachsproof/cli@1.1.0
 ```
 
 </CodeGroup>
 
-The CLI depends on the core runner and the Bachs adapter. The supported Bachs
-adapter currently generates local, documented-shaped fixtures in `mock` mode;
-it does not require a Bachs API key.
+## Which package should I install?
+
+The four BachsProof packages are published at version `1.1.0`:
+
+| Package | Install it when | Responsibility |
+| --- | --- | --- |
+| `@bachsproof/cli` | You want the normal command-line workflow | Loads config, runs named tests, prints summaries, and returns an exit status |
+| `@bachsproof/core` | You want to call BachsProof from Vitest, Jest, or your own runner | Sends deliveries, polls verification, evaluates invariants, and builds reports |
+| `@bachsproof/bachs` | You use the built-in Bachs-shaped provider adapter | Creates fixtures, scenario plans, signatures, and exact money conversions |
+| `@bachsproof/sdk` | You need a repeatable application-level race | Adds optional test-only request checkpoints |
+
+Most developers need only `@bachsproof/cli`. The CLI depends on the core and
+Bachs packages. Install `@bachsproof/core` and `@bachsproof/bachs` directly for a
+programmatic runner. Add `@bachsproof/sdk` only when the optional checkpoint
+workflow is useful.
+
+The built-in Bachs adapter is explicitly `mode: "mock"`. It creates local,
+documented-shaped webhook bodies; it does not need a Bachs API key and does not
+call Bachs.
 
 ## Runtime requirements
 
-- Node.js 22 or later for the current PayProof and official Bachs SDK
-  toolchain.
+- Node.js 22 or later.
 - An application running in an isolated test environment.
 - A reachable webhook URL.
-- A test-side payment preparation function or explicit application references
-  for scenarios that need payments.
+- Either a test-side payment preparation function or explicit application
+  references for scenarios that need payments.
 - A test-side verifier if you want committed financial correctness checks.
 
 ## Initialize the files
 
 ```bash
-npx payproof init
-npx payproof test --help
+npx bachsproof init
 ```
 
-`payproof init` creates:
+`bachsproof init` creates:
 
-- `payproof.config.mjs`;
-- `tests/payproof.test.mjs`;
-- `tests/payproof.setup.mjs`;
-- `tests/payproof.verify.mjs`.
+- `bachsproof.config.mjs`: provider, target URL, signing, callbacks, and test
+  suite wiring;
+- `tests/bachsproof.test.mjs`: the 15 named scenarios;
+- `tests/bachsproof.setup.mjs`: your application-specific `createPayment` hook;
+- `tests/bachsproof.verify.mjs`: your application-specific `verify` hook.
 
-The generated callbacks intentionally throw until you connect them to your own
+The last two callbacks intentionally throw until you connect them to your own
 test data. This prevents a delivery-only run from looking like a financial
-verification pass.
+verification pass. The generated suite uses real application references by
+default. Synthetic references are an explicit fixture-only opt-in.
+
+`bachsproof init` refuses to overwrite an existing file. Use
+`bachsproof init --force` only when replacing those files is intentional.

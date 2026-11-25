@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
-import { signBachsWebhook } from "@payproof/bachs";
+import { signBachsWebhook } from "@bachsproof/bachs";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,7 +24,7 @@ async function run(command: string, args: string[], cwd: string, env: NodeJS.Pro
   });
 }
 
-describe("PayProof CLI in an independent repository", () => {
+describe("BachsProof CLI in an independent repository", () => {
   afterEach(async () => {
     for (const server of servers.splice(0)) {
       await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
@@ -33,7 +33,7 @@ describe("PayProof CLI in an independent repository", () => {
   });
 
   it("installs the CLI archive, initializes a project, and runs signed black-box tests", async () => {
-    const fixture = await mkdtemp(join(process.env.TEMP ?? process.env.TMP ?? ".", "payproof-cli-independent-"));
+    const fixture = await mkdtemp(join(process.env.TEMP ?? process.env.TMP ?? ".", "bachsproof-cli-independent-"));
     temporaryDirectories.push(fixture);
     const archives = join(fixture, "archives");
     await mkdir(archives);
@@ -46,65 +46,65 @@ describe("PayProof CLI in an independent repository", () => {
       if (!file) throw new Error(`Missing archive ${prefix}`);
       return `file:./archives/${file}`;
     };
-    const coreArchive = archive("payproof-core-");
-    const bachsArchive = archive("payproof-bachs-");
-    const cliArchive = archive("payproof-cli-");
+    const coreArchive = archive("bachsproof-core-");
+    const bachsArchive = archive("bachsproof-bachs-");
+    const cliArchive = archive("bachsproof-cli-");
     await writeFile(join(fixture, "package.json"), JSON.stringify({
-      name: "payproof-external-fixture",
+      name: "bachsproof-external-fixture",
       private: true,
       type: "module",
       dependencies: {
-        "@payproof/cli": cliArchive,
-        "@payproof/core": coreArchive,
-        "@payproof/bachs": bachsArchive
+        "@bachsproof/cli": cliArchive,
+        "@bachsproof/core": coreArchive,
+        "@bachsproof/bachs": bachsArchive
       },
       pnpm: {
         overrides: {
-          "@payproof/core": coreArchive,
-          "@payproof/bachs": bachsArchive
+          "@bachsproof/core": coreArchive,
+          "@bachsproof/bachs": bachsArchive
         }
       }
     }, null, 2), "utf8");
     await run(pnpm, ["install", "--offline", "--ignore-scripts"], fixture);
 
-    const cliEntry = join(fixture, "node_modules", "@payproof", "cli", "dist", "cli.js");
-    const help = await run(pnpm, ["exec", "payproof", "--help"], fixture);
-    expect(help.stdout).toContain("PayProof payment correctness testing");
-    const initialized = await run(pnpm, ["exec", "payproof", "init"], fixture);
+    const cliEntry = join(fixture, "node_modules", "@bachsproof", "cli", "dist", "cli.js");
+    const help = await run(pnpm, ["exec", "bachsproof", "--help"], fixture);
+    expect(help.stdout).toContain("BachsProof payment correctness testing");
+    const initialized = await run(pnpm, ["exec", "bachsproof", "init"], fixture);
     try {
-      await access(join(fixture, "payproof.config.mjs"));
+      await access(join(fixture, "bachsproof.config.mjs"));
     } catch {
       throw new Error(`Installed CLI did not initialize the fixture. entry=${cliEntry}\nstdout=${initialized.stdout}\nstderr=${initialized.stderr}`);
     }
-    expect(initialized.stdout).toContain("PayProof initialized successfully!");
-    expect(initialized.stdout).toContain("Step 1: Open payproof.config.mjs");
+    expect(initialized.stdout).toContain("BachsProof initialized successfully!");
+    expect(initialized.stdout).toContain("Step 1: Open bachsproof.config.mjs");
     expect(initialized.stdout).toContain("Step 6: Run all payment scenarios");
-    expect(await readFile(join(fixture, "payproof.config.mjs"), "utf8")).toContain("target");
-    expect(await readFile(join(fixture, "tests", "payproof.test.mjs"), "utf8")).toContain("sequential-duplicate-webhook");
-    expect(await readFile(join(fixture, "tests", "payproof.test.mjs"), "utf8")).not.toContain("PAYPROOF_REFERENCES");
-    expect(await readFile(join(fixture, "tests", "payproof.setup.mjs"), "utf8")).toContain("Implement createPayment in tests/payproof.setup.mjs");
-    expect(await readFile(join(fixture, "tests", "payproof.verify.mjs"), "utf8")).toContain("HTTP 200 only proves");
-    expect(await readFile(join(fixture, "payproof.config.mjs"), "utf8")).toContain("@payproof/cli");
+    expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("target");
+    expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).toContain("sequential-duplicate-webhook");
+    expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).not.toContain("BACHSPROOF_REFERENCES");
+    expect(await readFile(join(fixture, "tests", "bachsproof.setup.mjs"), "utf8")).toContain("Implement createPayment in tests/bachsproof.setup.mjs");
+    expect(await readFile(join(fixture, "tests", "bachsproof.verify.mjs"), "utf8")).toContain("HTTP 200 only proves");
+    expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("@bachsproof/cli");
 
     let defaultRunOutput = "";
     try {
-      await run(pnpm, ["exec", "payproof", "test"], fixture);
+      await run(pnpm, ["exec", "bachsproof", "test"], fixture);
     } catch (error) {
       const failure = error as { stdout?: string; stderr?: string };
       defaultRunOutput = `${failure.stdout ?? ""}\n${failure.stderr ?? ""}`;
     }
-    expect(defaultRunOutput).toContain("Open tests/payproof.setup.mjs");
+    expect(defaultRunOutput).toContain("Open tests/bachsproof.setup.mjs");
 
-    await writeFile(join(fixture, "tests", "payproof.setup.mjs"), `import { randomUUID } from "node:crypto";
+    await writeFile(join(fixture, "tests", "bachsproof.setup.mjs"), `import { randomUUID } from "node:crypto";
 
 export async function createPayment(context) {
   return \`AUTO-\${context.scenario}-\${context.paymentIndex}-\${randomUUID()}\`;
 }
 `, "utf8");
-    const configPath = join(fixture, "payproof.config.mjs");
+    const configPath = join(fixture, "bachsproof.config.mjs");
     const generatedConfig = await readFile(configPath, "utf8");
     await writeFile(configPath, generatedConfig
-      .replace("// import { createPayment } from \"./tests/payproof.setup.mjs\";", "import { createPayment } from \"./tests/payproof.setup.mjs\";")
+      .replace("// import { createPayment } from \"./tests/bachsproof.setup.mjs\";", "import { createPayment } from \"./tests/bachsproof.setup.mjs\";")
       .replace("  // createPayment,", "  createPayment,"), "utf8");
 
     const requests: Array<{ body: string; signature?: string }> = [];
@@ -132,27 +132,27 @@ export async function createPayment(context) {
 
     let tested: { stdout: string; stderr: string };
     try {
-      tested = await run(pnpm, ["exec", "payproof", "test", "--json"], fixture, {
-        PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-        PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
+      tested = await run(pnpm, ["exec", "bachsproof", "test", "--json"], fixture, {
+        BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
+        BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
         BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-        PAYPROOF_USE_SYNTHETIC_REFERENCES: ""
+        BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
       });
     } catch (error) {
       const failure = error as { stdout?: string; stderr?: string; message?: string };
       throw new Error(`${failure.message ?? "installed CLI failed"}\nstdout=${failure.stdout ?? ""}\nstderr=${failure.stderr ?? ""}`);
     }
-    const runAgain = await run(pnpm, ["exec", "payproof", "test", "--json"], fixture, {
-      PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-      PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
+    const runAgain = await run(pnpm, ["exec", "bachsproof", "test", "--json"], fixture, {
+      BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
+      BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
       BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-      PAYPROOF_USE_SYNTHETIC_REFERENCES: ""
+      BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
     });
-    const individualRun = await run(pnpm, ["exec", "payproof", "test", "--name=\"underpaid payment\"", "--json"], fixture, {
-      PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-      PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
+    const individualRun = await run(pnpm, ["exec", "bachsproof", "test", "--name=\"underpaid payment\"", "--json"], fixture, {
+      BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
+      BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
       BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-      PAYPROOF_USE_SYNTHETIC_REFERENCES: ""
+      BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
     });
     const result = JSON.parse(tested.stdout) as Array<{ result: { passed: boolean; report: { financiallyVerified: boolean } } }>;
     const repeatedResult = JSON.parse(runAgain.stdout) as Array<{ result: { passed: boolean; report: { financiallyVerified: boolean } } }>;

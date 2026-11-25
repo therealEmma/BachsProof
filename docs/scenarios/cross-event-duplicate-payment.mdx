@@ -3,23 +3,31 @@ title: "Cross-event duplicate payment"
 description: "Check that two lifecycle events for one payment do not double credit."
 ---
 
-## In plain English
+## What problem does it test?
 
 One financial payment can be described by more than one lifecycle event. The
-application must not treat each event type as a separate payment.
+application must not treat each event type as a separate payment. A ₦5,000
+deposit described by both a completed checkout and a successful collection is
+still one deposit.
 
-## What PayProof does
+## What BachsProof sends
 
-It sends `checkout.completed` and `collection.succeeded` concurrently for the
-same reference and underlying provider payment identity. The checkout fixture
-is eligible only when it is a paid payment checkout with a charge.
+`createBachsScenario` creates `checkout.completed` and `collection.succeeded`
+events concurrently for the same reference, checkout ID, and provider payment
+ID. The checkout is eligible only when it is a payment-mode checkout, has
+`status: "completed"`, `payment_status: "paid"`, a currency, and a charge.
+Both deliveries normally expect 2xx.
 
-## Expected result
+## Expected result and failure
 
-One credit. The scenario checks `INV-001` plus the amount and completion rules.
-It is limited to the documented event semantics represented by the current
-adapter; it does not claim that every Bachs event pair is interchangeable.
+The application should commit one ₦5,000 credit. Two credits fail `INV-001`;
+missing credit fails `INV-003`; a wrong amount or currency fails `INV-002` and
+possibly `INV-005`. A verifier is needed to prove the one-credit result.
 
 ```bash
-npx payproof test --name "cross-event duplicate payment"
+npx bachsproof test --name "cross-event duplicate payment"
 ```
+
+This is limited to the documented event semantics represented by the current
+adapter. It does not claim that every Bachs event pair is interchangeable. The
+plan is built in `packages/bachs/src/fixtures.ts`.

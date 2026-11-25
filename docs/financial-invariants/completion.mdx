@@ -3,16 +3,25 @@ title: "INV-003: Completion"
 description: "An eligible payment must receive its expected credit."
 ---
 
-## Meaning
+## What it means
 
 When the provider event is eligible for fulfilment, the application should
-eventually produce the expected credit.
+eventually produce the expected credit. For a valid ₦5,000 collection, a
+committed `500_000`-kobo credit is the usual passing result.
 
-## How PayProof evaluates it
+```text
+Passing: expected creditCount 1; observed creditCount 1
+Failing: expected creditCount 1; observed creditCount 0
+```
 
-If `expected.eligible` is true and `creditCount` is less than the expected
-count, PayProof records `INV-003`.
+## How BachsProof evaluates it
 
-Investigate whether the reference exists, the event was recognized, amount and
-currency matching rejected the event, a worker is still pending, or the test
-database read is looking at the wrong environment.
+If `expected.eligible` is true and `observed.creditCount` is less than
+`expected.expectedCreditCount`, BachsProof records `INV-003`. If a duplicate
+creates two credits, `INV-001` is the relevant uniqueness failure; completion
+does not hide it.
+
+Investigate whether the reference exists, the event was recognized, amount or
+currency matching rejected it, a worker is still pending, or the verifier read
+the wrong environment. Use `pending: true` while asynchronous work is still
+unfinished so the comparison happens after the completion deadline.

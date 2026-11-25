@@ -5,18 +5,18 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@payproof/core': file:../../reports/payproof-core-1.1.0.tgz
+  '@bachsproof/core': file:../../reports/bachsproof-core-1.1.0.tgz
 
 importers:
 
   .:
     dependencies:
-      '@payproof/bachs':
-        specifier: file:../../reports/payproof-bachs-1.1.0.tgz
-        version: file:../../reports/payproof-bachs-1.1.0.tgz
-      '@payproof/core':
-        specifier: file:../../reports/payproof-core-1.1.0.tgz
-        version: file:../../reports/payproof-core-1.1.0.tgz
+      '@bachsproof/bachs':
+        specifier: file:../../reports/bachsproof-bachs-1.1.0.tgz
+        version: file:../../reports/bachsproof-bachs-1.1.0.tgz
+      '@bachsproof/core':
+        specifier: file:../../reports/bachsproof-core-1.1.0.tgz
+        version: file:../../reports/bachsproof-core-1.1.0.tgz
       express:
         specifier: ^5.1.0
         version: 5.3.0
@@ -25,6 +25,16 @@ importers:
         version: 2.1.9
 
 packages:
+
+  '@bachsproof/bachs@file:../../reports/bachsproof-bachs-1.1.0.tgz':
+    resolution: {integrity: sha512-2x+XvAIK3b0hvrlC2kI+hWSxgkDCw5OH4hkCiuPUHDqMt/tAGfadRvOaJU0jtctHyHBU46nzqEhKSWqUVXR0ZA==, tarball: file:../../reports/bachsproof-bachs-1.1.0.tgz}
+    version: 1.1.0
+    engines: {node: '>=22'}
+
+  '@bachsproof/core@file:../../reports/bachsproof-core-1.1.0.tgz':
+    resolution: {integrity: sha512-jJx9q2j+K0YK+5/E7Paft7lH+XIdaidKU9yDUjtY3XxnDJc22w22l3D5waL3tMQCeBZpnU+AsHNojFjOtP0EOw==, tarball: file:../../reports/bachsproof-core-1.1.0.tgz}
+    version: 1.1.0
+    engines: {node: '>=22'}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -166,16 +176,6 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
-
-  '@payproof/bachs@file:../../reports/payproof-bachs-1.1.0.tgz':
-    resolution: {integrity: sha512-zTdF1tbEXt7W79j0/9z2fsrSueq3VE8Cd+n3rhyVnVuBX37vdHzAPUwIvCKh4g2Ot6kdzMPlqs70dKCXKwRPPw==, tarball: file:../../reports/payproof-bachs-1.1.0.tgz}
-    version: 1.1.0
-    engines: {node: '>=22'}
-
-  '@payproof/core@file:../../reports/payproof-core-1.1.0.tgz':
-    resolution: {integrity: sha512-uigySXNFamAAbePq6+ugRvP9ZbZzFZC2Yy/1R27lLOnMDtib58mCglWh9tOrdSbB1SdWwym58DQ6jlAu70aGEg==, tarball: file:../../reports/payproof-core-1.1.0.tgz}
-    version: 1.1.0
-    engines: {node: '>=22'}
 
   '@rollup/rollup-android-arm-eabi@4.68.8':
     resolution: {integrity: sha512-7l9FdeCGjhmMTVePgndK4t9u5tLR+VuTTMoyc0PscqZDdYjS07ZsQ0vQYsWsODu/ZZYPG7WVJwbUZ77n1hVT+w==}
@@ -782,6 +782,16 @@ packages:
 
 snapshots:
 
+  '@bachsproof/bachs@file:../../reports/bachsproof-bachs-1.1.0.tgz':
+    dependencies:
+      '@bachsproof/core': file:../../reports/bachsproof-core-1.1.0.tgz
+      zod: 3.25.76
+
+  '@bachsproof/core@file:../../reports/bachsproof-core-1.1.0.tgz':
+    dependencies:
+      undici: 7.30.2
+      zod: 3.25.76
+
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
 
@@ -852,16 +862,6 @@ snapshots:
     optional: true
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
-
-  '@payproof/bachs@file:../../reports/payproof-bachs-1.1.0.tgz':
-    dependencies:
-      '@payproof/core': file:../../reports/payproof-core-1.1.0.tgz
-      zod: 3.25.76
-
-  '@payproof/core@file:../../reports/payproof-core-1.1.0.tgz':
-    dependencies:
-      undici: 7.30.2
-      zod: 3.25.76
 
   '@rollup/rollup-android-arm-eabi@4.68.8':
     optional: true

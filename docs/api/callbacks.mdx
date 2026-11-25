@@ -15,7 +15,10 @@ type PaymentReferenceCreator = (context: {
 }) => string | Promise<string>;
 ```
 
-Return a fresh non-empty application reference. A thrown error or duplicate
+Return a fresh, non-empty application reference. `paymentIndex` is zero-based.
+`paymentCount` is the number of references required for this scenario. For a
+₦5,000 deposit, the callback would normally create an order for `500_000` NGN
+minor units and return its reference. A thrown error, empty string, or duplicate
 reference fails preparation and prevents delivery for that scenario.
 
 ## `verify(reference, context?)`
@@ -46,6 +49,8 @@ The returned input requires:
 }
 ```
 
-The optional context includes the scenario, payment reference, expected outcome,
+`pending: true` tells the core that asynchronous processing is unfinished. The
+optional context includes the scenario, payment reference, expected outcome,
 related events and identifiers, and delivery records. It is diagnostic context;
-do not use it to return a predetermined result.
+do not use it to return a predetermined result. The returned reference must
+match the reference requested by BachsProof.

@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { BachsWebhookError, webhooks } from "@bachs/sdk";
-import { normalizeBachsWebhookEvent, parseBachsWebhookEvent, type NormalizedBachsPayment } from "@payproof/bachs";
-import { checkpoint, checkpointMiddleware, configureCheckpoint } from "@payproof/sdk";
+import { normalizeBachsWebhookEvent, parseBachsWebhookEvent, type NormalizedBachsPayment } from "@bachsproof/bachs";
+import { checkpoint, checkpointMiddleware, configureCheckpoint } from "@bachsproof/sdk";
 import { ZodError } from "zod";
 import { InMemoryWalletStore } from "./memory-store.js";
 import { PrismaWalletStore } from "./prisma-store.js";

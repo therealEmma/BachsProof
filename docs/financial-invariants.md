@@ -14,4 +14,4 @@ records for the reference. Callback values are validated with Zod before
 evaluation. HTTP success is not treated as financial success. Individual
 references are checked, and amounts remain integer minor units throughout.
 
-For asynchronous applications, return `{ pending: true, ... }` until committed state is readable. PayProof polls for the configured bounded completion window. Negative scenarios also use a short observation window, so an immediate zero-credit response is not treated as proof that a delayed handler will never create a credit. If state remains pending when the deadline expires, the run is unverified and fails rather than being converted into a financial pass.
+For asynchronous applications, return `{ pending: true, ... }` until committed state is readable. BachsProof polls for the configured bounded completion window. Negative scenarios also use a short observation window, so an immediate zero-credit response is not treated as proof that a delayed handler will never create a credit. If state remains pending when the deadline expires, the run is unverified and fails rather than being converted into a financial pass.

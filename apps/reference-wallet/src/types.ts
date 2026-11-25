@@ -28,7 +28,7 @@ export interface PaymentSnapshot {
   lastEventCreatedAt?: string;
 }
 
-/** The exact financial fields PayProof needs to evaluate its invariants. */
+/** The exact financial fields BachsProof needs to evaluate its invariants. */
 export interface StateInspection {
   reference: string;
   status: string;

@@ -179,7 +179,7 @@ export interface CheckpointTraceEvent {
 }
 
 /** Structured report persisted by callers when they need a durable failure trace. */
-export interface PayProofReport {
+export interface BachsProofReport {
   reportVersion: "1.1";
   scenario: ScenarioName;
   provider: string;
@@ -213,13 +213,13 @@ export interface PayProofReport {
   completedAt?: string;
 }
 
-export interface PayProofResult {
+export interface BachsProofResult {
   passed: boolean;
-  report: PayProofReport;
+  report: BachsProofReport;
 }
 
 /** Network details for the application under test. */
-export interface PayProofTarget {
+export interface BachsProofTarget {
   baseUrl: string;
   webhookPath: string;
   headers?: Record<string, string>;
@@ -255,9 +255,9 @@ export interface FinancialVerificationInput {
 /** One-argument callbacks remain valid; the second argument is optional. */
 export type FinancialVerifier = (reference: string, context?: FinancialVerificationContext) => Promise<FinancialVerificationInput> | FinancialVerificationInput;
 
-export interface PayProofOptions<TEvent extends PaymentEvent = PaymentEvent> {
+export interface BachsProofOptions<TEvent extends PaymentEvent = PaymentEvent> {
   provider: ProviderAdapter<TEvent>;
-  target: PayProofTarget;
+  target: BachsProofTarget;
   /** Optional test-only application payment/order preparation callback. */
   createPayment?: PaymentReferenceCreator;
   /** Optional test-only callback that reads committed financial state. */
@@ -286,5 +286,5 @@ export interface RunOptions {
   /** Optional bounded delay used by delayed provider scenarios. */
   delayMs?: number;
   seed?: string;
-  replay?: PayProofReport;
+  replay?: BachsProofReport;
 }

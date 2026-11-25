@@ -3,27 +3,64 @@ title: "Checkpoint SDK"
 description: "Add optional request-scoped checkpoint instrumentation."
 ---
 
-`@payproof/sdk` is a small optional package. It does not depend on Express and
-can be adapted to another HTTP framework.
+`@bachsproof/sdk@1.1.0` is a small optional package. It has no Express
+dependency and can be adapted to another HTTP framework. It is disabled unless
+the application explicitly enables the test-only request-header path.
+
+## Express setup
 
 ```ts
 import {
   checkpoint,
   checkpointMiddleware,
   configureCheckpoint
-} from "@payproof/sdk";
+} from "@bachsproof/sdk";
 
-app.use(checkpointMiddleware({ enabled: process.env.PAYPROOF_TEST_MODE === "true" }));
+const testMode = process.env.BACHSPROOF_TEST_MODE === "true";
+
+// This switch allows the middleware to trust BachsProof's request headers.
+// Keep it false in an ordinary production process.
+configureCheckpoint({
+  enabled: false,
+  allowRequestHeaders: testMode
+});
+
+app.use(checkpointMiddleware({
+  enabled: testMode,
+  timeoutMs: 10_000
+}));
 
 // In the handler, after reading the idempotency state:
-await checkpoint("after-idempotency-check", { key: payment.reference });
+await checkpoint("after-idempotency-check", {
+  key: payment.reference
+});
 ```
 
-The middleware only accepts PayProof request headers when the application has
-also enabled request-header activation through `configureCheckpoint`. Disabled
-calls return immediately, so production code can keep the call behind a
-test-only integration boundary.
+Both switches matter. The middleware must be enabled by the host, and
+`configureCheckpoint` must set `allowRequestHeaders: true`. BachsProof's runner
+adds `x-bachsproof-enabled`, controller URL, session, participant, and token
+headers only in controlled mode.
+
+## How a request reaches the barrier
+
+`checkpointMiddleware` reads the request headers and uses Node's
+`AsyncLocalStorage` to attach a request-specific context. `checkpoint(name)`
+posts an authenticated arrival to the core's local `RaceController` and awaits
+its response. The controller holds that response until the core calls
+`release`. Each participant has its own ID, so two requests in one process do
+not share a context.
+
+The SDK sends `participantId`, optional `key`, and optional metadata. It uses a
+bounded timeout and supports an abort signal. Disabled calls return before any
+network request. The implementation is `packages/sdk/src/checkpoint.ts`; the
+HTTP barrier is `packages/core/src/race-controller.ts`.
 
 Available helpers include `configureCheckpoint`, `disableCheckpoints`,
-`isCheckpointEnabled`, `runWithCheckpointContext`, `checkpoint`, and
-`getCheckpointContext`.
+`isCheckpointEnabled`, `runWithCheckpointContext`, `checkpoint`,
+`checkpointMiddleware`, and `getCheckpointContext`.
+
+<Warning>
+This SDK is test instrumentation, not a production lock or authorization
+mechanism. Keep request-header activation inside an authorized test process and
+do not expose the controller outside the test boundary.
+</Warning>

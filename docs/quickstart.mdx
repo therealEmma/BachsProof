@@ -1,34 +1,40 @@
 ---
 title: "Quickstart"
-description: "Run your first financially verified PayProof test."
+description: "Run your first financially verified BachsProof test."
 ---
 
 This guide assumes an existing backend with a Bachs-compatible webhook route.
 The route can be Express, Fastify, NestJS, Go, Python, or another HTTP server.
-PayProof does not modify it.
+BachsProof does not modify it. Use an isolated application process and database
+throughout this guide.
+
+The goal is a small, useful test: a customer deposits **₦5,000**, the same
+successful notification is delivered twice, and the application must save one
+credit of ₦5,000.
 
 <Steps>
   <Step title="Install and initialize">
     ```bash
-    pnpm add -D @payproof/cli
-    npx payproof init
+    pnpm add -D @bachsproof/cli@1.1.0
+    npx bachsproof init
     ```
 
-    Start the application in its isolated test configuration.
+    Start the application in its isolated test configuration. The application
+    must expose the webhook path you will put in `bachsproof.config.mjs`.
   </Step>
 
   <Step title="Configure the endpoint and signing secret">
-    Edit `payproof.config.mjs`:
+    Edit `bachsproof.config.mjs`:
 
     ```js
-    import { bachsAdapter } from "@payproof/cli";
-    import { tests } from "./tests/payproof.test.mjs";
+    import { bachsAdapter } from "@bachsproof/cli";
+    import { tests } from "./tests/bachsproof.test.mjs";
 
     export default {
       provider: bachsAdapter({ mode: "mock" }),
       target: {
-        baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-        webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
+        baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+        webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
       },
       signing: process.env.BACHS_WEBHOOK_SECRET
         ? { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET }
@@ -37,12 +43,13 @@ PayProof does not modify it.
     };
     ```
 
-    The signing secret must be the test-only secret your application uses to
-    verify the raw webhook body.
+    `baseUrl + webhookPath` is where BachsProof sends the POST request. The
+    signing secret is the test-only secret your application uses to verify the
+    raw webhook body. It is not a Bachs API key.
   </Step>
 
-  <Step title="Prepare an application payment">
-    Open `tests/payproof.setup.mjs` and connect `createPayment` to an existing
+  <Step title="Create a fresh application payment">
+    Open `tests/bachsproof.setup.mjs` and connect `createPayment` to an existing
     test API, application service, ORM, or seed helper:
 
     ```js
@@ -57,43 +64,60 @@ PayProof does not modify it.
     }
     ```
 
-    Uncomment the import and `createPayment` property in the config. Every call
-    must create a fresh isolated record.
+    Uncomment the import and `createPayment` property in the config. Every
+    call must create a fresh isolated record. The function above is application
+    code: `testSupport.createPayment` is not a BachsProof API.
+
+    Money in BachsProof is an integer minor-unit value. With two decimal places,
+    `500_000` kobo means ₦5,000. The adapter implementation's omitted default
+    is `5_000_000`, so set `amountMinor: 500_000` when you want this guide's
+    ₦5,000 example.
   </Step>
 
-  <Step title="Verify committed financial state">
-    Implement `verify` in `tests/payproof.verify.mjs`. It must read actual
-    committed credits or ledger entries, not return expected values:
+  <Step title="Read the committed financial state">
+    Implement `verify` in `tests/bachsproof.verify.mjs`. It must read actual
+    committed credits or ledger entries, not return the expected values:
 
     ```js
-    export async function verify(reference) {
+    export async function verify(reference, context) {
       const state = await testSupport.readCommittedState(reference);
       return {
         reference,
         creditCount: state.credits.length,
-        creditedAmountMinor: state.credits.reduce((sum, credit) => sum + credit.amountMinor, 0),
+        creditedAmountMinor: state.credits.reduce(
+          (sum, credit) => sum + credit.amountMinor,
+          0
+        ),
         currency: state.currency,
-        status: state.status
+        status: state.status,
+        pending: state.pending
       };
     }
     ```
 
     Uncomment `verify` and `requireFinancialVerification: true` in the config.
+    The `context` argument is optional diagnostic information; it is not proof
+    of what the application saved. If a worker is still processing, return
+    `pending: true` until the committed read is complete.
   </Step>
 
   <Step title="Run one test, then the suite">
     ```bash
-    npx payproof test --name "sequential duplicate webhook"
-    npx payproof test
+    npx bachsproof test --name "sequential duplicate webhook"
+    npx bachsproof test
     ```
 
-    A financially verified result means PayProof inspected the callback result
-    and all applicable invariants passed. A delivery-only result is clearly
-    reported as unverified.
+    The CLI runs selected tests sequentially, while deliveries inside a
+    concurrent scenario still overlap. A financially verified result means
+    BachsProof inspected the callback result and all applicable invariants passed.
+    A delivery-only result is clearly reported as unverified.
+
+    Read `deliveries` for HTTP behavior, `observed` for the records returned by
+    your verifier, and `verification.violations` for the failed financial rule.
   </Step>
 </Steps>
 
 <Warning>
-Never point the generated configuration at production. PayProof's Bachs
+Never point the generated configuration at production. BachsProof's Bachs
 fixtures are synthetic and must stay inside an authorized test environment.
 </Warning>

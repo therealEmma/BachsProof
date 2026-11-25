@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "PayProof",
+  "name": "BachsProof",
   "theme": "mint",
   "colors": {
     "primary": "#111111",
@@ -12,7 +12,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/therealEmma/PayProof",
+          "href": "https://github.com/therealEmma/BachsProof",
           "icon": "github"
         }
       ]
@@ -24,7 +24,7 @@
         "root": "index",
         "pages": [
           "index",
-          "why-payproof",
+          "why-bachsproof",
           "installation",
           "quickstart",
           "first-payment-test"
@@ -44,21 +44,21 @@
         ]
       },
       {
-        "group": "How PayProof works",
+        "group": "How BachsProof works",
         "icon": "workflow",
         "pages": [
-          "how-payproof-works/architecture",
-          "how-payproof-works/execution-lifecycle",
-          "how-payproof-works/payment-events",
-          "how-payproof-works/signing-and-delivery",
-          "how-payproof-works/payment-preparation",
-          "how-payproof-works/financial-verification",
-          "how-payproof-works/invariants",
-          "how-payproof-works/reports"
+          "how-bachsproof-works/architecture",
+          "how-bachsproof-works/execution-lifecycle",
+          "how-bachsproof-works/payment-events",
+          "how-bachsproof-works/signing-and-delivery",
+          "how-bachsproof-works/payment-preparation",
+          "how-bachsproof-works/financial-verification",
+          "how-bachsproof-works/invariants",
+          "how-bachsproof-works/reports"
         ]
       },
       {
-        "group": "Testing with PayProof",
+        "group": "Testing with BachsProof",
         "icon": "flask-conical",
         "pages": [
           "testing/configuration",

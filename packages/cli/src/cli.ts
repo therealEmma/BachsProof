@@ -3,14 +3,14 @@ import { initProject } from "./init.js";
 import { loadConfig, runConfig, summarizeRuns } from "./runner.js";
 
 function usage(): string {
-  return `PayProof payment correctness testing
+  return `BachsProof payment correctness testing
 
 Usage:
-  payproof init [directory] [--force]
-  payproof test [--config <path>] [--name <test-name>] [--json]
+  bachsproof init [directory] [--force]
+  bachsproof test [--config <path>] [--name <test-name>] [--json]
 
-init creates payproof.config.mjs, tests/payproof.test.mjs,
-tests/payproof.setup.mjs, and a hard-fail tests/payproof.verify.mjs template.
+init creates bachsproof.config.mjs, tests/bachsproof.test.mjs,
+tests/bachsproof.setup.mjs, and a hard-fail tests/bachsproof.verify.mjs template.
 test sends configured provider events to the target webhook and reports delivery
 and, when configured, committed financial verification results.
 `;
@@ -18,71 +18,71 @@ and, when configured, committed financial verification results.
 
 function explainOnboardingError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("Refusing to overwrite existing PayProof files")) {
-    return `${message}\nOpen the listed files if you want to keep them, or run "payproof init --force" only when replacing them is intentional.`;
+  if (message.includes("Refusing to overwrite existing BachsProof files")) {
+    return `${message}\nOpen the listed files if you want to keep them, or run "bachsproof init --force" only when replacing them is intentional.`;
   }
   if (message.includes("real application reference is required") || message.includes("A real application reference is required")) {
-    return `${message}\nOpen tests/payproof.setup.mjs and implement createPayment, or add a real reference to the selected test. Use PAYPROOF_USE_SYNTHETIC_REFERENCES=true only for an isolated fixture run.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs and implement createPayment, or add a real reference to the selected test. Use BACHSPROOF_USE_SYNTHETIC_REFERENCES=true only for an isolated fixture run.`;
   }
   if (message.includes("Payment preparation failed") || message.includes("createPayment must return")) {
-    return `${message}\nOpen tests/payproof.setup.mjs. Create an isolated test payment and return its non-empty order or payment reference. PayProof will not send a webhook until preparation succeeds.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs. Create an isolated test payment and return its non-empty order or payment reference. BachsProof will not send a webhook until preparation succeeds.`;
   }
   if (message.includes("already assigned to another selected scenario")) {
-    return `${message}\nOpen tests/payproof.setup.mjs or tests/payproof.test.mjs and make each selected scenario use a fresh payment reference.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs or tests/bachsproof.test.mjs and make each selected scenario use a fresh payment reference.`;
   }
   if (message.includes("Financial verification is required")) {
-    return `${message}\nOpen tests/payproof.verify.mjs, implement verify(reference, context) by reading committed financial records, then enable verify and requireFinancialVerification in payproof.config.mjs.`;
+    return `${message}\nOpen tests/bachsproof.verify.mjs, implement verify(reference, context) by reading committed financial records, then enable verify and requireFinancialVerification in bachsproof.config.mjs.`;
   }
   if (message.includes("requires target.baseUrl") || message.includes("requires a provider adapter") || message.includes("requires at least one test")) {
-    return `${message}\nOpen payproof.config.mjs and follow its numbered STEP sections. The provider, target URL/path, and tests are required.`;
+    return `${message}\nOpen bachsproof.config.mjs and follow its numbered STEP sections. The provider, target URL/path, and tests are required.`;
   }
   if (message.includes("Financial verification returned")) {
-    return `${message}\nOpen tests/payproof.verify.mjs and return the requested reference plus the actual creditCount, creditedAmountMinor, and currency from committed test data.`;
+    return `${message}\nOpen tests/bachsproof.verify.mjs and return the requested reference plus the actual creditCount, creditedAmountMinor, and currency from committed test data.`;
   }
   if (message.includes("Webhook delivery") && message.includes("HTTP 4")) {
-    return `${message}\nOpen payproof.config.mjs STEP 2 and check PAYPROOF_TARGET_URL, PAYPROOF_WEBHOOK_PATH, and BACHS_WEBHOOK_SECRET. Your application may also be rejecting the test event as expected; set expectedStatus in tests/payproof.test.mjs when that rejection is part of the scenario.`;
+    return `${message}\nOpen bachsproof.config.mjs STEP 2 and check BACHSPROOF_TARGET_URL, BACHSPROOF_WEBHOOK_PATH, and BACHS_WEBHOOK_SECRET. Your application may also be rejecting the test event as expected; set expectedStatus in tests/bachsproof.test.mjs when that rejection is part of the scenario.`;
   }
   if (message.includes("Webhook delivery") && message.includes("HTTP 5")) {
     return `${message}\nOpen your application's test webhook handler and logs. The application returned a server error while handling the simulated event.`;
   }
-  if (message.includes("No PayProof test named")) {
-    return `${message}\nOpen tests/payproof.test.mjs and copy the exact value from the test's name property, for example "sequential duplicate webhook".`;
+  if (message.includes("No BachsProof test named")) {
+    return `${message}\nOpen tests/bachsproof.test.mjs and copy the exact value from the test's name property, for example "sequential duplicate webhook".`;
   }
   return message;
 }
 
 function printInitializationGuide(): void {
   console.log(`
-PayProof initialized successfully!
+BachsProof initialized successfully!
 
-WHAT IS PAYPROOF?
-PayProof sends simulated payment webhooks to your application and checks
+WHAT IS BACHSPROOF?
+BachsProof sends simulated payment webhooks to your application and checks
 whether your application handles money correctly. It does not move real money.
 
 GET STARTED
 
-Step 1: Open payproof.config.mjs
+Step 1: Open bachsproof.config.mjs
         Set your application's base URL, webhook path, and test-only signing secret.
 
-Step 2: Open tests/payproof.setup.mjs
-        Show PayProof how to create an isolated test payment and return its reference.
+Step 2: Open tests/bachsproof.setup.mjs
+        Show BachsProof how to create an isolated test payment and return its reference.
         This is optional when you provide references manually in the test file.
 
-Step 3: Open tests/payproof.verify.mjs
-        Show PayProof how to read the actual payment and credit records from your test data.
+Step 3: Open tests/bachsproof.verify.mjs
+        Show BachsProof how to read the actual payment and credit records from your test data.
 
 Step 4: Enable the two functions
-        Uncomment createPayment in payproof.config.mjs. If you want financial
+        Uncomment createPayment in bachsproof.config.mjs. If you want financial
         correctness checks, also uncomment verify and requireFinancialVerification.
 
 Step 5: Run your first test
-        pnpm exec payproof test --name "sequential duplicate webhook"
+        pnpm exec bachsproof test --name "sequential duplicate webhook"
 
 Step 6: Run all payment scenarios
-        pnpm exec payproof test
+        pnpm exec bachsproof test
 
 IMPORTANT
-Only use PayProof against an isolated test environment.
+Only use BachsProof against an isolated test environment.
 Never send simulated payment webhooks to a production application.
 `);
 }
@@ -118,7 +118,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   }
   if (command !== "test") throw new Error(`Unknown command ${command}\n\n${usage()}`);
 
-  const configPath = valueAfter(args, "--config") ?? "payproof.config.mjs";
+  const configPath = valueAfter(args, "--config") ?? "bachsproof.config.mjs";
   const testName = valueAfter(args, "--name");
   const config = await loadConfig(configPath);
   const results = await runConfig(config, { testName });
@@ -128,7 +128,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     const json = JSON.stringify(results, null, 2);
     console.log(redact(json, config.signing?.secret));
   } else {
-    console.log(`PayProof: ${resolve(configPath)}`);
+    console.log(`BachsProof: ${resolve(configPath)}`);
     for (const { name, result } of results) {
       const verification = result.report.financiallyVerified ? "financially verified" : "delivery-only; financial verification not configured";
       const duration = result.report.completedAt ? Math.max(0, Date.parse(result.report.completedAt) - Date.parse(result.report.startedAt)) : 0;

@@ -3,13 +3,13 @@ title: "Writing payment tests"
 description: "Configure one scenario or a complete suite."
 ---
 
-The CLI test file exports an array of named `PayProofCliTest` objects. The name
-is used by `--name`; the remaining fields are `RunOptions`.
+The CLI test file exports an array of named `BachsProofCliTest` objects. The
+`name` is used by `--name`; the remaining fields are `RunOptions`.
 
 ```js
 export const tests = [
   {
-    name: "one payment is credited once",
+    name: "one ₦5,000 payment is credited once",
     scenario: "sequential-duplicate-webhook",
     amountMinor: 500_000,
     currency: "NGN"
@@ -24,11 +24,17 @@ export const tests = [
 ];
 ```
 
-The CLI executes selected tests sequentially by default. Concurrency belongs to
-the scenario itself and is preserved inside that run.
+The amount is in minor units: `500_000` kobo is ₦5,000 at scale two. If no
+amount is supplied, the current Bachs fixture default is `5_000_000`; set it
+explicitly when your application order is ₦5,000.
 
-Use exact names with:
+The CLI executes selected tests sequentially by default. Concurrency belongs to
+the scenario itself and is preserved inside that run. Use the exact name:
 
 ```bash
-npx payproof test --name "concurrent duplicates stay idempotent"
+npx bachsproof test --name "concurrent duplicates stay idempotent"
 ```
+
+Use a fresh reference for each test when using manual references. Automatic
+preparation is safer for a complete suite because it creates fresh records for
+the selected scenarios.

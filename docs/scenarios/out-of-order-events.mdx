@@ -3,21 +3,34 @@ title: "Out-of-order events"
 description: "Check that an older non-fulfilling event cannot replace newer success."
 ---
 
-## In plain English
+## What problem does it test?
 
-Networks can deliver an older event after a newer one. An expired checkout that
-arrives after a successful collection must not erase the completed state.
+Networks can deliver an older event after a newer one. If a successful ₦5,000
+collection is followed by an older checkout expiry, the expiry must not erase
+the completed financial state.
 
-## What PayProof does
+## What BachsProof sends
 
-It sends a newer eligible `collection.succeeded` event first, then an older
-`checkout.expired` event, sequentially. The corrected reference wallet compares
-event timestamps and protects completed state.
+The adapter sends a newer eligible `collection.succeeded` first, then an older
+`checkout.expired` event, sequentially. Both deliveries normally expect 2xx.
+The events have different event IDs and timestamps; the application must use
+the event time and durable state, not arrival order alone.
 
-## Expected result
+## Expected result and failure
 
-One credit and a completed financial state. The key checks are `INV-001` and
-`INV-003`; `INV-004` also guards the non-fulfilling event.
+The application should keep one completed credit. `INV-001` protects uniqueness
+and `INV-003` protects completion. `INV-004` describes the older event's
+non-fulfilling expectation, but the primary correctness question is that it does
+not undo the valid credit.
 
-The scenario tests delivery order and application state ordering, not provider
-retry scheduling or every possible event type.
+```js
+{
+  name: "older expiry cannot undo success",
+  scenario: "out-of-order-events",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
+
+The plan is `createBachsScenario` in `packages/bachs/src/fixtures.ts`. The
+corrected reference wallet compares event timestamps in its store.

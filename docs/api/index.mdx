@@ -1,14 +1,14 @@
 ---
 title: "API reference"
-description: "Reference for PayProof's CLI, callbacks, runner, adapters, and reports."
+description: "Reference for BachsProof's CLI, callbacks, runner, adapters, and reports."
 ---
 
-This section is derived from the current exported TypeScript packages. The CLI
-and core are the main public surfaces; the Bachs and checkpoint pages describe
-their provider-specific and optional APIs.
+This reference is checked against the exported TypeScript in the four published
+`1.1.0` packages. The CLI is the easiest public surface; the core, Bachs, and
+checkpoint pages explain the lower-level contracts.
 
 <CardGroup cols={2}>
-  <Card title="CLI" href="/api/cli" icon="terminal">Commands and flags.</Card>
+  <Card title="CLI" href="/api/cli" icon="terminal">Commands, flags, and exit codes.</Card>
   <Card title="Configuration" href="/api/configuration" icon="file-cog">CLI config fields and defaults.</Card>
   <Card title="Callbacks" href="/api/callbacks" icon="database">Payment preparation and verification.</Card>
   <Card title="Programmatic API" href="/api/programmatic" icon="braces">Core runner methods and results.</Card>
@@ -16,6 +16,6 @@ their provider-specific and optional APIs.
   <Card title="Reports" href="/api/reports" icon="file-json">Structured evidence fields.</Card>
 </CardGroup>
 
-Removed reset endpoints and HTTP inspection configuration are intentionally not
-part of this reference. Payment preparation and financial reads belong to the
-application's test environment.
+Payment preparation, verification, and cleanup belong to the application's test
+environment. Reset endpoints and HTTP inspection configuration are intentionally
+not part of this API.

@@ -1,4 +1,4 @@
-# PayProof — Product Requirements Document
+# BachsProof — Product Requirements Document
 
 **Version:** 1.1  
 **Status:** Approved for MVP development  
@@ -21,11 +21,11 @@
 
 # 1. Executive Summary
 
-PayProof is an open-source TypeScript testing framework that helps developers identify and reproduce financial correctness bugs in applications integrated with payment infrastructure.
+BachsProof is an open-source TypeScript testing framework that helps developers identify and reproduce financial correctness bugs in applications integrated with payment infrastructure.
 
 The first release focuses on **Bachs-powered applications**, particularly those implementing wallet funding, payment collections, and webhook-driven financial operations.
 
-PayProof tests whether applications maintain correct financial state when payment events are:
+BachsProof tests whether applications maintain correct financial state when payment events are:
 
 - Delivered multiple times.
 - Processed concurrently.
@@ -33,9 +33,9 @@ PayProof tests whether applications maintain correct financial state when paymen
 - Interrupted by failures.
 - Retried after partial processing.
 
-Unlike general-purpose testing frameworks, PayProof provides predefined payment failure scenarios, financial invariants, controlled concurrency instrumentation, and reproducible execution reports.
+Unlike general-purpose testing frameworks, BachsProof provides predefined payment failure scenarios, financial invariants, controlled concurrency instrumentation, and reproducible execution reports.
 
-PayProof is designed to complement existing testing frameworks such as Vitest rather than replace them.
+BachsProof is designed to complement existing testing frameworks such as Vitest rather than replace them.
 
 ## Product Vision
 
@@ -43,13 +43,13 @@ Make payment correctness testing accessible to developers without requiring them
 
 ## Product Promise
 
-**PayProof helps developers discover, explain, and reproduce payment-processing bugs before those bugs affect real money.**
+**BachsProof helps developers discover, explain, and reproduce payment-processing bugs before those bugs affect real money.**
 
 ## Primary Differentiator
 
 Controlled concurrency testing combined with financial invariant verification.
 
-PayProof must demonstrate that it can reliably expose a race condition in a vulnerable payment handler, identify the resulting financial inconsistency, and reproduce the failure.
+BachsProof must demonstrate that it can reliably expose a race condition in a vulnerable payment handler, identify the resulting financial inconsistency, and reproduce the failure.
 
 ---
 
@@ -76,13 +76,13 @@ A sequential integration test might pass because the first request completes bef
 
 A concurrent test might expose the issue, but its outcome could depend on timing.
 
-**PayProof addresses this problem by coordinating execution at application-defined checkpoints and checking the resulting financial state.**
+**BachsProof addresses this problem by coordinating execution at application-defined checkpoints and checking the resulting financial state.**
 
 ## Existing Alternatives
 
 Developers can already use Vitest, Jest, custom mocks, load-testing tools, and payment-provider sandboxes to test payment integrations.
 
-PayProof does not claim to detect bugs that these tools are fundamentally incapable of detecting.
+BachsProof does not claim to detect bugs that these tools are fundamentally incapable of detecting.
 
 Its value comes from providing reusable payment-specific testing infrastructure, reducing the amount of custom work required to construct difficult scenarios.
 
@@ -111,7 +111,7 @@ Its value comes from providing reusable payment-specific testing infrastructure,
 
 ## 3.3 Non-Goals
 
-PayProof will not:
+BachsProof will not:
 
 - Process or hold customer funds.
 - Replace Bachs' SDK or APIs.
@@ -150,15 +150,15 @@ Engineers building or maintaining financial workflows where correctness under fa
 
 ## Initial Target Workflow
 
-A TypeScript developer with an existing Bachs-powered application installs PayProof, configures a local test environment, instruments critical processing checkpoints, and executes predefined payment correctness scenarios.
+A TypeScript developer with an existing Bachs-powered application installs BachsProof, configures a local test environment, instruments critical processing checkpoints, and executes predefined payment correctness scenarios.
 
 ---
 
 # 5. Product Experience
 
-PayProof will follow an **SDK-first architecture**.
+BachsProof will follow an **SDK-first architecture**.
 
-Developers should be able to integrate PayProof directly into their applications and test suites.
+Developers should be able to integrate BachsProof directly into their applications and test suites.
 
 The CLI will be a convenience layer over the same core engine.
 
@@ -167,9 +167,9 @@ The CLI will be a convenience layer over the same core engine.
 Proposed npm packages:
 
 ```bash
-npm install -D @payproof/core
-npm install -D @payproof/bachs
-npm install -D @payproof/sdk
+npm install -D @bachsproof/core
+npm install -D @bachsproof/bachs
+npm install -D @bachsproof/sdk
 ```
 
 Package names are provisional and subject to npm availability.
@@ -177,10 +177,10 @@ Package names are provisional and subject to npm availability.
 ## 5.2 SDK Usage
 
 ```typescript
-import { PayProof } from "@payproof/core";
-import { bachsAdapter } from "@payproof/bachs";
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 
-const payproof = new PayProof({
+const bachsproof = new BachsProof({
   provider: bachsAdapter({
     mode: "mock"
   }),
@@ -189,11 +189,11 @@ const payproof = new PayProof({
     webhookPath: "/webhooks/bachs"
   },
   verification: {
-    endpoint: "/__payproof/state"
+    endpoint: "/__bachsproof/state"
   }
 });
 
-const result = await payproof.run({
+const result = await bachsproof.run({
   scenario: "concurrent-duplicate-credit",
   concurrency: 2
 });
@@ -207,14 +207,14 @@ This is the proposed public API.
 
 ## 5.3 Vitest Integration
 
-PayProof must support execution inside existing test suites.
+BachsProof must support execution inside existing test suites.
 
 ```typescript
 import { describe, it, expect } from "vitest";
 
 describe("Bachs payment correctness", () => {
   it("prevents duplicate wallet credits", async () => {
-    const result = await payproof.run({
+    const result = await bachsproof.run({
       scenario: "concurrent-duplicate-credit"
     });
 
@@ -228,7 +228,7 @@ Developers should not need to abandon their existing testing framework.
 ## 5.4 Optional CLI
 
 ```bash
-npx payproof test \
+npx bachsproof test \
   --provider bachs \
   --scenario concurrent-duplicate-credit
 ```
@@ -239,11 +239,11 @@ The CLI will be developed after the SDK-based MVP is functional.
 
 # 6. System Architecture
 
-PayProof will use a modular architecture.
+BachsProof will use a modular architecture.
 
 ## 6.1 Core Testing Engine
 
-**Package:** `@payproof/core`
+**Package:** `@bachsproof/core`
 
 Responsibilities:
 
@@ -261,7 +261,7 @@ The core engine must not depend directly on Bachs-specific API implementations.
 
 ## 6.2 Bachs Provider Adapter
 
-**Package:** `@payproof/bachs`
+**Package:** `@bachsproof/bachs`
 
 Responsibilities:
 
@@ -288,22 +288,22 @@ Sandbox operations must follow Bachs' documented authentication, verification, a
 
 ### Constraint
 
-PayProof must not fabricate authentic Bachs webhook signatures or represent mock events as genuine Bachs sandbox events.
+BachsProof must not fabricate authentic Bachs webhook signatures or represent mock events as genuine Bachs sandbox events.
 
 The exact Bachs API contracts must be verified before implementing sandbox mode.
 
-## 6.3 PayProof Instrumentation SDK
+## 6.3 BachsProof Instrumentation SDK
 
-**Package:** `@payproof/sdk`
+**Package:** `@bachsproof/sdk`
 
-This package provides test-only instrumentation that allows PayProof to coordinate concurrent application execution.
+This package provides test-only instrumentation that allows BachsProof to coordinate concurrent application execution.
 
 Its primary responsibility is exposing controlled synchronization checkpoints.
 
 Example:
 
 ```typescript
-import { checkpoint } from "@payproof/sdk";
+import { checkpoint } from "@bachsproof/sdk";
 
 async function processPayment(payment: Payment) {
   const existing = await db.transaction.findUnique({
@@ -367,11 +367,11 @@ The resulting financial operations are then verified.
 
 ### Technical Limitation
 
-PayProof controls explicitly instrumented synchronization points.
+BachsProof controls explicitly instrumented synchronization points.
 
 It cannot guarantee arbitrary operating-system, network, or database scheduling.
 
-Reproducibility claims must be limited to the execution behavior PayProof actually controls.
+Reproducibility claims must be limited to the execution behavior BachsProof actually controls.
 
 ## 6.5 Financial Invariant Engine
 
@@ -403,20 +403,20 @@ Aggregate checks must not replace individual payment checks.
 
 ### Ledger Integrity
 
-For applications using double-entry accounting, PayProof may optionally verify that each journal entry balances.
+For applications using double-entry accounting, BachsProof may optionally verify that each journal entry balances.
 
 This is a later-stage feature because not every application exposes a double-entry ledger.
 
 ## 6.6 Application Verification Adapter
 
-PayProof must be able to inspect the application's financial outcomes.
+BachsProof must be able to inspect the application's financial outcomes.
 
 The initial approach will use a test-only HTTP endpoint.
 
 Example:
 
 ```http
-GET /__payproof/state?reference=PAY-001
+GET /__bachsproof/state?reference=PAY-001
 ```
 
 Response:
@@ -567,7 +567,7 @@ The application preserves a valid financial state according to the defined payme
 
 # 8. Failure Reporting and Replay
 
-PayProof must generate actionable reports rather than only returning a pass/fail result.
+BachsProof must generate actionable reports rather than only returning a pass/fail result.
 
 ## 8.1 Report Contents
 
@@ -588,7 +588,7 @@ Every failed test must include:
 ## 8.2 Example Report
 
 ```text
-PAYPROOF — PAYMENT CORRECTNESS REPORT
+BACHSPROOF — PAYMENT CORRECTNESS REPORT
 
 Provider: Bachs
 Mode: Local Mock
@@ -611,14 +611,14 @@ Both requests passed the idempotency check
 before either completed the financial operation.
 
 Replay:
-payproof replay ./reports/race-001.json
+bachsproof replay ./reports/race-001.json
 ```
 
 This is illustrative output.
 
 ## 8.3 Replay Requirements
 
-PayProof must record:
+BachsProof must record:
 
 - Scenario configuration.
 - Random seed.
@@ -657,7 +657,7 @@ The repository must include a PostgreSQL-backed TypeScript wallet application.
 - Store payment transaction records.
 - Store financial credit records.
 - Expose test-only state inspection.
-- Support PayProof checkpoints.
+- Support BachsProof checkpoints.
 - Reset test data between runs.
 
 ## 9.3 Vulnerable Implementation
@@ -676,7 +676,7 @@ A failed transaction must not leave a committed wallet credit.
 
 ## 9.5 Demonstration
 
-The same PayProof scenario must be executed against both implementations.
+The same BachsProof scenario must be executed against both implementations.
 
 **Vulnerable handler:** Failed correctness verification.
 
@@ -709,7 +709,7 @@ The same PayProof scenario must be executed against both implementations.
 ## 10.2 Repository Structure
 
 ```text
-payproof/
+bachsproof/
 ├── apps/
 │   ├── reference-wallet/
 │   │   ├── src/
@@ -755,7 +755,7 @@ payproof/
 
 # 11. Security and Safety Requirements
 
-PayProof must be safe for developers to run against isolated test applications.
+BachsProof must be safe for developers to run against isolated test applications.
 
 ### SEC-001: Test Environment Restriction
 
@@ -880,13 +880,13 @@ Implement named checkpoints, participant tracking, synchronization barriers, tim
 
 **Completion criterion:** Two concurrent handlers can reliably be paused and released at the same checkpoint.
 
-## Milestone 3 — PayProof Core
+## Milestone 3 — BachsProof Core
 
 **Estimated effort:** 1–2 hours
 
 Implement event delivery, scenario execution, expected-state modeling, and financial invariant verification.
 
-**Completion criterion:** PayProof can detect a duplicate credit in the vulnerable reference wallet.
+**Completion criterion:** BachsProof can detect a duplicate credit in the vulnerable reference wallet.
 
 ## Milestone 4 — Reporting and Replay
 
@@ -912,7 +912,7 @@ Test package installation in a separate project.
 
 Verify the current Bachs documentation and implement supported sandbox flows.
 
-**Completion criterion:** PayProof can run at least one real sandbox-backed integration test without misrepresenting mock behavior.
+**Completion criterion:** BachsProof can run at least one real sandbox-backed integration test without misrepresenting mock behavior.
 
 ---
 
@@ -922,12 +922,12 @@ The MVP is complete only when all the following conditions are satisfied.
 
 | ID | Acceptance criterion |
 |---|---|
-| AC-01 | A developer can install and import the PayProof SDK. |
-| AC-02 | PayProof can generate a synthetic Bachs-style successful payment event. |
-| AC-03 | PayProof can deliver two concurrent notifications for the same payment. |
+| AC-01 | A developer can install and import the BachsProof SDK. |
+| AC-02 | BachsProof can generate a synthetic Bachs-style successful payment event. |
+| AC-03 | BachsProof can deliver two concurrent notifications for the same payment. |
 | AC-04 | Both requests can be synchronized at a named checkpoint. |
 | AC-05 | The vulnerable wallet produces a reproducible duplicate-credit violation. |
-| AC-06 | PayProof detects and reports the violation. |
+| AC-06 | BachsProof detects and reports the violation. |
 | AC-07 | The corrected wallet passes the same scenario. |
 | AC-08 | The failure report includes expected and observed financial state. |
 | AC-09 | A recorded test can be replayed after resetting test state. |
@@ -939,7 +939,7 @@ The MVP is complete only when all the following conditions are satisfied.
 
 # 16. Engineering Showcase Requirements
 
-Before sharing PayProof with Bachs engineers, the repository should demonstrate more than a working prototype.
+Before sharing BachsProof with Bachs engineers, the repository should demonstrate more than a working prototype.
 
 ## 16.1 Technical Documentation
 
@@ -959,7 +959,7 @@ The repository should include:
 A short demonstration should show:
 
 1. The vulnerable wallet processing a payment.
-2. PayProof synchronizing two concurrent webhook deliveries.
+2. BachsProof synchronizing two concurrent webhook deliveries.
 3. The duplicate-credit invariant failing.
 4. The generated failure trace.
 5. The corrected wallet processing the same scenario.
@@ -968,7 +968,7 @@ A short demonstration should show:
 
 ## 16.3 Bachs Relevance
 
-The final showcase should demonstrate how PayProof fits into a developer's Bachs integration workflow.
+The final showcase should demonstrate how BachsProof fits into a developer's Bachs integration workflow.
 
 Where possible, include an authentic Bachs sandbox scenario alongside the controlled local mock scenario.
 
@@ -1043,7 +1043,7 @@ The following questions should be resolved during implementation or sandbox inte
 1. Which Bachs sandbox payment operations are officially supported?
 2. Which webhook event schemas and signature mechanisms are documented?
 3. Can Bachs sandbox events be triggered programmatically?
-4. How should PayProof model payment status transitions?
+4. How should BachsProof model payment status transitions?
 5. How should asynchronous application processing completion be detected?
 6. What synchronization mechanism best supports instrumented checkpoints across multiple Node.js processes?
 7. How should the SDK handle checkpoint controller disconnection?
@@ -1055,11 +1055,11 @@ The following questions should be resolved during implementation or sandbox inte
 
 # 20. Final Product Definition
 
-**PayProof is an SDK-first, open-source TypeScript framework for testing the financial correctness of payment-integrated applications.**
+**BachsProof is an SDK-first, open-source TypeScript framework for testing the financial correctness of payment-integrated applications.**
 
 Its initial focus is developers integrating Bachs.
 
-PayProof combines:
+BachsProof combines:
 
 - Payment-specific test scenarios.
 - Controlled concurrency instrumentation.
@@ -1073,7 +1073,7 @@ Its primary technical differentiator is the ability to coordinate concurrent pay
 
 The first release must demonstrate one complete engineering workflow:
 
-**A vulnerable wallet receives two concurrent notifications for the same Bachs-style payment, credits the wallet incorrectly, and fails PayProof's financial correctness checks. The corrected implementation processes the same scenario and passes.**
+**A vulnerable wallet receives two concurrent notifications for the same Bachs-style payment, credits the wallet incorrectly, and fails BachsProof's financial correctness checks. The corrected implementation processes the same scenario and passes.**
 
 ### Long-Term Objective
 
@@ -1083,4 +1083,4 @@ Provide reusable payment correctness testing infrastructure that reduces the eff
 
 Demonstrate strong backend engineering capabilities through concurrency control, distributed-systems reasoning, transaction integrity, test instrumentation, financial invariant modeling, and developer-focused API design.
 
-**PayProof's success will be measured by the correctness and reproducibility of the bugs it can expose, not merely by the volume of requests it can generate.**
+**BachsProof's success will be measured by the correctness and reproducibility of the bugs it can expose, not merely by the volume of requests it can generate.**

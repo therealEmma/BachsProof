@@ -73,7 +73,7 @@ export class RaceController {
         this.server.off("error", onError);
         const address = this.server.address();
         if (!address || typeof address === "string") {
-          reject(new Error("PayProof race controller did not receive a network address"));
+          reject(new Error("BachsProof race controller did not receive a network address"));
           return;
         }
         this.address = { host: "127.0.0.1", port: address.port };
@@ -91,7 +91,7 @@ export class RaceController {
     token?: string;
   }): Promise<RaceSession> {
     await this.start();
-    if (this.closed) throw new Error("PayProof race controller is closed");
+    if (this.closed) throw new Error("BachsProof race controller is closed");
     if (input.participants.length === 0 || new Set(input.participants).size !== input.participants.length) {
       throw new Error("A race session requires one or more unique participants");
     }
@@ -196,7 +196,7 @@ export class RaceController {
 
   private session(id: string): SessionState {
     const session = this.sessions.get(id);
-    if (!session) throw new Error(`Unknown PayProof session ${id}`);
+    if (!session) throw new Error(`Unknown BachsProof session ${id}`);
     return session;
   }
 

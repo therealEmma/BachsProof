@@ -3,20 +3,32 @@ title: "Incomplete checkout"
 description: "Prevent fulfilment when checkout completed without a collected payment."
 ---
 
-## In plain English
+## What problem does it test?
 
 Finishing a checkout screen does not always mean money was collected. A
-checkout with `no_payment_required` and no charge must not credit a wallet.
+`checkout.completed` event with `payment_status: "no_payment_required"` and no
+charge must not credit a wallet. For the ₦5,000 example, the correct credit
+count is zero, not one `500_000`-kobo entry.
 
-## What PayProof does
+## What BachsProof sends
 
-It sends a `checkout.completed` envelope with a completed checkout, a
-non-paying status, and no charge object.
+The Bachs plan sends one `checkout.completed` envelope with a completed checkout,
+payment mode, a non-paying status, and `charge: null`. The normal HTTP
+expectation is 2xx because the application can safely record or acknowledge an
+unfulfillable event.
 
-## Expected result
+```js
+{
+  name: "checkout without collection is not a deposit",
+  scenario: "incomplete-checkout",
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
 
-Zero credits. The relevant rule is `INV-004` (no unexpected credit). A callback
-verifier is necessary to prove the application did not write a credit.
+## Expected result and failure
 
-This fixture tests the documented distinction between checkout completion and
-payment collection; it does not model every checkout mode.
+The verifier should observe zero credits. A credit violates `INV-004`. An
+immediate zero is not enough for an asynchronous application; allow the
+negative observation window and return `pending: true` while unfinished work is
+still possible. The fixture plan is in `packages/bachs/src/fixtures.ts`.

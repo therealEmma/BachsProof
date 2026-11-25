@@ -1,40 +1,47 @@
 ---
 title: "Troubleshooting"
-description: "Fix common PayProof configuration, delivery, and verification failures."
+description: "Fix common BachsProof configuration, delivery, and verification failures."
 ---
 
 ## “Real application reference is required”
 
-Implement `createPayment`, add a real `reference`, or intentionally set
-`syntheticReferences: true` for a fixture-only run.
+Implement `createPayment`, add a real `reference`/`references` value, or
+intentionally set `syntheticReferences: true` for a fixture-only run.
 
 ## “Payment preparation failed”
 
 Check that the application created a fresh record, returned a non-empty string,
-and did not reuse a reference from another selected scenario.
+and did not reuse a reference from another selected scenario. For the unique
+payments scenario, return one distinct reference per participant.
 
-## HTTP connection or 404
+## HTTP connection, 404, or 401
 
 Check `baseUrl`, `webhookPath`, the running process, and whether the route is
-available in the test environment.
+available in the test environment. For signed events, confirm the secret and
+that the route captures raw bytes before verification.
 
-## HTTP 401 or 400
+## Expected 4xx did not occur
 
-Check the test secret and raw-body verification. For deliberately rejected
-scenarios, confirm `expectedStatus` is configured.
+Confirm `expectedStatus` is configured for the deliberately rejected scenario.
+For tampered, invalid-signature, and malformed-body tests, a 4xx is the normal
+generated expectation. A 2xx may mean the application accepted an event it was
+supposed to reject.
 
 ## Financially unverified
 
 Import and enable `verify`. Delivery-only results are intentionally not claimed
-as financial correctness.
+as financial correctness. Set `requireFinancialVerification: true` in CLI
+configuration when CI must refuse an unverified run.
 
 ## Verifier timeout
 
 Return `pending: true` while work is in flight, inspect the same test database
-the worker uses, and increase the bounded deadline only when the application
-needs it.
+used by the worker, and increase the bounded deadline only when the application
+needs it. A callback error or malformed value is a real failure, not a pending
+state.
 
-## Duplicate reference error
+## Duplicate or stale results
 
-Create one fresh payment per selected scenario. For unique payments, return one
-reference per participant.
+Create one fresh payment per selected test, use scoped cleanup, and make sure
+the verifier reads committed credits for the requested reference. Do not share
+a customer balance between tests unless the test explicitly needs that state.

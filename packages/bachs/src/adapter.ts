@@ -1,4 +1,4 @@
-import type { ProviderAdapter } from "@payproof/core";
+import type { ProviderAdapter } from "@bachsproof/core";
 import { createBachsMockFixture, createBachsScenario, expectedBachsState, serializeBachsPaymentEvent, type BachsFixtureOptions, type BachsPaymentEvent } from "./fixtures.js";
 
 export interface BachsAdapterOptions {
@@ -13,7 +13,7 @@ export interface BachsAdapterOptions {
  */
 export function bachsAdapter(options: BachsAdapterOptions): ProviderAdapter<BachsPaymentEvent> {
   if (options.mode !== "mock") {
-    throw new Error("Only Bachs mock mode is implemented in PayProof v1.1; no undocumented sandbox contract is assumed");
+    throw new Error("Only Bachs mock mode is implemented in BachsProof v1.1; no undocumented sandbox contract is assumed");
   }
   return {
     // These values are copied into reports and help distinguish provider modes.
@@ -35,7 +35,7 @@ export function bachsAdapter(options: BachsAdapterOptions): ProviderAdapter<Bach
       return createBachsScenario(scenario, input, options.customerId);
     },
     headers() {
-      return { "x-payproof-provider-mode": "mock" };
+      return { "x-bachsproof-provider-mode": "mock" };
     }
   };
 }
