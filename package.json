@@ -2,7 +2,7 @@
   "name": "bachsproof",
   "private": true,
   "version": "1.1.0",
-  "description": "Independent, unofficial payment correctness testing for Bachs integrations",
+  "description": "BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.",
   "license": "MIT",
   "repository": {
     "type": "git",

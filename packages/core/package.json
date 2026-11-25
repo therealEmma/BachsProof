@@ -1,7 +1,7 @@
 {
   "name": "@bachsproof/core",
   "version": "1.1.0",
-  "description": "Provider-neutral payment correctness test engine for BachsProof",
+  "description": "Core financial correctness test runner for BachsProof applications",
   "keywords": [
     "payments",
     "payment-testing",

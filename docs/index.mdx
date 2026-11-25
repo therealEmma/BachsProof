@@ -1,68 +1,55 @@
 ---
 title: "BachsProof"
-description: "Test payment correctness beyond webhook HTTP responses."
+description: "Beyond webhook delivery. Verify financial correctness."
 ---
 
-# Payment correctness beyond HTTP responses
+# Beyond webhook delivery. Verify financial correctness.
 
-BachsProof is an independent, unofficial testing framework for Bachs
-integrations. It sends test payment notifications to an isolated copy of your
-application and checks what your application actually saved.
+BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.
 
-It is not affiliated with or endorsed by Bachs.
+BachsProof is an independent, unofficial project for testing Bachs integrations. It sends controlled, synthetic payment events to your isolated application and checks the financial state your application actually commits. It does not process real payments, verify provider settlement, or certify production readiness.
 
-That second part matters. A webhook returning `200 OK` only says that an HTTP
-request was acknowledged. It does not tell you whether a wallet was credited,
-whether the amount was correct, or whether a retry created a second credit.
+## Four ways to test what matters
 
-For example, imagine a customer deposits **₦5,000**. In a two-decimal currency
-that is `500_000` minor units, or kobo for NGN. The application should create
-one ₦5,000 credit. BachsProof can send the same notification twice, send two
-notifications at once, and then ask your test-side `verify` callback how many
-credits were actually saved. Two successful HTTP responses can therefore still
-be reported as a duplicate ₦5,000 credit.
+<CardGroup cols={2}>
+  <Card title="Financial correctness" icon="wallet">
+    Check committed credits, ledger entries, amounts, currencies, and payment
+    eligibility instead of treating an HTTP success response as proof of a
+    correct financial result.
+  </Card>
+  <Card title="Concurrency safety" icon="shuffle">
+    Deliver duplicate or independent payment events concurrently and expose
+    race conditions that sequential tests may never create.
+  </Card>
+  <Card title="Payment reliability" icon="rotate-ccw">
+    Exercise retries, duplicate event identities, ordering changes, incomplete
+    checkouts, failed collections, malformed payloads, and invalid signatures.
+  </Card>
+  <Card title="Developer-first testing" icon="code">
+    Run from the `bachsproof` CLI or call the runner from Vitest, Jest, or
+    another test suite using your existing application setup.
+  </Card>
+</CardGroup>
 
-<Note>
-BachsProof is a testing tool. It does not move real money, create live Bachs
-payments, or certify that an application is production-ready.
-</Note>
+## A ₦5,000 payment can still be wrong
 
-## What BachsProof does
+Imagine a customer deposits **₦5,000**. In NGN, the application expects one
+credit of `500_000` kobo. Two identical webhook deliveries arrive together:
 
-- Sends synthetic, documented-shaped webhook requests over HTTP.
-- Tests the Bachs-shaped events supported by `@bachsproof/bachs`.
-- Runs duplicate, concurrent, ordering, amount, currency, signature, and
-  payment-state scenarios.
-- Lets your test code create fresh application payments through `createPayment`.
-- Lets your test code read committed credits or ledger entries through `verify`.
-- Compares that observed state with five financial rules. In this documentation
-  those rules are called financial invariants: simple checks such as “one
-  payment creates no more than one credit.”
-- Offers an optional test-only checkpoint for coordinating a particular race.
+```text
+Delivery A reads payment status: PENDING
+Delivery B reads payment status: PENDING
 
-## What BachsProof does not do
+Delivery A credits ₦5,000
+Delivery B credits ₦5,000
 
-- It does not move real money or charge a card.
-- Its Bachs adapter does not call Bachs, create a checkout, or settle a payment.
-- It does not add routes, change your production code, manage your database, or
-  reset test data.
-- It cannot understand an application's database automatically. You provide the
-  small `verify` callback that knows your schema.
-- It cannot prove behavior that the selected scenario and observation window did
-  not test.
+Expected wallet credit: ₦5,000
+Actual wallet credit:   ₦10,000
+```
 
-The word **synthetic** means “made for the test.” A synthetic webhook can be
-useful for checking your handler, authentication, and database logic, but it is
-not evidence that Bachs collected money.
-
-<Note>
-BachsProof is not a payment gateway, webhook delivery service, or payment
-provider sandbox. It does not accept customer payments, forward production
-webhooks, create Bachs checkouts, or simulate provider settlement. It is the
-test runner that sends controlled, Bachs-shaped input to your own test
-application. Use the Bachs sandbox separately for provider-side checkout and
-settlement evidence.
-</Note>
+Both deliveries can receive successful HTTP responses. Delivery succeeded, but
+the financial outcome is wrong. BachsProof sends the controlled test events and
+uses your application-specific `verify` callback to inspect the committed state.
 
 ## Start here
 
@@ -72,15 +59,22 @@ settlement evidence.
     financially verified webhook test.
   </Card>
   <Card title="Why BachsProof?" icon="circle-help" href="/why-bachsproof">
-    Learn why ordinary endpoint tests miss duplicate-credit bugs.
+    See how conventional tests, Bachs tools, and BachsProof complement one
+    another.
   </Card>
-  <Card title="Scenario coverage" icon="list-checks" href="/scenarios">
-    Browse all 15 implemented payment correctness scenarios.
+  <Card title="Payment lifecycle" icon="route" href="/concepts/payment-lifecycle">
+    Follow a payment from initiation through application-side verification.
   </Card>
-  <Card title="API reference" icon="square-terminal" href="/api">
-    Look up CLI flags, callbacks, run options, adapters, and reports.
+  <Card title="Vitest and Jest" icon="test-tube" href="/advanced/vitest-and-jest">
+    Add payment-specific correctness checks to an existing test suite.
   </Card>
 </CardGroup>
+
+<Note>
+Financial verification requires callbacks that know your application's payment,
+ledger, and wallet schema. BachsProof does not automatically understand every
+database or guarantee that untested production behaviour is correct.
+</Note>
 
 <Warning>
 Use only isolated test applications, test databases, and test-only webhook

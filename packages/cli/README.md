@@ -1,6 +1,9 @@
 # @bachsproof/cli
 
-Package-installable CLI onboarding for black-box payment correctness testing.
+**Beyond webhook delivery. Verify financial correctness.**
+
+Package-installable CLI onboarding for BachsProof, a financial correctness
+testing framework for applications integrating Bachs.
 
     pnpm add -D @bachsproof/cli
     pnpm exec bachsproof init

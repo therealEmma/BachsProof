@@ -1,11 +1,32 @@
 ---
 title: "Bachs integration"
-description: "Understand the first provider adapter and its documented boundaries."
+description: "Use BachsProof alongside official Bachs integration and webhook tools."
 ---
 
-Bachs is BachsProof's first supported provider. The adapter is deliberately
-explicit: `bachsAdapter({ mode: "mock" })` creates local fixtures shaped like
-the documented Bachs webhook envelopes.
+BachsProof is an independent, unofficial application-side testing framework for
+Bachs integrations. Its Bachs adapter creates deterministic synthetic events
+shaped like the documented Bachs webhook envelopes. It does not call Bachs,
+create a checkout, or verify provider settlement.
+
+## Keep the responsibilities separate
+
+| Concern | Official Bachs tools | BachsProof |
+| --- | --- | --- |
+| Checkout creation and provider payment flow | Use the Bachs SDK, sandbox, and checkout documentation | Not performed |
+| Real signed provider webhooks and provider delivery records | Use Bachs webhooks, Developer Portal, CLI forwarding, and replay tools | Not represented as live provider evidence |
+| Application webhook validation and event handling | Your application receives and processes the event | Sends controlled synthetic requests to the same test endpoint |
+| Payment matching, idempotency, ledger writes, and wallet crediting | Implemented by your application | Observed through your `verify` callback |
+| Financial outcome checks | Application-specific assertions remain your responsibility | Applies five reusable financial invariants to observed state |
+
+This is a complementary workflow. First use the official Bachs resources to
+build and inspect the provider integration. Then use BachsProof against an
+isolated application process and test database to verify what that application
+does with payment events.
+
+Useful official references include the [webhook setup guide](https://docs.bachs.io/guides/webhooks/overview),
+[local webhook testing guide](https://docs.bachs.io/developer-portal/local-testing),
+[checkout guide](https://docs.bachs.io/guides/checkout/checkout-sessions), and
+[idempotency guide](https://docs.bachs.io/guides/idempotency).
 
 ## What the adapter does
 
@@ -28,5 +49,5 @@ the documented Bachs webhook envelopes.
 
 The reference wallet uses the official `@bachs/sdk` server-side webhook helper
 when a secret is configured. That application boundary is separate from
-BachsProof's local mock adapter. Use a Bachs sandbox separately for provider-side
-evidence.
+BachsProof's local mock adapter. Use the Bachs sandbox separately for provider-
+side evidence.

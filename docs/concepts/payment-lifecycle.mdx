@@ -1,35 +1,54 @@
 ---
 title: "Payment lifecycle"
-description: "Understand checkout and collection states before testing them."
+description: "See where provider processing ends and application-side financial verification begins."
 ---
 
-The customer may see “checkout completed” before your application has evidence
-that money was collected. BachsProof therefore keeps lifecycle signals separate
-from the final fulfilment decision.
+A payment has provider-side and application-side stages. A completed checkout
+or a successful webhook delivery does not by itself prove that the application's
+wallet and ledger are correct.
+
+```mermaid
+flowchart LR
+  A[Payment initiation\napplication creates checkout] --> B[Provider processing\nBachs sandbox or production]
+  B --> C[Webhook delivery\nprovider sends event]
+  C --> D[Application validation\nsignature, order, amount, currency]
+  D --> E[Transaction processing\nidempotency and state transition]
+  E --> F[Ledger recording\nfinancial entry]
+  F --> G[Wallet crediting\napplication balance]
+  G --> H[Financial verification\napplication callback]
+
+  T[BachsProof synthetic event\nlocal test input] -.-> C
+
+  classDef app fill:#e8f3ff,stroke:#2563eb,color:#0f172a
+  classDef provider fill:#f3f4f6,stroke:#6b7280,color:#111827
+  classDef proof fill:#ecfdf5,stroke:#059669,color:#064e3b
+  class A,D,E,F,G app
+  class B,C provider
+  class H,T proof
+```
+
+The highlighted application stages are the boundary BachsProof helps exercise:
+the application validates the event, processes it safely, records the ledger
+effect, credits the wallet when appropriate, and returns observed state through
+the verification callback. The adapter may inject a synthetic event at the
+webhook boundary; it does not perform provider processing or settlement.
+
+## Provider lifecycle signals
+
+The current Bachs adapter represents these one-time payment signals:
 
 | Signal | Plain meaning | Eligible in the current adapter? |
 | --- | --- | --- |
-| `checkout.completed` | The checkout flow finished; it may still have no charge | Only when it is a paid payment checkout with a charge |
+| `checkout.completed` | The checkout flow finished; it may still have no collected charge | Only when it is a paid payment checkout with a charge |
 | `checkout.expired` | An open checkout expired | No |
 | `collection.succeeded` | The provider reports a successful collection | Yes |
 | `collection.underpaid` | Less than the expected amount arrived | No |
 | `collection.failed` | A collection attempt failed | No |
 
-```mermaid
-stateDiagram-v2
-  [*] --> CheckoutOpen
-  CheckoutOpen --> CheckoutCompleted: checkout.completed
-  CheckoutOpen --> CheckoutExpired: checkout.expired
-  CheckoutCompleted --> Collected: collection.succeeded
-  CheckoutCompleted --> Underpaid: collection.underpaid
-  CheckoutCompleted --> Failed: collection.failed
-  CheckoutExpired --> Collected: later success may arrive
-  Collected --> [*]
-  Underpaid --> [*]
-  Failed --> [*]
-```
+For a **₦5,000** wallet deposit, `checkout.completed` by itself is not
+permission to add `500_000` kobo. The application must match provider state to
+its own order and decide whether the payment is eligible. These are synthetic
+fixtures based on documented event names; they do not prove live settlement.
 
-For a ₦5,000 wallet deposit, `checkout.completed` by itself is not permission
-to add `500_000` kobo. The application must match the provider state to its
-own order and decide whether the payment is eligible. These are synthetic
-fixtures based on the documented event names; they do not prove live settlement.
+See the official [Bachs checkout guide](https://docs.bachs.io/guides/checkout/checkout-sessions)
+for the provider-side flow and webhook confirmation responsibilities.

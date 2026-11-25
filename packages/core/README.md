@@ -1,6 +1,11 @@
 # @bachsproof/core
 
-Provider-neutral payment correctness testing for TypeScript applications.
+**Beyond webhook delivery. Verify financial correctness.**
+
+The core package provides the application-side runner for BachsProof, a financial
+correctness testing framework for applications integrating Bachs. It sends
+controlled test deliveries to an existing webhook endpoint and evaluates state
+returned by the application's verification callback.
 
 The core runner sends serialized provider events to an existing webhook URL,
 records every delivery, optionally coordinates an instrumented checkpoint, and
@@ -27,7 +32,7 @@ verify(reference, context) callback.
     const result = await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       reference: "isolated-test-order-001",
-      amountMinor: 5_000_000,
+      amountMinor: 500_000,
       currency: "NGN"
     });
 

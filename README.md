@@ -1,8 +1,10 @@
 # BachsProof
 
-**Payment correctness testing beyond HTTP responses.**
+**Beyond webhook delivery. Verify financial correctness.**
 
-BachsProof is an independent, unofficial testing framework for Bachs integrations. It verifies payment handling from synthetic webhook delivery to committed database and ledger state; it is not affiliated with or endorsed by Bachs.
+BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.
+
+BachsProof is an independent, unofficial project. It is not affiliated with or endorsed by Bachs.
 
 It helps developers detect duplicate credits, race conditions, incorrect payment fulfillment, and financial inconsistencies before they affect real users.
 
@@ -445,7 +447,9 @@ See the [checkpoint documentation](packages/sdk/README.md) for advanced usage.
 
 ## Experimental validation
 
-BachsProof has been evaluated using both a controlled reference application and an independent fintech wallet backend.
+BachsProof includes a controlled reference application and preserves a separate
+historical account of an independent fintech wallet investigation. The two
+evidence types are intentionally distinguished below.
 
 ### Reference wallet experiment
 
@@ -484,76 +488,30 @@ pnpm test:postgres
 
 Skipped database tests must not be interpreted as successful database verification.
 
-### Independent application testing — Norma
+### Independent application findings — Norma
 
-BachsProof was also integrated into Norma, an independent fintech wallet backend using Node.js, TypeScript, Prisma, and PostgreSQL.
+The repository preserves a historical account of a BachsProof investigation in
+Norma, an independent fintech wallet backend using Node.js, TypeScript, Prisma,
+and PostgreSQL. Unlike the reference wallet, Norma was not built for BachsProof.
 
-Unlike the reference wallet, Norma was not originally built for BachsProof.
+The reported financial correctness problem involved a **synthetic** checkout
+completion event with no collected payment being treated as an eligible deposit:
 
-The integration used Norma's existing webhook endpoint, payment processing logic, database infrastructure, and ledger records.
-
-No checkpoint instrumentation was required.
-
-The experiments included:
-
-- Installation of locally packaged BachsProof dependencies.
-- Automatic creation of isolated test payment records.
-- Execution of all 15 payment scenarios.
-- Delivery of 100 concurrent duplicate webhooks for a single payment.
-- Verification of committed wallet and ledger records.
-- Detection of an unexpected financial credit.
-
-#### Concurrent duplicate payment experiment
-
-| Metric | Result |
-| --- | ---: |
-| Concurrent webhook deliveries | 100 |
-| Original payment amount | ₦5,000 |
-| Expected financial credits | 1 |
-| Observed financial credits | 1 |
-| Financial invariant violations | 0 |
-
-Norma successfully prevented duplicate wallet credits during this experiment.
-
-#### Incomplete checkout experiment
-
-BachsProof generated a synthetic checkout completion event representing a checkout without a collected payment.
-
-| Metric | Expected | Observed |
+| Historical observation | Expected | Reported |
 | --- | ---: | ---: |
-| Financial credits | 0 | 1 |
+| Financial credits after incomplete checkout | 0 | 1 |
 | Credited amount | ₦0 | ₦5,000 |
 
-BachsProof reported:
+The historical report attributed this to NGN checkout-completion handling that
+could normalize an incomplete checkout into a confirmed deposit without enough
+payment-eligibility validation. It also records a separate run of 100 concurrent
+duplicate deliveries that observed one credit and no invariant violation.
 
-```text
-FAIL incomplete checkout
-
-INV-004: Ineligible payment created 1 credit
-```
-
-The issue was reproduced in a subsequent test.
-
-Inspection of Norma's payment adapter identified that its NGN checkout completion handling could normalize an incomplete checkout into a confirmed deposit without sufficiently validating payment eligibility.
-
-This demonstrates the importance of verifying financial outcomes rather than relying exclusively on successful webhook acknowledgments.
-
-#### Overall experiment results
-
-Following the initial suite execution and a successful rerun of a scenario affected by database connectivity:
-
-| Outcome | Scenarios |
-| --- | ---: |
-| Scenarios executed | 15 |
-| Passed | 8 |
-| Financial invariant failure | 1 |
-| Webhook delivery expectation failures | 6 |
-
-The remaining delivery failures require further investigation against the application's supported event contracts and configured HTTP expectations.
-
-Asynchronous verification behaviour also requires further validation.
-
-These results represent development experiments using synthetic payment events and isolated test records. They do not establish live Bachs settlement behaviour or production readiness.
+These are independent-application findings from synthetic events, not live Bachs
+settlement evidence. The authorized Norma repository, configuration, verifier,
+and complete output are not checked into this repository, so the claims are not
+independently reproducible here. See the [Norma evidence note](docs/case-studies/norma.mdx)
+for the required evidence and the limits of this historical account.
 
 ## Using BachsProof with Vitest
 
@@ -722,4 +680,4 @@ A license has not yet been added to the repository. An explicit open-source lice
 
 ---
 
-**BachsProof — Verify the financial outcome, not just the HTTP response.**
+**Beyond webhook delivery. Verify financial correctness.**

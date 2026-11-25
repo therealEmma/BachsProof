@@ -1,7 +1,7 @@
 {
   "name": "@bachsproof/bachs",
   "version": "1.1.0",
-  "description": "Synthetic Bachs-shaped fixtures, signing helpers, and exact money utilities for BachsProof",
+  "description": "Bachs-shaped test fixtures, signing helpers, and exact money utilities for BachsProof",
   "keywords": [
     "payments",
     "bachs",
