@@ -1,0 +1,34 @@
+---
+title: "Idempotency"
+description: "Why a payment operation must be safe to repeat."
+---
+
+Idempotency means that repeating the same logical operation does not create a
+second financial effect.
+
+If a provider delivers “payment `pay-123` succeeded” twice, the application may
+record both delivery attempts, but it must create at most one credit for
+`pay-123`.
+
+## A durable pattern
+
+Use a durable identity tied to the business operation, enforce it in the
+database, and make the state change atomic:
+
+```text
+begin transaction
+  authenticate event
+  insert event identity if new
+  insert credit with unique payment idempotency key
+  update wallet balance
+  mark payment completed
+commit
+```
+
+The exact schema is yours. PayProof checks the observable result with
+`INV-001`, rather than requiring a particular ORM.
+
+<Warning>
+An in-memory “already seen” set is not enough when multiple processes or
+workers can handle webhooks. The durable boundary must match your deployment.
+</Warning>

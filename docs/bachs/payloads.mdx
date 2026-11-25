@@ -1,0 +1,33 @@
+---
+title: "Webhook payload structure"
+description: "See the validated Bachs envelope and the fields PayProof normalizes."
+---
+
+Every generated event has the provider envelope fields `id`, `type`,
+`created_at`, `organization_id`, and `data`. The data shape depends on the event
+type.
+
+For a collection event, the current fixture includes fields such as:
+
+```json
+{
+  "charge_id": "ch_example",
+  "checkout_id": "chk_example",
+  "reference": "payment-123",
+  "status": "SUCCEEDED",
+  "amount": "5000.00",
+  "currency": "NGN",
+  "customer": { "id": "customer-1" },
+  "metadata": { "order_id": "payment-123" }
+}
+```
+
+For `collection.underpaid`, the adapter validates `amount_paid`,
+`amount_expected`, `amount_remaining`, `currency`, and `status: "UNDERPAID"`.
+For failed collections, it validates the documented failure fields represented
+by the fixture.
+
+The schema is intentionally strict for known fields and passthrough for extra
+provider fields. Do not copy a fixture into production code as if it were a
+complete provider contract. Consult the [official event reference](https://docs.bachs.io/llms.txt#webhooks)
+for the provider's current payload documentation.

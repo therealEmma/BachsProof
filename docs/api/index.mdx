@@ -1,0 +1,21 @@
+---
+title: "API reference"
+description: "Reference for PayProof's CLI, callbacks, runner, adapters, and reports."
+---
+
+This section is derived from the current exported TypeScript packages. The CLI
+and core are the main public surfaces; the Bachs and checkpoint pages describe
+their provider-specific and optional APIs.
+
+<CardGroup cols={2}>
+  <Card title="CLI" href="/api/cli" icon="terminal">Commands and flags.</Card>
+  <Card title="Configuration" href="/api/configuration" icon="file-cog">CLI config fields and defaults.</Card>
+  <Card title="Callbacks" href="/api/callbacks" icon="database">Payment preparation and verification.</Card>
+  <Card title="Programmatic API" href="/api/programmatic" icon="braces">Core runner methods and results.</Card>
+  <Card title="Adapters" href="/api/adapters" icon="plug">Provider extension contracts.</Card>
+  <Card title="Reports" href="/api/reports" icon="file-json">Structured evidence fields.</Card>
+</CardGroup>
+
+Removed reset endpoints and HTTP inspection configuration are intentionally not
+part of this reference. Payment preparation and financial reads belong to the
+application's test environment.

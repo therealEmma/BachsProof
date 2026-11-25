@@ -1,0 +1,20 @@
+---
+title: "Failed payment"
+description: "Prevent fulfilment when a collection attempt failed."
+---
+
+## In plain English
+
+The collection attempt failed. A failed attempt must not be treated as a paid
+order or wallet deposit.
+
+## What PayProof does
+
+It creates a documented-shaped `collection.failed` event with `status: "FAILED"`
+and no eligible financial state. Delivery is sequential and normally accepted
+by a handler that records the event without crediting.
+
+## Expected result
+
+Zero credits, checked by `INV-004`. In Bachs, a failed collection can leave the
+checkout open for another attempt; this scenario does not model that retry.

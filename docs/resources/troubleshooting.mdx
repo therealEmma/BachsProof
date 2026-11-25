@@ -1,0 +1,40 @@
+---
+title: "Troubleshooting"
+description: "Fix common PayProof configuration, delivery, and verification failures."
+---
+
+## “Real application reference is required”
+
+Implement `createPayment`, add a real `reference`, or intentionally set
+`syntheticReferences: true` for a fixture-only run.
+
+## “Payment preparation failed”
+
+Check that the application created a fresh record, returned a non-empty string,
+and did not reuse a reference from another selected scenario.
+
+## HTTP connection or 404
+
+Check `baseUrl`, `webhookPath`, the running process, and whether the route is
+available in the test environment.
+
+## HTTP 401 or 400
+
+Check the test secret and raw-body verification. For deliberately rejected
+scenarios, confirm `expectedStatus` is configured.
+
+## Financially unverified
+
+Import and enable `verify`. Delivery-only results are intentionally not claimed
+as financial correctness.
+
+## Verifier timeout
+
+Return `pending: true` while work is in flight, inspect the same test database
+the worker uses, and increase the bounded deadline only when the application
+needs it.
+
+## Duplicate reference error
+
+Create one fresh payment per selected scenario. For unique payments, return one
+reference per participant.

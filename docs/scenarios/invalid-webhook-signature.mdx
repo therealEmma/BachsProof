@@ -1,0 +1,21 @@
+---
+title: "Invalid webhook signature"
+description: "Check that an event with an invalid signature is rejected."
+---
+
+## In plain English
+
+The event looks valid, but the authentication proof is wrong. The handler must
+not process it as a payment.
+
+## What PayProof does
+
+It sends a valid-shaped event with a deliberately invalid `X-Bachs-Signature-V2`
+header. The generated test expects a `4xx` response.
+
+## Expected result
+
+The request is rejected and no credit is committed. Use `verify` to establish
+the zero-credit result; a rejection status alone does not inspect your ledger.
+
+The scenario does not test secret rotation or a live provider delivery.

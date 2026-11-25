@@ -1,0 +1,27 @@
+---
+title: "Report structure"
+description: "Reference for PayProofReport, deliveries, verification, and replay metadata."
+---
+
+Important fields on `PayProofReport`:
+
+| Field | Meaning |
+| --- | --- |
+| `scenario` | Scenario that ran |
+| `provider`, `mode` | Adapter identity |
+| `paymentReference` | Primary reference |
+| `event`, `expected` | Primary generated event and expected state |
+| `observed` | First observed financial state |
+| `payments` | Per-reference observations for unique payments |
+| `verificationMode` | `callback` or `none` |
+| `financiallyVerified` | Whether committed state was inspected |
+| `deliveries` | HTTP attempts and errors |
+| `checkpoints` | Arrival/release/abort trace |
+| `errors` | Delivery, preparation, and invariant messages |
+| `replay` | Seed, concurrency, checkpoint, controlled flag, and note |
+| `startedAt`, `completedAt` | ISO timestamps |
+
+`PayProofResult.passed` is false when delivery/configuration errors exist or a
+financial verification result contains violations. Without a verifier,
+delivery success can return `passed: true` while `financiallyVerified` remains
+false.

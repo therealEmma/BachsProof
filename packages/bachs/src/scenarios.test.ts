@@ -70,7 +70,6 @@ describe("Bachs provider scenarios", () => {
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
         webhookPath: "/webhooks/bachs",
-        reset: false
       },
       verify(reference, context): FinancialVerificationInput {
         verificationCalls += 1;
@@ -126,7 +125,7 @@ describe("Bachs provider scenarios", () => {
     const provider = bachsAdapter({ mode: "mock" });
     const result = await new PayProof({
       provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs", reset: false },
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs" },
       verify(reference) {
         seen.push(reference);
         return { reference, creditCount: 1, creditedAmountMinor: 5_000_000, currency: "NGN", ledgerEntries: [] };

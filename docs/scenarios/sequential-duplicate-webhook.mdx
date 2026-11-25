@@ -1,0 +1,37 @@
+---
+title: "Sequential duplicate webhook"
+description: "Check that a repeated eligible webhook creates one financial effect."
+---
+
+## In plain English
+
+The same payment notification arrives twice, one after the other. The customer
+paid once, so the application must credit once.
+
+## What PayProof does
+
+The Bachs adapter creates one eligible `collection.succeeded` event. The core
+delivers the same serialized event twice, sequentially, with the same event ID.
+
+```mermaid
+sequenceDiagram
+  participant P as PayProof
+  participant A as Application
+  P->>A: collection.succeeded
+  A-->>P: HTTP response
+  P->>A: same collection.succeeded again
+  A-->>P: HTTP response
+```
+
+## Expected result
+
+The verifier should observe one credit for the expected amount and currency.
+The main rule is `INV-001`; amount checks use `INV-002`, `INV-003`, and `INV-005`.
+
+```js
+{ name: "sequential duplicate", scenario: "sequential-duplicate-webhook" }
+```
+
+This detects missing event/payment idempotency. It does not test simultaneous
+database reads; use [concurrent duplicate credit](/scenarios/concurrent-duplicate-credit)
+for that.

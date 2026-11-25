@@ -1,0 +1,34 @@
+---
+title: "Norma / Noma independent-wallet evidence"
+description: "Record what is known and what remains unverified about the independent fintech experiment."
+---
+
+The project brief requests a case study for an independent fintech backend
+called Norma (also referred to as Noma in earlier project discussion). A
+complete, reproducible application repository, test output, or committed report
+for that experiment is not present in the PayProof repository.
+
+## What cannot be claimed
+
+This documentation therefore does **not** claim that:
+
+- PayProof was installed successfully in that application;
+- all 15 scenarios passed;
+- a PostgreSQL ledger verifier was implemented there;
+- an incomplete-checkout defect was reproduced or fixed;
+- the independent application is production-ready.
+
+## Evidence needed to complete the case study
+
+Add an authorized, sanitized experiment artifact containing:
+
+1. the application commit or a reproducible fixture;
+2. the PayProof config and `createPayment` implementation;
+3. the `verify` callback and the financial records it reads;
+4. the exact command and environment shape used;
+5. scenario-by-scenario output, including failures and unverified results;
+6. database cleanup and test-isolation details.
+
+Until that evidence exists, use the [reference wallet case study](/case-studies/reference-wallet)
+for the reproducible engineering demonstration. Do not turn an informal test
+conversation into a published result.

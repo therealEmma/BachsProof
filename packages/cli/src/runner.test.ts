@@ -67,7 +67,6 @@ describe("CLI configuration runner", () => {
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
         webhookPath: "/webhooks/test-provider",
-        reset: false
       },
       tests: [{
         name: "custom provider callback",
@@ -129,7 +128,7 @@ describe("CLI configuration runner", () => {
     let referenceNumber = 0;
     const config: PayProofConfig = {
       provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment", reset: false },
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       tests: [
         { name: "prepared single", scenario: "sequential-duplicate-webhook" },
         { name: "prepared unique", scenario: "concurrent-unique-payments", concurrency: 2 },

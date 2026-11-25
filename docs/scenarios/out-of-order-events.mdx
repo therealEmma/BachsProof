@@ -1,0 +1,23 @@
+---
+title: "Out-of-order events"
+description: "Check that an older non-fulfilling event cannot replace newer success."
+---
+
+## In plain English
+
+Networks can deliver an older event after a newer one. An expired checkout that
+arrives after a successful collection must not erase the completed state.
+
+## What PayProof does
+
+It sends a newer eligible `collection.succeeded` event first, then an older
+`checkout.expired` event, sequentially. The corrected reference wallet compares
+event timestamps and protects completed state.
+
+## Expected result
+
+One credit and a completed financial state. The key checks are `INV-001` and
+`INV-003`; `INV-004` also guards the non-fulfilling event.
+
+The scenario tests delivery order and application state ordering, not provider
+retry scheduling or every possible event type.

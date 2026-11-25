@@ -1,0 +1,74 @@
+---
+title: "PayProof"
+description: "Test payment correctness beyond webhook HTTP responses."
+---
+
+# Payment correctness beyond HTTP responses
+
+PayProof is an open-source payment correctness testing framework. It sends
+documented-shaped payment webhooks to an isolated test application, then can
+inspect the application's committed financial state and evaluate correctness
+invariants.
+
+It is designed for the moment when a webhook returns `200 OK`, but you still
+need to answer a more important question: **did the application credit the
+right person, for the right amount, exactly once?**
+
+<Note>
+PayProof is a testing tool. It does not move real money, create live Bachs
+payments, or certify that an application is production-ready.
+</Note>
+
+## A small example with a serious failure
+
+Imagine a customer deposits NGN 5,000 into a wallet. The payment provider sends
+one notification, but the network or provider retries it. Your application sees
+two requests at nearly the same time.
+
+If both requests read “not credited yet” before either writes the credit, the
+wallet can end up with NGN 10,000. Both HTTP requests may still return `200`.
+
+PayProof makes this failure reproducible and checks the committed records rather
+than trusting the HTTP response.
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install PayProof, initialize a project, prepare a test payment, and run a
+    financially verified webhook test.
+  </Card>
+  <Card title="Why PayProof?" icon="circle-help" href="/why-payproof">
+    Learn why ordinary endpoint tests miss duplicate-credit bugs.
+  </Card>
+  <Card title="Scenario coverage" icon="list-checks" href="/scenarios">
+    Browse all 15 implemented payment correctness scenarios.
+  </Card>
+  <Card title="API reference" icon="square-terminal" href="/api">
+    Look up CLI flags, callbacks, run options, adapters, and reports.
+  </Card>
+</CardGroup>
+
+## What PayProof does
+
+- Runs black-box webhook tests against an existing application over HTTP.
+- Uses a Bachs adapter as its first provider implementation.
+- Supports automatic test-payment preparation through `createPayment`.
+- Supports independent financial verification through `verify`.
+- Tests duplicate, concurrent, out-of-order, delayed, malformed, underpaid, and
+  failed payment events.
+- Provides optional checkpoint instrumentation for developers who need a
+  deterministic application-level race schedule.
+
+## What PayProof does not do
+
+- It does not call Bachs or create a checkout in `mock` mode.
+- It does not add routes or modify production application code.
+- It does not manage or reset your database.
+- It does not turn expected outcomes into financial evidence.
+- It does not guarantee the absence of bugs outside the tested conditions.
+
+<Warning>
+Use only isolated test applications, test databases, and test-only webhook
+secrets. Synthetic events must never be delivered to production.
+</Warning>

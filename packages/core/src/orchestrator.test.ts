@@ -39,7 +39,7 @@ describe("PayProof concurrent duplicate delivery", () => {
 
     const result = await new PayProof({
       provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment", reset: false }
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" }
     }).run({ scenario: "concurrent-duplicate-credit", concurrency: 2 });
 
     expect(result.passed).toBe(false);
@@ -94,7 +94,6 @@ describe("PayProof concurrent duplicate delivery", () => {
       target: {
         baseUrl: `http://127.0.0.1:${address.port}`,
         webhookPath: "/webhooks/payment",
-        reset: false
       }
     });
 
@@ -155,7 +154,7 @@ describe("PayProof concurrent duplicate delivery", () => {
     let nextReference = 1;
     const payproof = new PayProof({
       provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment", reset: false },
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       createPayment: (context) => {
         contexts.push(context);
         return `PREPARED-${nextReference++}`;
@@ -208,7 +207,7 @@ describe("PayProof concurrent duplicate delivery", () => {
     };
     const payproof = new PayProof({
       provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment", reset: false },
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
       createPayment: () => {
         preparations += 1;
         throw new Error("test payment API unavailable");

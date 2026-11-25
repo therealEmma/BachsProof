@@ -1,0 +1,24 @@
+---
+title: "Supported payment events"
+description: "The Bachs event types represented by the current adapter."
+---
+
+The current adapter validates and generates these payment lifecycle event
+types:
+
+| Event | Adapter use |
+| --- | --- |
+| `checkout.completed` | Eligible only when the fixture is a paid payment checkout with a charge; also used for incomplete checkout |
+| `checkout.expired` | Non-fulfilling lifecycle event |
+| `collection.succeeded` | Eligible payment event |
+| `collection.underpaid` | Non-fulfilling event with a shortfall |
+| `collection.failed` | Non-fulfilling failed collection |
+
+These names and their high-level meanings align with the [Bachs webhook event
+index](https://docs.bachs.io/llms.txt#webhooks). PayProof does not claim support
+for subscription, payout, refund, dispute, or Connect events in the current
+adapter.
+
+The adapter uses `checkout.completed` and `collection.succeeded` together only
+in the cross-event duplicate scenario, where they share the underlying fixture
+reference and provider payment identity.

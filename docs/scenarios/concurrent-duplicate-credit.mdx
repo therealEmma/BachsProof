@@ -1,0 +1,32 @@
+---
+title: "Concurrent duplicate credit"
+description: "Exercise a duplicate-credit race with concurrent webhook deliveries."
+---
+
+## In plain English
+
+Two or more requests try to credit the same payment at the same time. A
+check-then-insert handler can let both requests pass its “not completed” check.
+
+## What PayProof does
+
+It creates one eligible `collection.succeeded` event and sends the same body to
+the configured webhook concurrently. The default generated test uses
+`concurrency: 3`. The runner uses `Promise.allSettled` and records every
+delivery error.
+
+```js
+{
+  name: "concurrent duplicate",
+  scenario: "concurrent-duplicate-credit",
+  concurrency: 3,
+  reference: "prepared-payment"
+}
+```
+
+## Expected result
+
+One credit. A vulnerable handler can fail with `INV-001` and an aggregate amount
+that is too high. Ordinary HTTP concurrency is not deterministic; use the
+[checkpoint mode](/advanced/controlled-concurrency) for a repeatable
+after-read interleaving.

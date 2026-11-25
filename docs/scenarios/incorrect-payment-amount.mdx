@@ -1,0 +1,20 @@
+---
+title: "Incorrect payment amount"
+description: "Prevent fulfilment when the event amount does not match the order."
+---
+
+## In plain English
+
+Your order expects NGN 5,000, but the incoming successful-looking event says a
+different amount. The application must not credit the order.
+
+## What PayProof does
+
+It creates a `collection.succeeded`-shaped event for the reference with an
+amount one minor unit higher than the configured amount.
+
+## Expected result
+
+Zero credits. `INV-004` catches fulfilment of an ineligible event. Amount
+matching is the application's responsibility; PayProof does not know your
+order table.

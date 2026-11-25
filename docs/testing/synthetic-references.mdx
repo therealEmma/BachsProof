@@ -1,0 +1,20 @@
+---
+title: "Synthetic payment references"
+description: "Use generated references only for isolated fixture tests."
+---
+
+Set `syntheticReferences: true` on a run, or use the generated environment
+switch:
+
+```powershell
+$env:PAYPROOF_USE_SYNTHETIC_REFERENCES = "true"
+npx payproof test
+```
+
+Synthetic mode lets the provider adapter generate a local reference when no
+application payment exists. It is useful for testing adapter serialization,
+signature handling, or a fixture-only route.
+
+It is not a real application payment. It cannot prove that your database found
+the reference, that Bachs created a charge, or that a ledger was committed.
+The `createPayment` callback is not invoked in synthetic mode.

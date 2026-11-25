@@ -1,0 +1,36 @@
+---
+title: "Architecture overview"
+description: "See how the provider adapter, runner, application, and verifier fit together."
+---
+
+PayProof separates provider-specific event construction from provider-neutral
+test orchestration.
+
+```mermaid
+flowchart LR
+  Config[payproof.config.mjs] --> CLI[@payproof/cli]
+  CLI --> Core[@payproof/core]
+  Core --> Adapter[@payproof/bachs adapter]
+  Adapter --> Events[Documented-shaped event]
+  Core --> HTTP[HTTP webhook delivery]
+  HTTP --> App[Existing application]
+  App --> DB[(Committed app state)]
+  DB --> Callback[verify callback]
+  Callback --> Invariants[Financial invariants]
+  Invariants --> Report[PayProof report]
+  SDK[@payproof/sdk checkpoint] -. optional .-> App
+```
+
+## Package responsibilities
+
+| Package | Responsibility |
+| --- | --- |
+| `@payproof/core` | Runs scenarios, sends deliveries, coordinates optional checkpoints, polls verification, and evaluates invariants |
+| `@payproof/bachs` | Builds and validates the current Bachs-shaped fixtures, signs raw bodies, and parses decimal money |
+| `@payproof/cli` | Loads an independent project config, prepares a sequential suite, prints summaries, and writes JSON output |
+| `@payproof/sdk` | Provides optional request-scoped checkpoint middleware and `checkpoint()` calls |
+| Reference wallet | Demonstrates vulnerable and corrected application persistence |
+
+The application owns authentication, database transactions, event persistence,
+ledger semantics, and cleanup. PayProof does not add a production controller
+or require a database dependency.

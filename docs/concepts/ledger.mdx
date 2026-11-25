@@ -1,0 +1,31 @@
+---
+title: "What is a financial ledger?"
+description: "Understand the committed records PayProof verifies."
+---
+
+A ledger is a durable record of money movements. For a wallet deposit, it may
+contain a credit row linked to a payment and a wallet balance update.
+
+Think of a paper cashbook: when NGN 5,000 arrives, you write one entry saying
+which payment caused it, which wallet received it, and how much was posted.
+The application may also store a current balance for fast reads.
+
+PayProof does not require a particular database or schema. Its verifier asks
+your test code to return a small normalized view:
+
+```ts
+{
+  reference: "payment-123",
+  creditCount: 1,
+  creditedAmountMinor: 500_000,
+  currency: "NGN",
+  status: "COMPLETED",
+  ledgerEntries: [
+    { id: "credit-1", type: "CREDIT", amountMinor: 500_000, currency: "NGN" }
+  ]
+}
+```
+
+The verifier can read this from Prisma, SQL, an application service, an
+in-memory store, or another test-safe source. It must observe committed state,
+not calculate what the application ought to have written.

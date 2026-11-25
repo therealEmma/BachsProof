@@ -1,0 +1,23 @@
+---
+title: "Tampered webhook"
+description: "Check that changing the body after signing is rejected."
+---
+
+## In plain English
+
+An attacker or broken proxy changes the amount in a signed request. The
+signature should no longer match the body.
+
+## What PayProof does
+
+It signs the original serialized body, changes the amount in the body, and
+sends both the changed body and the original signature. The generated test
+expects `4xx`.
+
+## Expected result
+
+The application rejects the request and creates zero credits. The financial
+check is `INV-004`; the HTTP expectation is evaluated separately.
+
+This scenario is only meaningful when the application actually verifies the
+raw body signature.

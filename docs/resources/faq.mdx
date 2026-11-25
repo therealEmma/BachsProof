@@ -1,0 +1,51 @@
+---
+title: "Frequently asked questions"
+description: "Common questions about PayProof and payment testing."
+---
+
+<AccordionGroup>
+  <Accordion title="Does PayProof move real money?">
+    No. The Bachs adapter uses local synthetic fixtures in `mock` mode. Your
+    `createPayment` callback must also use an isolated test API or database and
+    must not start a real financial transaction.
+  </Accordion>
+  <Accordion title="Do I need a Bachs account?">
+    No for the local adapter. You need a Bachs sandbox separately when you want
+    to test provider-side checkout creation, settlement, or live sandbox
+    delivery behavior.
+  </Accordion>
+  <Accordion title="Does PayProof replace Vitest or Jest?">
+    No. The CLI is a standalone runner and the core can be called from an
+    existing test framework. Let Vitest or Jest manage your application setup.
+  </Accordion>
+  <Accordion title="Do I need to modify my application?">
+    No for black-box testing. You provide a webhook URL. Checkpoint testing is
+    optional and requires explicit test-only SDK instrumentation.
+  </Accordion>
+  <Accordion title="Why do I need a verification callback?">
+    HTTP success only proves that the route acknowledged a request. The callback
+    independently reads committed payment or ledger state.
+  </Accordion>
+  <Accordion title="Can PayProof test Go or Python?">
+    Yes. The target is an HTTP endpoint. The callback can be implemented in the
+    Node-based test project by reading a shared test database or calling an
+    authorized test-side service.
+  </Accordion>
+  <Accordion title="Does a passing test mean my application is completely safe?">
+    No. It means the tested condition passed. Production readiness also requires
+    review of authentication, reconciliation, deployments, failure recovery,
+    schema migrations, provider behavior, and untested business paths.
+  </Accordion>
+  <Accordion title="What if processing is asynchronous?">
+    Return `pending: true` while the worker is still processing and configure a
+    bounded completion deadline.
+  </Accordion>
+  <Accordion title="Why did HTTP 200 still produce a failure?">
+    The application acknowledged the request but the verifier observed missing,
+    duplicate, or incorrect financial state.
+  </Accordion>
+  <Accordion title="Do I need the checkpoint SDK?">
+    No. Use it only when you want to coordinate a named application execution
+    point. Ordinary black-box concurrency remains the default.
+  </Accordion>
+</AccordionGroup>

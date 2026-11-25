@@ -1,0 +1,22 @@
+---
+title: "Payment eligibility"
+description: "Understand when the adapter considers an event fulfilment-eligible."
+---
+
+The adapter exposes a normalized `eligible` decision so the provider-neutral
+invariants can distinguish a payment that should credit from an event that must
+not.
+
+For the current fixtures:
+
+- `collection.succeeded` is eligible when its status is `SUCCEEDED`;
+- `checkout.completed` is eligible only when it is a payment-mode checkout,
+  status is `completed`, payment status is `paid`, a charge exists, and a
+  currency exists;
+- `checkout.expired`, `collection.underpaid`, and `collection.failed` are
+  ineligible.
+
+This is a test adapter decision, not a replacement for retrieving and matching
+the provider's complete resource state in a production integration. Your
+application should match the event to the expected order, amount, currency, and
+payment status before fulfilment.

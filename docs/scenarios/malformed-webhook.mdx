@@ -1,0 +1,20 @@
+---
+title: "Malformed webhook"
+description: "Check that invalid JSON is rejected safely."
+---
+
+## In plain English
+
+Your endpoint should not crash or create a financial effect when the request
+body is not valid JSON.
+
+## What PayProof does
+
+It sends the body `{"invalid":` and expects a `4xx` response in the generated
+configuration.
+
+## Expected result
+
+The application safely rejects the body and creates zero credits. This scenario
+checks parser/error handling; it does not prove that every malformed content
+type is handled.

@@ -1,0 +1,40 @@
+---
+title: "Implementing financial verification"
+description: "Read committed state from your own application without production changes."
+---
+
+Your verifier is test-side code. It can import a test database client, call an
+existing internal test service, or read an application-owned store.
+
+```ts
+import { prisma } from "./test-support/prisma.js";
+
+export async function verify(reference: string, context?: unknown) {
+  const payment = await prisma.payment.findUnique({
+    where: { reference },
+    include: { credits: true }
+  });
+  const credits = payment?.credits ?? [];
+
+  return {
+    reference,
+    creditCount: credits.length,
+    creditedAmountMinor: credits.reduce((sum, credit) => sum + Number(credit.amountMinor), 0),
+    currency: payment?.currency ?? "NGN",
+    status: payment?.status ?? "NOT_FOUND",
+    ledgerEntries: credits.map((credit) => ({
+      id: credit.id,
+      type: credit.type,
+      amountMinor: Number(credit.amountMinor),
+      currency: credit.currency
+    }))
+  };
+}
+```
+
+The normalized result must include `reference`, `creditCount`,
+`creditedAmountMinor`, and a three-letter `currency`. `status`, `pending`, and
+`ledgerEntries` are optional.
+
+Do not return `expected.creditCount` or a hardcoded `0`/`1`. That would only
+repeat PayProof's expectation and could hide an application defect.

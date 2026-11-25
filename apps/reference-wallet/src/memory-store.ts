@@ -31,13 +31,6 @@ export class InMemoryWalletStore implements WalletStore {
   private balances = new Map<string, number>();
   private events = new Map<string, MemoryEvent>();
 
-  async reset(): Promise<void> {
-    this.payments.clear();
-    this.credits = [];
-    this.balances.clear();
-    this.events.clear();
-  }
-
   /** The in-memory store has no sockets, pools, or file handles to release. */
   async close(): Promise<void> {
     // The in-memory adapter has no external resources.

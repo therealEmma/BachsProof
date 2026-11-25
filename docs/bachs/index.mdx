@@ -1,0 +1,21 @@
+---
+title: "Bachs integration"
+description: "Understand the first provider adapter and its documented boundaries."
+---
+
+Bachs is PayProof's first supported provider. The adapter is deliberately
+explicit: `bachsAdapter({ mode: "mock" })` creates local fixtures shaped like
+the documented Bachs webhook envelopes.
+
+```ts
+import { bachsAdapter } from "@payproof/bachs";
+
+const provider = bachsAdapter({ mode: "mock" });
+```
+
+The adapter does not make API calls, create a checkout, or represent a live
+provider delivery. It exists to exercise your webhook controller with stable,
+documented-shaped test inputs.
+
+For provider behavior outside PayProof's fixture boundary, read the [official
+Bachs documentation](https://docs.bachs.io/llms.txt) and use the sandbox.

@@ -1,0 +1,28 @@
+---
+title: "Checkpoint API"
+description: "Reference for the optional checkpoint runner and SDK surfaces."
+---
+
+Core runner configuration:
+
+```ts
+checkpoint?: {
+  name: string;
+  timeoutMs?: number;
+}
+```
+
+SDK exports:
+
+| Function | Purpose |
+| --- | --- |
+| `configureCheckpoint` | Enable an explicit process or request context |
+| `disableCheckpoints` | Remove process-wide state |
+| `isCheckpointEnabled` | Check whether a barrier is active |
+| `runWithCheckpointContext` | Run code under a supplied context |
+| `checkpoint` | Wait at a named barrier |
+| `checkpointMiddleware` | Read request headers only when explicitly enabled |
+| `getCheckpointContext` | Read the current context |
+
+Checkpoint calls are no-ops when disabled. They are optional test instrumentation
+and must not be treated as a production synchronization mechanism.

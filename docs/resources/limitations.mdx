@@ -1,0 +1,23 @@
+---
+title: "Known limitations"
+description: "What PayProof deliberately does not guarantee."
+---
+
+- The current Bachs adapter is mock-only; it does not create or retrieve live
+  Bachs payments.
+- Synthetic events do not prove checkout, settlement, provider retries, or
+  reconciliation.
+- Black-box concurrent delivery is not deterministic race coverage.
+- Checkpoints coordinate named application barriers but cannot control every
+  OS, network, or database scheduling decision.
+- Bounded polling cannot prove that an erroneous credit will never appear after
+  the observation window closes.
+- PayProof does not reset, migrate, or clean up your application database.
+- The verifier trusts the state your callback reads; it cannot independently
+  audit a database it cannot access.
+- The current scenario set focuses on one-time payment webhook correctness, not
+  subscriptions, payouts, refunds, disputes, or Connect workflows.
+- No reproducible Norma/Noma independent-application evidence is checked into
+  this repository.
+
+These limitations are part of the product boundary, not hidden behavior.

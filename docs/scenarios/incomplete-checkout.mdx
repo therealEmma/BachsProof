@@ -1,0 +1,22 @@
+---
+title: "Incomplete checkout"
+description: "Prevent fulfilment when checkout completed without a collected payment."
+---
+
+## In plain English
+
+Finishing a checkout screen does not always mean money was collected. A
+checkout with `no_payment_required` and no charge must not credit a wallet.
+
+## What PayProof does
+
+It sends a `checkout.completed` envelope with a completed checkout, a
+non-paying status, and no charge object.
+
+## Expected result
+
+Zero credits. The relevant rule is `INV-004` (no unexpected credit). A callback
+verifier is necessary to prove the application did not write a credit.
+
+This fixture tests the documented distinction between checkout completion and
+payment collection; it does not model every checkout mode.

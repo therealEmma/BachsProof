@@ -34,7 +34,7 @@ describe("standalone packaged callback integration", () => {
     if (!address || typeof address === "string") throw new Error("standalone server did not start");
     const payproof = new PayProof({
       provider: bachsAdapter({ mode: "mock" }),
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs", reset: false },
+      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/bachs" },
       verify: async (reference) => ({
         reference,
         creditCount: credits.get(reference) ?? 0,

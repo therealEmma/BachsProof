@@ -1,0 +1,22 @@
+---
+title: "Provider adapter interface"
+description: "Reference for ProviderAdapter and ProviderScenario."
+---
+
+```ts
+interface ProviderAdapter<TEvent extends PaymentEvent> {
+  name: string;
+  mode: string;
+  createPayment(input?): TEvent;
+  serialize(event: TEvent): string;
+  expectedState(event: TEvent): ExpectedPaymentState;
+  headers?(event: TEvent): Record<string, string>;
+  headersForBody?(event: TEvent, body: string | Uint8Array): Record<string, string>;
+  createScenario?(scenario: ScenarioName, input: RunOptions): ProviderScenario<TEvent> | undefined;
+}
+```
+
+`createScenario` can describe ordered or concurrent deliveries, body/signing
+overrides, delays, expected statuses, and scenario-specific verification events.
+The adapter must only implement event contracts it can support from authoritative
+provider documentation.

@@ -5,8 +5,6 @@ import { createReferenceWallet } from "./index.js";
 const port = Number(process.env.PORT ?? 3000);
 const mode = process.env.PAYPROOF_WALLET_MODE === "corrected" ? "corrected" : "vulnerable";
 const testEnvironment = process.env.PAYPROOF_TEST_MODE === "true";
-const allowDestructiveReset = process.env.PAYPROOF_ALLOW_DESTRUCTIVE_RESET === "true";
-const testSecret = process.env.PAYPROOF_TEST_SECRET;
 const bachsWebhookSecret = process.env.BACHS_WEBHOOK_SECRET;
 
 // The server supports a local process with either an in-memory store (no
@@ -15,9 +13,7 @@ const wallet = await createReferenceWallet({
   mode,
   databaseUrl: process.env.DATABASE_URL,
   testEnvironment,
-  testSecret,
-  bachsWebhookSecret,
-  allowDestructiveReset
+  bachsWebhookSecret
 });
 const server = wallet.app.listen(port, () => {
   console.log(`PayProof reference wallet listening on http://localhost:${port} (${mode})`);
@@ -42,4 +38,3 @@ const handleSignal = (signal: string) => {
 };
 process.once("SIGINT", () => handleSignal("SIGINT"));
 process.once("SIGTERM", () => handleSignal("SIGTERM"));
-

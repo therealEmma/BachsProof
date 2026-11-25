@@ -5,9 +5,9 @@ authorized test endpoint. The Bachs adapter does not call Bachs, create a
 checkout, or create a real payment. Use it only with isolated test data.
 
 The runner is black-box by default: it sends HTTP requests and treats an
-optional `verify(reference, context)` callback (or the legacy HTTP inspection
-endpoint) as the source of committed financial evidence. A delivery-only pass
-does not prove a database write, wallet balance, or race-condition outcome.
+optional `verify(reference, context)` callback as the source of committed
+financial evidence. A delivery-only pass does not prove a database write,
+wallet balance, or race-condition outcome.
 
 ## Prepare payment references
 
@@ -37,9 +37,8 @@ responsible for creating fresh isolated records.
 Manual preparation remains supported: put a `reference` on each selected test
 definition and put one reference per participant in `references` for
 `concurrent-unique-payments`. Explicit references take precedence over the
-callback. Existing configurations that translate a positional
-`PAYPROOF_REFERENCES` value into those test definitions remain compatible, but
-new projects should avoid positional environment-variable ordering.
+callback. PayProof does not infer payment identity from positional environment-variable
+ordering; use explicit references or `createPayment` instead.
 
 For a local adapter or fixture-only demonstration, opt in explicitly:
 
@@ -200,7 +199,7 @@ const provider = {
 
 const result = await new PayProof({
   provider,
-  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs", reset: false },
+  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
   verify: async (reference, context) => readCommittedPaymentState(reference, context)
 }).run({
   scenario: "cross-event-duplicate-payment",

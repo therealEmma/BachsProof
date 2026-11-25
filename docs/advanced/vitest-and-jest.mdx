@@ -1,0 +1,25 @@
+---
+title: "Vitest and Jest integration"
+description: "Use PayProof as a payment-specific assertion inside an existing test suite."
+---
+
+PayProof is a test engine, not a replacement for Vitest or Jest. Let the host
+framework manage the server, database, setup, teardown, and assertions.
+
+```ts
+it("keeps a payment idempotent", async () => {
+  const reference = await createIsolatedPayment();
+  const result = await payproof.run({
+    scenario: "sequential-duplicate-webhook",
+    reference,
+    amountMinor: 500_000,
+    currency: "NGN"
+  });
+
+  expect(result.passed).toBe(true);
+  expect(result.report.financiallyVerified).toBe(true);
+});
+```
+
+The same pattern works in Jest. Use an async test, wait for the result, and
+close the application and database after the run.

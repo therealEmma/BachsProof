@@ -1,0 +1,33 @@
+---
+title: "Testing a Bachs integration"
+description: "Combine PayProof fixtures with your application webhook handler."
+---
+
+PayProof tests your webhook handling without requiring a Bachs account or a
+live payment. A typical test configuration is:
+
+```js
+import { bachsAdapter } from "@payproof/cli";
+
+export default {
+  provider: bachsAdapter({ mode: "mock" }),
+  target: {
+    baseUrl: "http://127.0.0.1:3000",
+    webhookPath: "/webhooks/bachs"
+  },
+  signing: { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET },
+  tests
+};
+```
+
+Use the Bachs sandbox separately when you need to validate checkout creation,
+provider settlement, or a real signature from Bachs. The [official local testing
+guide](https://docs.bachs.io/developer-portal/local-testing) covers provider
+event forwarding; PayProof's mock adapter covers deterministic local scenario
+construction.
+
+<Warning>
+Synthetic webhook success is not proof of a completed checkout, collection, or
+settlement. It tests your application boundary and, with `verify`, the state
+your application commits in response.
+</Warning>

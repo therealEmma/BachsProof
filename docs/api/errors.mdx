@@ -1,0 +1,20 @@
+---
+title: "Error handling"
+description: "Understand configuration, preparation, delivery, and verification failures."
+---
+
+PayProof keeps errors in the report when a run has started. Common categories:
+
+| Error | Meaning |
+| --- | --- |
+| Missing provider/target/tests | Config validation failed |
+| Real application reference required | No reference, callback, or explicit synthetic opt-in |
+| Payment preparation failed | Callback threw or returned an empty/duplicate reference |
+| Unexpected HTTP status | Delivery did not match `expectedStatus` |
+| Financial verification timed out | Callback never returned complete state within its bound |
+| Financial verification returned wrong reference | Callback result was for another payment |
+| `INV-*` message | Observed committed state violated a financial rule |
+
+The CLI redacts configured signing secrets from JSON and human-readable error
+output. Your own callback and application logs must also avoid credentials and
+personal data.

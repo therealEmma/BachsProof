@@ -1,0 +1,34 @@
+---
+title: "Concurrent unique payments"
+description: "Check that independent payments remain independent under load."
+---
+
+## In plain English
+
+Two different customers pay at the same time. Processing one payment must not
+credit the other or make either one disappear.
+
+## What PayProof does
+
+It sends one eligible `collection.succeeded` event for every reference in
+`references`, concurrently. Automatic preparation is called once per payment.
+
+```js
+{
+  name: "two unique payments",
+  scenario: "concurrent-unique-payments",
+  references: ["payment-a", "payment-b"],
+  concurrency: 2,
+  amountMinor: 500_000,
+  currency: "NGN"
+}
+```
+
+## Expected result
+
+Each reference receives exactly one credit for its own amount and currency.
+PayProof verifies each reference independently, so an over-credit on one cannot
+be hidden by an under-credit on another.
+
+References must be non-empty, distinct, and match `concurrency`. This scenario
+does not by itself prove that a provider created or settled either payment.

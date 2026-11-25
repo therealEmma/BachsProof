@@ -1,0 +1,20 @@
+---
+title: "Incorrect payment currency"
+description: "Prevent fulfilment when the event currency does not match the order."
+---
+
+## In plain English
+
+An order priced in NGN must not be fulfilled by an otherwise successful event
+priced in a different currency.
+
+## What PayProof does
+
+It creates an event with the configured amount but a different currency (the
+fixture uses EUR when the configured currency is not USD, and USD otherwise).
+
+## Expected result
+
+Zero credits. The relevant protection is no unexpected fulfilment, plus the
+application's own currency matching logic. The fixture does not model currency
+conversion.

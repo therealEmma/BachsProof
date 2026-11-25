@@ -1,0 +1,34 @@
+---
+title: "Writing payment tests"
+description: "Configure one scenario or a complete suite."
+---
+
+The CLI test file exports an array of named `PayProofCliTest` objects. The name
+is used by `--name`; the remaining fields are `RunOptions`.
+
+```js
+export const tests = [
+  {
+    name: "one payment is credited once",
+    scenario: "sequential-duplicate-webhook",
+    amountMinor: 500_000,
+    currency: "NGN"
+  },
+  {
+    name: "concurrent duplicates stay idempotent",
+    scenario: "concurrent-duplicate-credit",
+    concurrency: 3,
+    amountMinor: 500_000,
+    currency: "NGN"
+  }
+];
+```
+
+The CLI executes selected tests sequentially by default. Concurrency belongs to
+the scenario itself and is preserved inside that run.
+
+Use exact names with:
+
+```bash
+npx payproof test --name "concurrent duplicates stay idempotent"
+```

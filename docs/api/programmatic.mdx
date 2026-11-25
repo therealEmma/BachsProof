@@ -1,0 +1,36 @@
+---
+title: "Programmatic API"
+description: "Reference for PayProof, run, replay, and core helpers."
+---
+
+```ts
+import { PayProof, writeReport } from "@payproof/core";
+
+const runner = new PayProof({
+  provider,
+  target,
+  createPayment,
+  verify,
+  financialVerification: { completionDeadlineMs: 5_000 }
+});
+
+const result = await runner.run({
+  scenario: "sequential-duplicate-webhook",
+  reference: "payment-123"
+});
+
+if (!result.passed) await writeReport(result.report, "artifacts/payproof.json");
+```
+
+| Export | Purpose |
+| --- | --- |
+| `PayProof` | High-level runner |
+| `preparePaymentReferences` | Resolve missing references with `createPayment` |
+| `RaceController` | Optional checkpoint barrier controller |
+| `verifyPaymentState` | Evaluate all financial invariants |
+| `verifyWithCallback` | Validate and poll a verifier |
+| `writeReport` | Write a JSON report |
+| `redactSecrets` | Remove common secret formats from diagnostic strings |
+
+`replay(report)` reuses the report's event and schedule metadata. It does not
+reset application state; create a fresh reference or perform scoped cleanup.

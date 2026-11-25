@@ -1,0 +1,35 @@
+---
+title: "Payment test scenarios"
+description: "The 15 payment correctness scenarios currently implemented by PayProof."
+---
+
+The current Bachs adapter implements 15 scenarios. Each one creates a local
+event plan; none calls Bachs or creates a real payment.
+
+| Scenario | Delivery shape | Expected financial result |
+| --- | --- | --- |
+| `sequential-duplicate-webhook` | Same eligible event twice in order | One credit |
+| `concurrent-duplicate-credit` | Same eligible event concurrently | One credit |
+| `concurrent-unique-payments` | Distinct eligible events concurrently | One credit per reference |
+| `cross-event-duplicate-payment` | `checkout.completed` and `collection.succeeded` concurrently | One credit |
+| `out-of-order-events` | Newer success followed by older expiry | One credit; old state must not regress it |
+| `delayed-payment-confirmation` | Expired/incomplete signal followed by delayed success | One credit after processing |
+| `incomplete-checkout` | Completed checkout without a paid charge | Zero credits |
+| `expired-checkout` | Expired checkout | Zero credits |
+| `tampered-webhook` | Signed body changed after signing | Rejection and zero credits |
+| `invalid-webhook-signature` | Invalid signature header | Rejection and zero credits |
+| `malformed-webhook` | Invalid JSON body | Safe rejection and zero credits |
+| `incorrect-payment-amount` | Successful-looking event with wrong amount | Zero credits |
+| `incorrect-payment-currency` | Successful-looking event with wrong currency | Zero credits |
+| `underpaid-payment` | `collection.underpaid` with a shortfall | Zero credits |
+| `failed-payment` | `collection.failed` | Zero credits |
+
+For every scenario, configure a real reference or automatic preparation unless
+you intentionally select synthetic mode. Configure `verify` when you need
+financial evidence.
+
+<Note>
+Black-box concurrency is realistic request overlap, not deterministic race
+coverage. Add the optional checkpoint SDK only when you need to coordinate an
+application execution point.
+</Note>

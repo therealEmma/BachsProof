@@ -1,0 +1,18 @@
+---
+title: "INV-003: Completion"
+description: "An eligible payment must receive its expected credit."
+---
+
+## Meaning
+
+When the provider event is eligible for fulfilment, the application should
+eventually produce the expected credit.
+
+## How PayProof evaluates it
+
+If `expected.eligible` is true and `creditCount` is less than the expected
+count, PayProof records `INV-003`.
+
+Investigate whether the reference exists, the event was recognized, amount and
+currency matching rejected the event, a worker is still pending, or the test
+database read is looking at the wrong environment.

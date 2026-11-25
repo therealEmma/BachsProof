@@ -1,0 +1,18 @@
+---
+title: "INV-005: Aggregate Integrity"
+description: "The total credited amount must equal the expected amount."
+---
+
+## Meaning
+
+The sum of all credits associated with one eligible payment must equal the
+expected amount. This catches totals that are wrong even when the credit count
+looks plausible.
+
+## How PayProof evaluates it
+
+When the expected credit count is satisfied, PayProof compares the observed
+aggregate amount with `expected.amountMinor`.
+
+Investigate duplicate partial writes, unit conversion, rounding, fee handling,
+and whether credits from another payment were linked to the same reference.

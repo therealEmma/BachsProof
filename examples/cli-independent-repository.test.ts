@@ -80,8 +80,8 @@ describe("PayProof CLI in an independent repository", () => {
     expect(await readFile(join(fixture, "payproof.config.mjs"), "utf8")).toContain("target");
     expect(await readFile(join(fixture, "tests", "payproof.test.mjs"), "utf8")).toContain("sequential-duplicate-webhook");
     expect(await readFile(join(fixture, "tests", "payproof.test.mjs"), "utf8")).not.toContain("PAYPROOF_REFERENCES");
-    expect(await readFile(join(fixture, "tests", "payproof.setup.mjs"), "utf8")).toContain("Open tests/payproof.setup.mjs and implement createPayment");
-    expect(await readFile(join(fixture, "tests", "payproof.verify.mjs"), "utf8")).toContain("Just because your webhook endpoint returns HTTP 200");
+    expect(await readFile(join(fixture, "tests", "payproof.setup.mjs"), "utf8")).toContain("Implement createPayment in tests/payproof.setup.mjs");
+    expect(await readFile(join(fixture, "tests", "payproof.verify.mjs"), "utf8")).toContain("HTTP 200 only proves");
     expect(await readFile(join(fixture, "payproof.config.mjs"), "utf8")).toContain("@payproof/cli");
 
     let defaultRunOutput = "";
@@ -103,8 +103,7 @@ export async function createPayment(context) {
     const generatedConfig = await readFile(configPath, "utf8");
     await writeFile(configPath, generatedConfig
       .replace("// import { createPayment } from \"./tests/payproof.setup.mjs\";", "import { createPayment } from \"./tests/payproof.setup.mjs\";")
-      .replace("// const paymentPreparation = createPayment;", "const paymentPreparation = createPayment;")
-      .replace("  // createPayment: paymentPreparation,", "  createPayment: paymentPreparation,"), "utf8");
+      .replace("  // createPayment,", "  createPayment,"), "utf8");
 
     const requests: Array<{ body: string; signature?: string }> = [];
     const server = createServer((request, response) => {

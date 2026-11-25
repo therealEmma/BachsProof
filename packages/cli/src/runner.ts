@@ -48,8 +48,8 @@ function withBachsSigning<TEvent extends PaymentEvent>(provider: ProviderAdapter
 export async function runConfig(config: PayProofConfig, options: RunConfigOptions = {}): Promise<PayProofCliRun[]> {
   const tests = options.testName ? config.tests.filter((test) => test.name === options.testName) : config.tests;
   if (tests.length === 0) throw new Error(options.testName ? `No PayProof test named ${options.testName}` : "PayProof config contains no tests");
-  if (config.requireFinancialVerification && !config.verify && !config.verification) {
-    throw new Error("Financial verification is required, but the config has no verify callback or verification endpoint");
+  if (config.requireFinancialVerification && !config.verify) {
+    throw new Error("Financial verification is required, but the config has no verify callback");
   }
 
   const provider = withBachsSigning(config.provider, config);
@@ -94,7 +94,7 @@ export async function runConfig(config: PayProofConfig, options: RunConfigOption
       target: config.target,
       createPayment,
       verify: config.verify,
-      verification: config.verification,
+      financialVerification: config.financialVerification,
       checkpoint: config.checkpoint
     });
     const input = preparationFailure

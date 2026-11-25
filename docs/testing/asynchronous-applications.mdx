@@ -1,0 +1,38 @@
+---
+title: "Testing asynchronous applications"
+description: "Use bounded polling when a worker commits financial state later."
+---
+
+Some webhook handlers enqueue work and return before a worker writes the ledger.
+That is valid architecture, but a verifier called immediately may observe
+`pending` state.
+
+Return `pending: true` while the application is still processing:
+
+```js
+export async function verify(reference) {
+  const state = await readCommittedState(reference);
+  return {
+    reference,
+    creditCount: state.credits.length,
+    creditedAmountMinor: state.creditedAmountMinor,
+    currency: state.currency,
+    status: state.status,
+    pending: state.workerStatus === "PROCESSING"
+  };
+}
+```
+
+Configure a bounded wait:
+
+```js
+financialVerification: {
+  completionDeadlineMs: 10_000,
+  pollIntervalMs: 25,
+  negativeObservationWindowMs: 250
+}
+```
+
+The deadline prevents a hung worker from hanging the test forever. A negative
+scenario also gets a short observation window; zero credits immediately after a
+delivery is not proof that a delayed worker will never create one.

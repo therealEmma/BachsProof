@@ -215,9 +215,9 @@ webhook for a scenario whose preparation failed.
 **The webhook returns 401 or 400.** Check the test secret, webhook path, and that
 your application verifies the original raw body before parsing JSON.
 
-**The test passes delivery but says unverified.** Implement and enable `verify`, or
-configure the existing HTTP verification option. Delivery-only is not proof of a
-financial write.
+**The test passes delivery but says unverified.** Implement and enable `verify`.
+Delivery-only is not proof of a financial write. For asynchronous handlers,
+return `pending: true` until committed state is readable.
 
 **The verifier times out.** Return `pending: true` while your worker is processing,
 and read committed records from the same isolated test environment.

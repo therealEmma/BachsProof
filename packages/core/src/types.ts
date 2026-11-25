@@ -117,8 +117,8 @@ export interface ProviderAdapter<TEvent extends PaymentEvent = PaymentEvent> {
 }
 
 /**
- * Normalized persisted financial state returned by either an HTTP endpoint or
- * a developer-supplied verification callback.
+ * Normalized persisted financial state returned by a developer-supplied
+ * verification callback.
  */
 export interface ObservedPaymentState {
   reference: string;
@@ -189,8 +189,8 @@ export interface PayProofReport {
   expected: ExpectedPaymentState;
   observed?: ObservedPaymentState;
   verification?: VerificationResult;
-  /** Which state-inspection integration was used for this run. */
-  verificationMode: "callback" | "http" | "none";
+  /** Which financial verification integration was used for this run. */
+  verificationMode: "callback" | "none";
   /** False means HTTP delivery ran, but financial correctness was not established. */
   financiallyVerified: boolean;
   payments?: Array<{
@@ -222,16 +222,11 @@ export interface PayProofResult {
 export interface PayProofTarget {
   baseUrl: string;
   webhookPath: string;
-  resetPath?: string;
-  /** Set false when the target has no PayProof reset route or owns isolation itself. */
-  reset?: boolean;
   headers?: Record<string, string>;
 }
 
-/** Legacy/alternative HTTP state inspection configuration. */
-export interface PayProofVerificationOptions {
-  endpoint: string;
-  headers?: Record<string, string>;
+/** Callback polling and observation settings. */
+export interface FinancialVerificationOptions {
   completionDeadlineMs?: number;
   pollIntervalMs?: number;
   /** How long a negative scenario must remain observed with no credit. */
@@ -265,10 +260,10 @@ export interface PayProofOptions<TEvent extends PaymentEvent = PaymentEvent> {
   target: PayProofTarget;
   /** Optional test-only application payment/order preparation callback. */
   createPayment?: PaymentReferenceCreator;
-  /** Recommended verification path; no HTTP inspection route is needed. */
+  /** Optional test-only callback that reads committed financial state. */
   verify?: FinancialVerifier;
-  /** Backward-compatible HTTP inspection path. */
-  verification?: PayProofVerificationOptions;
+  /** Optional polling settings for asynchronous callback verification. */
+  financialVerification?: FinancialVerificationOptions;
   checkpoint?: {
     name: string;
     timeoutMs?: number;

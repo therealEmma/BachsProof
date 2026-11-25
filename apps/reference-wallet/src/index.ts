@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { BachsWebhookError, webhooks } from "@bachs/sdk";
 import { normalizeBachsWebhookEvent, parseBachsWebhookEvent, type NormalizedBachsPayment } from "@payproof/bachs";
 import { checkpoint, checkpointMiddleware, configureCheckpoint } from "@payproof/sdk";
-import { ZodError, z } from "zod";
+import { ZodError } from "zod";
 import { InMemoryWalletStore } from "./memory-store.js";
 import { PrismaWalletStore } from "./prisma-store.js";
 import type { IncomingPayment, WalletStore } from "./types.js";
@@ -12,34 +12,16 @@ export interface ReferenceWalletOptions {
   store?: WalletStore;
   databaseUrl?: string;
   testEnvironment?: boolean;
-  testSecret?: string;
   /** Bachs endpoint signing secret. The official SDK verifies the raw body. */
   bachsWebhookSecret?: string;
   /** Require signature verification even when no secret was supplied. */
   requireBachsSignature?: boolean;
-  /** Required before the HTTP reset route may delete all rows. */
-  allowDestructiveReset?: boolean;
 }
 
 export interface ReferenceWallet {
   app: Express;
   store: WalletStore;
   close(): Promise<void>;
-}
-
-/** Restrict state-management routes to an explicitly authorized test app. */
-function testOnly(options: ReferenceWalletOptions): (req: Request, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
-    if (options.testEnvironment !== true) {
-      res.status(404).json({ error: "test endpoints are disabled" });
-      return;
-    }
-    if (!options.testSecret || req.header("x-payproof-test-secret") !== options.testSecret) {
-      res.status(401).json({ error: "unauthorized" });
-      return;
-    }
-    next();
-  };
 }
 
 function toIncomingPayment(normalized: NormalizedBachsPayment): IncomingPayment | undefined {
@@ -69,9 +51,6 @@ function rawWebhookBody(req: Request): Buffer {
 
 export async function createReferenceWallet(options: ReferenceWalletOptions): Promise<ReferenceWallet> {
   if (options.mode !== "vulnerable" && options.mode !== "corrected") throw new Error("Wallet mode must be vulnerable or corrected");
-  if (options.testEnvironment === true && !options.testSecret) {
-    throw new Error("testEnvironment requires a non-empty testSecret");
-  }
   if (options.requireBachsSignature === true && !options.bachsWebhookSecret) {
     throw new Error("requireBachsSignature requires bachsWebhookSecret");
   }
@@ -127,31 +106,6 @@ export async function createReferenceWallet(options: ReferenceWalletOptions): Pr
         res.status(400).json({ error: "invalid-bachs-webhook" });
         return;
       }
-      next(error);
-    }
-  });
-
-  // All other JSON routes can use the normal parser after the raw webhook route.
-  app.use(express.json({ limit: "64kb" }));
-  app.get("/__payproof/state", testOnly(options), async (req, res, next) => {
-    try {
-      const reference = z.string().min(1).parse(req.query.reference);
-      res.json(await store.inspect(reference));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  app.post("/__payproof/reset", testOnly(options), async (_req, res, next) => {
-    try {
-      const usesPostgres = store instanceof PrismaWalletStore;
-      if (usesPostgres && options.allowDestructiveReset !== true) {
-        res.status(409).json({ error: "destructive PostgreSQL reset requires allowDestructiveReset=true" });
-        return;
-      }
-      await store.reset();
-      res.status(204).send();
-    } catch (error) {
       next(error);
     }
   });

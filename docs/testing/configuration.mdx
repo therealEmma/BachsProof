@@ -1,0 +1,35 @@
+---
+title: "Configuring your application"
+description: "Configure the target URL, provider adapter, signing, and callbacks."
+---
+
+The generated config is an ordinary JavaScript module. PayProof loads it from
+the independent repository at test time.
+
+```js
+import { bachsAdapter } from "@payproof/cli";
+import { tests } from "./tests/payproof.test.mjs";
+import { createPayment } from "./tests/payproof.setup.mjs";
+import { verify } from "./tests/payproof.verify.mjs";
+
+export default {
+  provider: bachsAdapter({ mode: "mock" }),
+  target: {
+    baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+    webhookPath: "/webhooks/bachs"
+  },
+  signing: { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET },
+  createPayment,
+  verify,
+  requireFinancialVerification: true,
+  tests
+};
+```
+
+Use `defineConfig` from `@payproof/cli` in a TypeScript config when you want
+editor type checking. The CLI supports `.mjs`, `.js`, `.cjs`, and TypeScript
+config files through its loader.
+
+Do not enable `requireFinancialVerification` until `verify` reads real committed
+test state. A missing verifier must fail clearly rather than create a false
+pass.

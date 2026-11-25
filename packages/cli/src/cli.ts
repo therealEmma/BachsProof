@@ -45,9 +45,6 @@ function explainOnboardingError(error: unknown): string {
   if (message.includes("Webhook delivery") && message.includes("HTTP 5")) {
     return `${message}\nOpen your application's test webhook handler and logs. The application returned a server error while handling the simulated event.`;
   }
-  if (message.includes("Test-state reset failed")) {
-    return `${message}\nOpen payproof.config.mjs STEP 2. Set reset: false when your application owns test-data isolation, or configure the authorized test-only reset path.`;
-  }
   if (message.includes("No PayProof test named")) {
     return `${message}\nOpen tests/payproof.test.mjs and copy the exact value from the test's name property, for example "sequential duplicate webhook".`;
   }
@@ -139,7 +136,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
       }
     }
     console.log(`Summary: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.financiallyVerified} financially verified, ${summary.financiallyUnverified} unverified, ${summary.financialViolations} financial violations, ${summary.durationMs}ms`);
-    if (!config.verify && !config.verification) {
+    if (!config.verify) {
       console.log("WARNING: black-box delivery success is not deterministic race coverage and does not prove committed financial correctness.");
     }
   }

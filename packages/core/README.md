@@ -1,22 +1,52 @@
 # @payproof/core
 
-Provider-neutral orchestration, checkpoint coordination, financial invariants, reports, and replay for PayProof.
+Provider-neutral payment correctness testing for TypeScript applications.
 
-The recommended configuration supplies `verify(reference, context)`, which
-returns committed credit information directly from the application's own test
-database code. The optional `context` identifies the scenario, expected
-financial outcome, related provider event IDs, and delivery results; the
-one-argument `verify(reference)` form remains compatible. Return `pending: true`
-while asynchronous processing is incomplete. The older
-`verification.endpoint` HTTP adapter remains available for applications that
-prefer an isolated inspection route. Omitting both is valid for basic
-webhook/event testing, but `report.financiallyVerified` will be `false`.
+The core runner sends serialized provider events to an existing webhook URL,
+records every delivery, optionally coordinates an instrumented checkpoint, and
+applies financial invariants to state returned by the application's
+verify(reference, context) callback.
 
-For application-owned test payment records, provide
-`createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount })`
-when constructing `PayProof`. The runner calls it only when a selected run has
-no explicit reference, validates the returned non-empty reference, and prepares
-one reference per participant for `concurrent-unique-payments`. Explicit
-references take precedence; `syntheticReferences: true` intentionally skips the
-callback for fixture-only runs. A callback failure produces a failed report and
-sends no webhook.
+    import { PayProof } from "@payproof/core";
+    import { bachsAdapter } from "@payproof/bachs";
+
+    const payproof = new PayProof({
+      provider: bachsAdapter({ mode: "mock" }),
+      target: {
+        baseUrl: "http://127.0.0.1:3000",
+        webhookPath: "/webhooks/bachs"
+      },
+      verify: async (reference) => readCommittedState(reference),
+      financialVerification: {
+        completionDeadlineMs: 10_000,
+        pollIntervalMs: 25,
+        negativeObservationWindowMs: 250
+      }
+    });
+
+    const result = await payproof.run({
+      scenario: "concurrent-duplicate-credit",
+      reference: "isolated-test-order-001",
+      amountMinor: 5_000_000,
+      currency: "NGN"
+    });
+
+verify(reference) remains valid. The optional second argument supplies the
+scenario, expected outcome, related event identifiers, and delivery records.
+The callback must return independently observed committed state. It must not
+return hardcoded expected values.
+
+If the callback returns pending: true, the core polls until the configured
+bounded deadline. Missing or unsuccessful verification never becomes a
+financial pass. Omitting verify is valid for delivery-only testing, but
+financiallyVerified is false.
+
+Payment references are real application references by default. Use
+createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount })
+for automatic test-record preparation, explicit reference or references for
+manual preparation, or syntheticReferences: true for isolated fixture runs.
+
+The core does not reset application state or call a state-inspection endpoint.
+The target application owns preparation, isolation, cleanup, and state access.
+For optional controlled concurrency testing, install @payproof/sdk only in a
+test-enabled application build.

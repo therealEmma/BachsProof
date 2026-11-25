@@ -11,7 +11,6 @@ import { createReferenceWallet, PrismaWalletStore } from "../src/index.js";
  * that the database acceptance demonstration did not run.
  */
 const databaseUrl = process.env.DATABASE_URL;
-const TEST_SECRET = "payproof-postgres-test-secret";
 let databaseReady = false;
 let databaseError = "";
 
@@ -76,8 +75,7 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
     mode,
     store,
     databaseUrl: url,
-    testEnvironment: true,
-    testSecret: TEST_SECRET
+    testEnvironment: true
   });
   const server = createServer(wallet.app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -91,7 +89,6 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
     target: {
       baseUrl: `http://127.0.0.1:${address.port}`,
       webhookPath: "/webhooks/bachs",
-      reset: false
     },
     verify: async (requestedReference) => {
       const credits = await store.prisma.walletCredit.findMany({ where: { reference: requestedReference } });

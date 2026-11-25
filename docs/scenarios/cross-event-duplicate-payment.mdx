@@ -1,0 +1,25 @@
+---
+title: "Cross-event duplicate payment"
+description: "Check that two lifecycle events for one payment do not double credit."
+---
+
+## In plain English
+
+One financial payment can be described by more than one lifecycle event. The
+application must not treat each event type as a separate payment.
+
+## What PayProof does
+
+It sends `checkout.completed` and `collection.succeeded` concurrently for the
+same reference and underlying provider payment identity. The checkout fixture
+is eligible only when it is a paid payment checkout with a charge.
+
+## Expected result
+
+One credit. The scenario checks `INV-001` plus the amount and completion rules.
+It is limited to the documented event semantics represented by the current
+adapter; it does not claim that every Bachs event pair is interchangeable.
+
+```bash
+npx payproof test --name "cross-event duplicate payment"
+```

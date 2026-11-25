@@ -10,6 +10,13 @@
 **MVP target:** One focused development session (approximately 6–8 hours)  
 **Engineering showcase target:** 7–14 days, depending on implementation and testing complexity
 
+> **Historical design note:** This document records the original product design.
+> The current first-release implementation supersedes the early HTTP inspection
+> and target-reset proposals: financial verification uses an application-owned
+> callback, while payment preparation and cleanup remain application-owned. See
+> [README.md](README.md) and the current CLI documentation for the supported
+> public workflow.
+
 ---
 
 # 1. Executive Summary

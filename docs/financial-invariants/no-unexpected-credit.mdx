@@ -1,0 +1,18 @@
+---
+title: "INV-004: No Unexpected Credit"
+description: "An ineligible payment must not create a financial credit."
+---
+
+## Meaning
+
+Expired, incomplete, failed, underpaid, tampered, or unauthenticated events
+must not create money in the application.
+
+## How PayProof evaluates it
+
+If `expected.eligible` is false and `creditCount` is greater than zero, the
+invariant fails.
+
+Investigate whether the handler fulfilled from checkout status alone, skipped
+signature verification, trusted an event before amount/currency matching, or
+treated an error state as success.

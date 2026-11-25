@@ -1,65 +1,46 @@
-# payproof CLI
+# @payproof/cli
 
-The `payproof` command runs PayProof against an existing application's webhook
-URL. It is black-box by default: the target does not need PayProof routes,
-controllers, services, or checkpoint instrumentation.
+Package-installable CLI onboarding for black-box payment correctness testing.
 
-For a first integration, follow the repository's
-[beginner quickstart](../../docs/quickstart.md).
+    pnpm add -D @payproof/cli
+    pnpm exec payproof init
+    pnpm exec payproof test
 
-```bash
-pnpm add -D @payproof/cli
-pnpm exec payproof init
-PAYPROOF_TARGET_URL=http://127.0.0.1:3000 pnpm exec payproof test
-```
+`payproof init` creates a small configuration and test suite in the independent
+application repository:
 
-`payproof init` creates `payproof.config.mjs`,
-`tests/payproof.test.mjs`, an opt-in `tests/payproof.setup.mjs`, and a hard-fail
-`tests/payproof.verify.mjs` template. The generated test lists all supported Bachs
-duplicate, lifecycle, validation, rejection, underpayment, and failed-payment
-scenarios with configurable amount/currency values. Enable `createPayment` in
-the generated config to prepare fresh application payment records automatically.
-It intentionally warns that black-box delivery is not deterministic
-race-condition coverage and does not prove committed financial correctness.
+- `payproof.config.mjs` for the provider, webhook target, signing secret,
+  payment preparation, verification, and polling settings;
+- `tests/payproof.test.mjs` with all 15 supported scenario definitions;
+- `tests/payproof.setup.mjs` for the optional `createPayment(context)` callback;
+- `tests/payproof.verify.mjs` for the `verify(reference, context)` callback.
 
-Run the whole generated suite or one scenario by name:
+The generated setup and verifier templates fail until implemented. PayProof does
+not invent application references or treat expected values as financial proof.
 
-```bash
-pnpm exec payproof test
-pnpm exec payproof test --name "underpaid payment"
-```
+The target application does not need PayProof routes, controllers, services, or
+production instrumentation. It only needs a reachable webhook URL. The
+application owns test payment preparation, isolation, cleanup, and committed
+state access.
 
-Real application references are required by default. Implement
-`createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount })`
-in `tests/payproof.setup.mjs` and uncomment it in the generated config. PayProof
-calls it only for selected scenarios, creates two independent references for
-`concurrent-unique-payments`, validates returned values, and sends no webhook
-when preparation fails. Manual `reference`/`references` test fields remain
-supported, and `PAYPROOF_USE_SYNTHETIC_REFERENCES=true` is available only for
-isolated fixture tests. Positional `PAYPROOF_REFERENCES` configurations remain
-usable when translated into the test definitions, but are no longer generated.
+Real application references are the default. Use `createPayment` for fresh test
+records, explicit `reference` or `references` for manual fixtures, and
+`syntheticReferences: true` only for isolated adapter/HTTP fixture tests.
 
-See the repository [scenario matrix](../../docs/scenarios.md) for expected
-HTTP outcomes and financial assertions.
+The CLI runs configured scenarios sequentially. Delivery waves inside a
+concurrency scenario remain concurrent. `--name` runs one exact test name and
+`--json` emits machine-readable reports:
 
-Add a test-side `verify(reference, context)` callback to query the application's own
-committed database state when financial correctness should be asserted. This
-does not require changing the production webhook code. Set
-`requireFinancialVerification: true` to fail when the callback or an HTTP state
-inspection endpoint is absent.
+    pnpm exec payproof test --name "underpaid payment"
+    pnpm exec payproof test --json
 
-The context includes the scenario, expected outcome, related event IDs, and
-delivery records. Those fields describe the test; only the callback's observed
-committed state can establish the financial result. The CLI prints a
-consolidated summary with delivery, financial-verification, violation, and
-duration counts.
+Add `requireFinancialVerification: true` when the suite must fail unless the
+callback has observed committed financial state. Without a callback, PayProof
+can still test HTTP delivery, but it reports the run as financially unverified.
 
-For deeper race testing, configure `checkpoint` and instrument the target only
-in its explicit test environment with `@payproof/sdk`:
+For optional controlled concurrency testing, configure a checkpoint and use
+`@payproof/sdk` in an explicitly enabled test build. Ordinary black-box HTTP
+concurrency is not deterministic race-condition coverage.
 
-```ts
-await checkpoint("after-idempotency-check", { key: payment.reference });
-```
-
-That is an optional white-box mode. The CLI never implies that ordinary
-black-box HTTP delivery is deterministic concurrency coverage.
+See the repository [quickstart](../../docs/quickstart.md) and
+[CLI guide](../../docs/cli.md) for the complete workflow.

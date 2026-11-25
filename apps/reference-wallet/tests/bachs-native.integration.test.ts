@@ -10,7 +10,6 @@ import {
 } from "@payproof/bachs";
 import { createReferenceWallet, InMemoryWalletStore } from "../src/index.js";
 
-const TEST_SECRET = "payproof-test-secret";
 const WEBHOOK_SECRET = "whsec_payproof_test";
 
 interface RunningWallet {
@@ -26,7 +25,6 @@ async function runningWallet(options: { signature?: boolean } = {}): Promise<Run
     mode: "corrected",
     store,
     testEnvironment: true,
-    testSecret: TEST_SECRET,
     bachsWebhookSecret: options.signature ? WEBHOOK_SECRET : undefined
   });
   const server = createServer(wallet.app);
@@ -177,11 +175,11 @@ describe("Bachs-native reference wallet", () => {
     expect(final.creditCount).toBe(1);
   });
 
-  it("returns 400 for malformed webhook JSON and protects test-only state routes", async () => {
+  it("returns 400 for malformed webhook JSON and exposes no inspection route", async () => {
     const wallet = await runningWallet();
     resources.push(wallet);
     expect((await post(wallet, "{not-json")).status).toBe(400);
-    expect((await fetch(`${wallet.url}/__payproof/state?reference=PAY-NONE`)).status).toBe(401);
+    expect((await fetch(`${wallet.url}/__payproof/state?reference=PAY-NONE`)).status).toBe(404);
   });
 
   it("recognizes the documented event envelope before adapter normalization", () => {

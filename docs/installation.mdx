@@ -1,0 +1,55 @@
+---
+title: "Installation"
+description: "Install PayProof in an independent application repository."
+---
+
+PayProof is installed in the application repository that owns the webhook you
+want to test. It does not need to be part of the PayProof monorepo.
+
+<CodeGroup>
+
+```bash npm
+npm install --save-dev @payproof/cli
+```
+
+```bash pnpm
+pnpm add -D @payproof/cli
+```
+
+```bash yarn
+yarn add --dev @payproof/cli
+```
+
+</CodeGroup>
+
+The CLI depends on the core runner and the Bachs adapter. The supported Bachs
+adapter currently generates local, documented-shaped fixtures in `mock` mode;
+it does not require a Bachs API key.
+
+## Runtime requirements
+
+- Node.js 22 or later for the current PayProof and official Bachs SDK
+  toolchain.
+- An application running in an isolated test environment.
+- A reachable webhook URL.
+- A test-side payment preparation function or explicit application references
+  for scenarios that need payments.
+- A test-side verifier if you want committed financial correctness checks.
+
+## Initialize the files
+
+```bash
+npx payproof init
+npx payproof test --help
+```
+
+`payproof init` creates:
+
+- `payproof.config.mjs`;
+- `tests/payproof.test.mjs`;
+- `tests/payproof.setup.mjs`;
+- `tests/payproof.verify.mjs`.
+
+The generated callbacks intentionally throw until you connect them to your own
+test data. This prevents a delivery-only run from looking like a financial
+verification pass.

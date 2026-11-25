@@ -1,0 +1,42 @@
+---
+title: "Controlled concurrency"
+description: "Compare ordinary concurrent delivery with an explicit application barrier."
+---
+
+Sending requests together does not guarantee that both handlers reach the same
+application line together. A checkpoint lets the application pause at a named
+point while the PayProof controller waits for all participants.
+
+```mermaid
+sequenceDiagram
+  participant Core as PayProof runner
+  participant A as Request A
+  participant B as Request B
+  participant C as Checkpoint controller
+
+  Core->>A: Send webhook
+  Core->>B: Send webhook
+  A->>C: Arrive after idempotency read
+  B->>C: Arrive after idempotency read
+  C-->>Core: Both participants arrived
+  Core->>C: Release checkpoint
+  C-->>A: Continue
+  C-->>B: Continue
+```
+
+Configure it on the runner:
+
+```ts
+checkpoint: {
+  name: "after-idempotency-check",
+  timeoutMs: 10_000
+}
+```
+
+Then call `checkpoint("after-idempotency-check", { key: reference })` in a
+test-only application path. The barrier is only enabled when the application
+explicitly opts into the request headers.
+
+This controls the named application point, not every scheduler, network, or
+database detail. Report fields set `replay.controlled` to false when no
+checkpoint is used.

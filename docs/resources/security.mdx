@@ -1,0 +1,20 @@
+---
+title: "Security considerations"
+description: "Protect test environments, webhook secrets, and financial test data."
+---
+
+PayProof generates payment-shaped input. Treat it as privileged test traffic.
+
+- Never send synthetic events to production.
+- Use a dedicated test webhook secret and rotate it normally.
+- Keep `DATABASE_URL`, signing secrets, and API credentials out of source and
+  CI logs.
+- Scope test database cleanup to references and customer IDs created by the run.
+- Do not expose a test data reader or preparation callback to untrusted callers.
+- Verify Bachs signatures against raw bodies before parsing.
+- Avoid logging full webhook payloads when they contain personal data.
+- Do not use synthetic references as evidence that a payment exists in your app.
+
+The optional checkpoint controller authenticates arrivals with a per-session
+token and participant allow-list. Keep it bound to the test process and do not
+enable request-header activation in an untrusted production environment.

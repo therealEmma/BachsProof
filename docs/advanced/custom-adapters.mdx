@@ -1,0 +1,41 @@
+---
+title: "Custom provider adapters"
+description: "Extend PayProof with another documented provider contract."
+---
+
+The core is provider-neutral. A custom adapter must define the event shape and
+the wire behavior; PayProof will not invent a provider contract.
+
+```ts
+import type { ProviderAdapter } from "@payproof/core";
+
+export const myAdapter: ProviderAdapter<MyEvent> = {
+  name: "MyProvider",
+  mode: "test",
+  createPayment(input) {
+    return createDocumentedTestEvent(input);
+  },
+  serialize(event) {
+    return JSON.stringify(toProviderEnvelope(event));
+  },
+  expectedState(event) {
+    return {
+      reference: event.reference,
+      eligible: event.status === "paid",
+      amountMinor: event.amountMinor,
+      currency: event.currency,
+      expectedCreditCount: event.status === "paid" ? 1 : 0
+    };
+  },
+  headersForBody(event, body) {
+    return signDocumentedBody(body);
+  },
+  createScenario(scenario, input) {
+    return documentedScenarioPlan(scenario, input);
+  }
+};
+```
+
+The adapter is responsible for documented event construction, exact body
+serialization, signing, and scenario semantics. Add tests for each supported
+scenario before describing it as supported by the provider.

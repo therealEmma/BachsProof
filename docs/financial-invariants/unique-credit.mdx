@@ -1,0 +1,33 @@
+---
+title: "INV-001: Unique Credit"
+description: "At most one posted credit may exist for one eligible payment."
+---
+
+## Meaning
+
+One customer paid once, so the application's ledger should contain at most one
+credit for that payment reference.
+
+## Example
+
+Expected:
+
+```text
+payment pay-123 → one credit of NGN 5,000
+```
+
+Failing observation:
+
+```text
+payment pay-123 → two credits of NGN 5,000
+```
+
+## How PayProof evaluates it
+
+It checks `observed.creditCount > 1`. The usual causes are duplicate deliveries,
+non-atomic check-then-insert logic, or an idempotency key that is not durable
+or unique.
+
+Investigate the delivery IDs, event IDs, database uniqueness constraint, and
+transaction boundary. The reference wallet's vulnerable mode demonstrates this
+exact violation.

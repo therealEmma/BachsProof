@@ -22,8 +22,7 @@ This creates only:
 
 - `payproof.config.mjs`, which points at the application's webhook URL and
   selects the provider adapter;
-- `tests/payproof.test.mjs`, which lists every supported scenario without
-  requiring positional reference environment variables;
+- `tests/payproof.test.mjs`, which lists every supported scenario;
 - `tests/payproof.setup.mjs`, an opt-in `createPayment(context)` template for
   creating fresh application payments;
 - `tests/payproof.verify.mjs`, a deliberately failing test-side verifier
@@ -58,9 +57,8 @@ one callback invocation per participant, with indexes starting at zero.
 For manual preparation, put an explicit `reference` on each selected test and
 put one reference per participant in the `references` array for
 `concurrent-unique-payments`. PayProof validates that selected scenarios do not
-reuse a reference. Older configurations using positional reference environment
-variables remain compatible when they map those values into test definitions,
-but new projects should use explicit test fields or `createPayment`.
+reuse a reference. New projects should use explicit test fields or
+`createPayment` rather than positional environment-variable ordering.
 
 For isolated fixture-only testing, explicitly set
 `PAYPROOF_USE_SYNTHETIC_REFERENCES=true`; synthetic references must not be used
@@ -135,8 +133,7 @@ export default {
   provider: bachsAdapter({ mode: "mock" }),
   target: {
     baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-    webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs",
-    reset: false
+    webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
   },
   tests,
   createPayment,
@@ -170,18 +167,15 @@ The callback result is validated and checked against PayProof's financial
 invariants. Use a dedicated test reference or isolated test database because
 the default CLI target does not reset or delete application data.
 
-The existing HTTP verification option is also available when the application
-already exposes a protected test-only state endpoint:
+Polling remains configurable without adding an HTTP inspection route:
 
 ```js
-verification: {
-  endpoint: "/internal/test/payment-state",
-  headers: { authorization: `Bearer ${process.env.PAYPROOF_TEST_TOKEN}` }
+financialVerification: {
+  completionDeadlineMs: 10_000,
+  pollIntervalMs: 25,
+  negativeObservationWindowMs: 250
 }
 ```
-
-Keep that endpoint disabled outside an authorized test environment and protect
-any reset or destructive operation with separate test-only authentication.
 
 ## Provider adapters
 
@@ -196,7 +190,7 @@ import { tests } from "./tests/payproof.test.mjs";
 
 export default defineConfig({
   provider: myProviderAdapter({ mode: "test", secret: process.env.TEST_WEBHOOK_SECRET }),
-  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/provider", reset: false },
+  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/provider" },
   tests,
   requireFinancialVerification: true
 });
@@ -249,7 +243,7 @@ Useful checks when onboarding a backend:
 1. Confirm the target process is running and the webhook path is reachable.
 2. Confirm the target reads raw request bytes before Bachs signature verification.
 3. Use a test-only secret and inspect the target's structured webhook logs.
-4. Add `verify` or `verification` before treating a pass as a financial
+4. Add `verify` before treating a pass as a financial
    correctness result.
 5. Use the checkpoint mode only after the ordinary black-box flow is passing.
 

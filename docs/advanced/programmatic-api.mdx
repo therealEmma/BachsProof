@@ -1,0 +1,29 @@
+---
+title: "Programmatic testing API"
+description: "Run PayProof from Vitest, Jest, or another TypeScript test runner."
+---
+
+Import `PayProof`, configure an adapter and target, then call `run`:
+
+```ts
+import { PayProof } from "@payproof/core";
+import { bachsAdapter } from "@payproof/bachs";
+
+const payproof = new PayProof({
+  provider: bachsAdapter({ mode: "mock" }),
+  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
+  verify: async (reference) => testStore.inspect(reference)
+});
+
+const result = await payproof.run({
+  scenario: "concurrent-duplicate-credit",
+  reference: "isolated-payment",
+  concurrency: 2
+});
+
+expect(result.passed).toBe(true);
+```
+
+`run` does not reset your application. Create or clean up test data in the
+surrounding test lifecycle. `replay(report)` reuses the logical event schedule,
+but fresh application state remains your responsibility.

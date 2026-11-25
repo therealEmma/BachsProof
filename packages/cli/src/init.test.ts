@@ -19,10 +19,11 @@ describe("PayProof init", () => {
 
     const testSource = await readFile(join(directory, "tests", "payproof.test.mjs"), "utf8");
     const configSource = await readFile(join(directory, "payproof.config.mjs"), "utf8");
-    expect(configSource).toContain("STEP 1: Select your payment provider");
-    expect(configSource).toContain("STEP 6: Select your payment tests");
-    expect(configSource).toContain("baseUrl is the application address");
-    expect(configSource).toContain("// createPayment: paymentPreparation");
+    expect(configSource).toContain("PayProof test configuration");
+    expect(configSource).toContain("webhookPath");
+    expect(configSource).toContain("// createPayment,");
+    expect(configSource).not.toContain("resetPath");
+    expect(configSource).toContain("financialVerification");
     for (const scenario of [
       "sequential-duplicate-webhook",
       "concurrent-duplicate-credit",
@@ -42,18 +43,16 @@ describe("PayProof init", () => {
     ]) expect(testSource).toContain(scenario);
 
     const verifierSource = await readFile(join(directory, "tests", "payproof.verify.mjs"), "utf8");
-    expect(verifierSource).toContain("Just because your webhook endpoint returns HTTP 200");
-    expect(verifierSource).toContain("Open tests/payproof.verify.mjs and implement verify");
+    expect(verifierSource).toContain("HTTP 200 only proves");
+    expect(verifierSource).toContain("Implement verify in tests/payproof.verify.mjs");
     const setupSource = await readFile(join(directory, "tests", "payproof.setup.mjs"), "utf8");
-    expect(setupSource).toContain("Open tests/payproof.setup.mjs and implement createPayment");
-    expect(setupSource).toContain("STEP 1: Understand what PayProof gives you");
-    expect(setupSource).toContain("Every call must return a fresh, unique reference");
-    expect(setupSource).toContain("500000 means");
-    expect(setupSource).toContain("pending payment/order");
+    expect(setupSource).toContain("Implement createPayment in tests/payproof.setup.mjs");
+    expect(setupSource).toContain("fresh test payment or order");
+    expect(setupSource).toContain("paymentIndex");
     expect(verifierSource).toContain("creditedAmountMinor");
-    expect(verifierSource).toContain("pending: !payment");
+    expect(verifierSource).toContain("pending");
     expect(testSource).not.toContain("PAYPROOF_REFERENCES");
-    expect(testSource).toContain("This detects check-then-insert race conditions");
+    expect(testSource).toContain("tests duplicate-credit races");
     expect(testSource).toContain("pnpm exec payproof test --name");
   });
 });

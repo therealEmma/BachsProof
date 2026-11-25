@@ -1,0 +1,51 @@
+---
+title: "Payment callbacks"
+description: "Reference for createPayment(context) and verify(reference, context)."
+---
+
+## `createPayment(context)`
+
+```ts
+type PaymentReferenceCreator = (context: {
+  scenario: ScenarioName;
+  amountMinor: number;
+  currency: string;
+  paymentIndex: number;
+  paymentCount: number;
+}) => string | Promise<string>;
+```
+
+Return a fresh non-empty application reference. A thrown error or duplicate
+reference fails preparation and prevents delivery for that scenario.
+
+## `verify(reference, context?)`
+
+```ts
+type FinancialVerifier = (
+  reference: string,
+  context?: FinancialVerificationContext
+) => FinancialVerificationInput | Promise<FinancialVerificationInput>;
+```
+
+The returned input requires:
+
+```ts
+{
+  reference: string;
+  creditCount: number;
+  creditedAmountMinor: number;
+  currency: string;
+  status?: string;
+  pending?: boolean;
+  ledgerEntries?: Array<{
+    id: string;
+    type: string;
+    amountMinor: number;
+    currency?: string;
+  }>;
+}
+```
+
+The optional context includes the scenario, payment reference, expected outcome,
+related events and identifiers, and delivery records. It is diagnostic context;
+do not use it to return a predetermined result.

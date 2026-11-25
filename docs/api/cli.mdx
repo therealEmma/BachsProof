@@ -1,0 +1,33 @@
+---
+title: "CLI commands and flags"
+description: "Reference for payproof init and payproof test."
+---
+
+## `payproof init`
+
+```text
+payproof init [directory] [--force]
+```
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `directory` | Current working directory | Independent project to initialize |
+| `--force` | Off | Replace generated files that already exist |
+
+The command creates the config, scenario list, payment preparation template,
+and verifier template.
+
+## `payproof test`
+
+```text
+payproof test [--config <path>] [--name <test-name>] [--json]
+```
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--config` | `payproof.config.mjs` | Config module to load |
+| `--name` | All configured tests | Run one exact `name` |
+| `--json` | Human-readable output | Print JSON results for CI |
+
+The process exits `0` when all selected results pass and `1` when a selected
+result fails or configuration cannot be loaded.

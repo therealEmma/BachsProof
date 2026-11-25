@@ -1,0 +1,29 @@
+---
+title: "Contributing"
+description: "Extend PayProof without weakening its evidence boundary."
+---
+
+Before adding a scenario or provider behavior:
+
+1. identify the authoritative provider documentation;
+2. inspect the existing core and adapter interfaces;
+3. write a regression test for the expected delivery and financial state;
+4. keep synthetic events separate from live-provider claims;
+5. preserve callback verification and explicit unverified reporting;
+6. update the scenario matrix, API reference, and limitations.
+
+Run the repository checks:
+
+```bash
+pnpm build
+pnpm -r exec tsc --noEmit --pretty false
+pnpm exec vitest run
+pnpm pack:check
+```
+
+When `DATABASE_URL` is available, run the PostgreSQL suite explicitly. Do not
+claim database coverage when the suite was skipped.
+
+Keep examples runnable from an independent repository. Avoid mandatory
+application hooks, database-specific core dependencies, and undocumented
+provider contracts.

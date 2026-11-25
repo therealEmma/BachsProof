@@ -1,0 +1,49 @@
+---
+title: "Your first payment test"
+description: "Understand the smallest complete PayProof test."
+---
+
+Start with `sequential-duplicate-webhook`. It delivers the same eligible
+payment twice, in sequence. A correct application should create one credit.
+
+```js
+export const tests = [
+  {
+    name: "sequential duplicate webhook",
+    scenario: "sequential-duplicate-webhook",
+    amountMinor: 500_000,
+    currency: "NGN",
+    reference: "test-payment-001"
+  }
+];
+```
+
+The reference must already exist in your isolated application database and must
+be recognizable by your webhook handler. For repeated runs, prefer
+`createPayment` so every run receives a fresh record.
+
+## What a pass means
+
+With `verify` configured, a pass means:
+
+- both webhook deliveries matched their expected HTTP behavior;
+- the callback returned state for the requested reference;
+- the application reported one credit;
+- the credited amount and currency matched the expected payment;
+- no financial invariant was violated.
+
+Without `verify`, a pass only describes the delivery outcome. It does not prove
+that a database row or ledger entry was committed.
+
+## What a failure tells you
+
+Read the failure in this order:
+
+1. `deliveries` — did the request reach the right route and return the expected
+   status?
+2. `errors` — did preparation, signing, parsing, or delivery fail?
+3. `verification` — which invariant was violated?
+4. `observed` — what did the application actually commit?
+
+Continue with [Understanding test results](/testing/understanding-results) when
+you are ready to run the full suite.

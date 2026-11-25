@@ -1,0 +1,29 @@
+---
+title: "Checkpoint SDK"
+description: "Add optional request-scoped checkpoint instrumentation."
+---
+
+`@payproof/sdk` is a small optional package. It does not depend on Express and
+can be adapted to another HTTP framework.
+
+```ts
+import {
+  checkpoint,
+  checkpointMiddleware,
+  configureCheckpoint
+} from "@payproof/sdk";
+
+app.use(checkpointMiddleware({ enabled: process.env.PAYPROOF_TEST_MODE === "true" }));
+
+// In the handler, after reading the idempotency state:
+await checkpoint("after-idempotency-check", { key: payment.reference });
+```
+
+The middleware only accepts PayProof request headers when the application has
+also enabled request-header activation through `configureCheckpoint`. Disabled
+calls return immediately, so production code can keep the call behind a
+test-only integration boundary.
+
+Available helpers include `configureCheckpoint`, `disableCheckpoints`,
+`isCheckpointEnabled`, `runWithCheckpointContext`, `checkpoint`, and
+`getCheckpointContext`.

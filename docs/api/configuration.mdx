@@ -1,0 +1,34 @@
+---
+title: "CLI configuration"
+description: "Reference for PayProofConfig and its defaults."
+---
+
+| Field | Type | Required | Default / behavior |
+| --- | --- | --- | --- |
+| `provider` | `ProviderAdapter` | Yes | No default |
+| `target.baseUrl` | `string` | Yes | No default |
+| `target.webhookPath` | `string` | Yes | No default |
+| `target.headers` | `Record<string,string>` | No | Added to every delivery |
+| `tests` | `PayProofCliTest[]` | Yes, non-empty | No default |
+| `createPayment` | `PaymentReferenceCreator` | No | Called only when a reference is missing |
+| `verify` | `FinancialVerifier` | No | No financial observation when absent |
+| `financialVerification` | `FinancialVerificationOptions` | No | 10,000ms completion; 25ms polling; 250ms negative window |
+| `checkpoint.name` | `string` | No | Checkpoint mode disabled |
+| `checkpoint.timeoutMs` | `number` | No | 10,000ms in the core controller |
+| `signing.type` | `"bachs"` | No | No adapter signing wrapper |
+| `signing.secret` | `string` | When signing is used | Non-empty test secret |
+| `signing.timestamp` | `number` | No | Current Unix timestamp |
+| `requireFinancialVerification` | `boolean` | No | `false`; set true to fail without a verifier/pass |
+
+Example:
+
+```js
+import { defineConfig, bachsAdapter } from "@payproof/cli";
+import { tests } from "./tests/payproof.test.mjs";
+
+export default defineConfig({
+  provider: bachsAdapter({ mode: "mock" }),
+  target: { baseUrl: "http://127.0.0.1:3000", webhookPath: "/webhooks/bachs" },
+  tests
+});
+```

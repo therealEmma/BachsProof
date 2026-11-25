@@ -57,15 +57,6 @@ export class PrismaWalletStore implements WalletStore {
     this.prisma = prisma ?? new PrismaClient(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : undefined);
   }
 
-  async reset(): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.webhookEvent.deleteMany(),
-      this.prisma.walletCredit.deleteMany(),
-      this.prisma.payment.deleteMany(),
-      this.prisma.wallet.deleteMany()
-    ]);
-  }
-
   /**
    * Avoid Prisma's concurrent upsert race by doing find/create inside a short
    * transaction and retrying the unique-key loser. No application checkpoint

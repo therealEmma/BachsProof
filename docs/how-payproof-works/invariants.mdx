@@ -1,0 +1,19 @@
+---
+title: "Financial invariants"
+description: "See the rules applied to independently observed financial state."
+---
+
+An invariant is a rule that should remain true after the webhook is processed.
+PayProof currently evaluates five:
+
+| ID | Rule |
+| --- | --- |
+| `INV-001` | One eligible payment creates at most one credit |
+| `INV-002` | A posted credit has the expected amount and currency |
+| `INV-003` | An eligible payment receives its expected credit |
+| `INV-004` | An ineligible payment creates no credit |
+| `INV-005` | The eligible payment's aggregate credited amount is correct |
+
+Each violation retains an identifier, name, message, and payment reference.
+The [Financial invariants](/financial-invariants) section explains each rule
+with passing and failing examples.

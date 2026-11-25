@@ -1,0 +1,26 @@
+---
+title: "Delayed payment confirmation"
+description: "Check that a later valid confirmation is not permanently rejected."
+---
+
+## In plain English
+
+An early checkout signal can arrive before the payment is confirmed. A later
+successful collection should still be able to fulfil the payment once it is
+valid.
+
+## What PayProof does
+
+It sends `checkout.expired` first, then delays a later eligible
+`collection.succeeded` delivery. The delay defaults to 25ms and can be set with
+`delayMs`.
+
+## Expected result
+
+One credit after the delayed success. Configure asynchronous verification if
+your worker commits later. The scenario does not prove behavior beyond the
+configured delay and verification deadline.
+
+```js
+{ name: "delayed confirmation", scenario: "delayed-payment-confirmation", delayMs: 100 }
+```

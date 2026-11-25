@@ -1,0 +1,21 @@
+---
+title: "Underpaid payment"
+description: "Prevent fulfilment when only part of the expected amount arrives."
+---
+
+## In plain English
+
+The provider reports that only part of the amount due arrived. The application
+must not credit the full order before the shortfall is resolved.
+
+## What PayProof does
+
+It creates a documented-shaped `collection.underpaid` event containing
+`amount_paid`, `amount_expected`, `amount_remaining`, `currency`, and
+`status: "UNDERPAID"`.
+
+## Expected result
+
+Zero credits. `INV-004` is the primary guard. PayProof does not send a later
+top-up success in this scenario; use a separate lifecycle test if your business
+process supports one.

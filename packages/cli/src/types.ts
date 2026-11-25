@@ -1,9 +1,9 @@
 import type {
   FinancialVerifier,
+  FinancialVerificationOptions,
   PaymentReferenceCreator,
   PayProofTarget,
   PaymentEvent,
-  PayProofVerificationOptions,
   ProviderAdapter,
   RunOptions
 } from "@payproof/core";
@@ -26,7 +26,7 @@ export interface PayProofConfig<TEvent extends PaymentEvent = PaymentEvent> {
   /** Optional test-only callback that creates fresh application payments. */
   createPayment?: PaymentReferenceCreator;
   verify?: FinancialVerifier;
-  verification?: PayProofVerificationOptions;
+  financialVerification?: FinancialVerificationOptions;
   checkpoint?: {
     name: string;
     timeoutMs?: number;

@@ -1,0 +1,34 @@
+---
+title: "Webhook authentication and signing"
+description: "Verify Bachs test webhooks using the original raw body."
+---
+
+The CLI can sign test bodies with:
+
+```js
+signing: {
+  type: "bachs",
+  secret: process.env.BACHS_WEBHOOK_SECRET
+}
+```
+
+The adapter emits `X-Bachs-Signature-V2`. PayProof signs the exact body it sends.
+For tampered-body tests, it signs one body and deliberately sends another.
+
+In a Node or TypeScript application, use the official SDK on the raw request
+body:
+
+```ts
+const body = await request.text();
+const event = webhooks.constructEvent(
+  body,
+  request.headers,
+  process.env.BACHS_WEBHOOK_SECRET!
+);
+```
+
+The official SDK checks the V2 signature and timestamp tolerance. It does not
+deduplicate events or run your business handler; your application must persist
+event identity and decide how to fulfil. See the [Bachs Node SDK webhook guide](https://docs.bachs.io/sdks/node#verify-webhooks).
+
+Never reuse a production secret in a local or CI test job.

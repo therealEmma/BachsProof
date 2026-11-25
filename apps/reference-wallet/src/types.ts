@@ -50,7 +50,6 @@ export interface StateInspection {
  * in-memory test store.
  */
 export interface WalletStore {
-  reset(): Promise<void>;
   ensurePendingPayment(payment: IncomingPayment): Promise<PaymentSnapshot>;
   getPayment(reference: string): Promise<PaymentSnapshot | undefined>;
   processVulnerable(payment: IncomingPayment, afterCheck: () => Promise<void>): Promise<boolean>;

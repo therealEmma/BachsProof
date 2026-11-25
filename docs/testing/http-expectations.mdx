@@ -1,0 +1,21 @@
+---
+title: "Understanding HTTP expectations"
+description: "Configure accepted responses for successful and deliberately rejected events."
+---
+
+Every delivery has an HTTP result. A scenario can expect a status such as `400`,
+`[400, 401]`, or a class such as `4xx`.
+
+```js
+{
+  name: "invalid signatures are rejected",
+  scenario: "invalid-webhook-signature",
+  expectedStatus: "4xx",
+  reference: "prepared-payment-2"
+}
+```
+
+PayProof evaluates the HTTP expectation separately from financial verification.
+An expected rejection can pass delivery while the financial verifier confirms
+that no credit exists. Conversely, an HTTP `200` can still fail financial
+correctness if the application committed the wrong state.

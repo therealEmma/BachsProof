@@ -1,0 +1,99 @@
+---
+title: "Quickstart"
+description: "Run your first financially verified PayProof test."
+---
+
+This guide assumes an existing backend with a Bachs-compatible webhook route.
+The route can be Express, Fastify, NestJS, Go, Python, or another HTTP server.
+PayProof does not modify it.
+
+<Steps>
+  <Step title="Install and initialize">
+    ```bash
+    pnpm add -D @payproof/cli
+    npx payproof init
+    ```
+
+    Start the application in its isolated test configuration.
+  </Step>
+
+  <Step title="Configure the endpoint and signing secret">
+    Edit `payproof.config.mjs`:
+
+    ```js
+    import { bachsAdapter } from "@payproof/cli";
+    import { tests } from "./tests/payproof.test.mjs";
+
+    export default {
+      provider: bachsAdapter({ mode: "mock" }),
+      target: {
+        baseUrl: process.env.PAYPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+        webhookPath: process.env.PAYPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
+      },
+      signing: process.env.BACHS_WEBHOOK_SECRET
+        ? { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET }
+        : undefined,
+      tests
+    };
+    ```
+
+    The signing secret must be the test-only secret your application uses to
+    verify the raw webhook body.
+  </Step>
+
+  <Step title="Prepare an application payment">
+    Open `tests/payproof.setup.mjs` and connect `createPayment` to an existing
+    test API, application service, ORM, or seed helper:
+
+    ```js
+    export async function createPayment({ scenario, amountMinor, currency, paymentIndex }) {
+      const payment = await testSupport.createPayment({
+        scenario,
+        amountMinor,
+        currency,
+        paymentIndex
+      });
+      return payment.reference;
+    }
+    ```
+
+    Uncomment the import and `createPayment` property in the config. Every call
+    must create a fresh isolated record.
+  </Step>
+
+  <Step title="Verify committed financial state">
+    Implement `verify` in `tests/payproof.verify.mjs`. It must read actual
+    committed credits or ledger entries, not return expected values:
+
+    ```js
+    export async function verify(reference) {
+      const state = await testSupport.readCommittedState(reference);
+      return {
+        reference,
+        creditCount: state.credits.length,
+        creditedAmountMinor: state.credits.reduce((sum, credit) => sum + credit.amountMinor, 0),
+        currency: state.currency,
+        status: state.status
+      };
+    }
+    ```
+
+    Uncomment `verify` and `requireFinancialVerification: true` in the config.
+  </Step>
+
+  <Step title="Run one test, then the suite">
+    ```bash
+    npx payproof test --name "sequential duplicate webhook"
+    npx payproof test
+    ```
+
+    A financially verified result means PayProof inspected the callback result
+    and all applicable invariants passed. A delivery-only result is clearly
+    reported as unverified.
+  </Step>
+</Steps>
+
+<Warning>
+Never point the generated configuration at production. PayProof's Bachs
+fixtures are synthetic and must stay inside an authorized test environment.
+</Warning>

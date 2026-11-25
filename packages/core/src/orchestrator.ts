@@ -129,7 +129,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     ]));
     const checkpoint = input.scenario === "concurrent-duplicate-credit" ? this.options.checkpoint?.name : undefined;
     let eventsForVerification = verificationCases;
-    // The report is initialized before network work so even reset/controller
+    // The report is initialized before network work so preparation/controller
     // failures produce a useful artifact.
     const report: PayProofReport = {
       reportVersion: "1.1",
@@ -139,7 +139,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
       paymentReference: event.reference,
       event,
       expected,
-      verificationMode: this.options.verify ? "callback" : this.options.verification ? "http" : "none",
+      verificationMode: this.options.verify ? "callback" : "none",
       financiallyVerified: false,
       deliveries: [],
       checkpoints: [],
@@ -157,7 +157,6 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
     let controller: RaceController | undefined;
     let sessionId: string | undefined;
     try {
-      await this.resetTarget();
       if (scenarioPlan) {
         await this.runScenarioPlan(scenarioPlan, event, report);
       } else if (checkpoint) {
@@ -208,7 +207,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
 
       // Level 1 intentionally stops after delivery. It is useful for webhook
       // contract testing, but it cannot prove that money was persisted safely.
-      if (!this.options.verify && !this.options.verification) {
+      if (!this.options.verify) {
         report.financiallyVerified = false;
       } else {
         // Inspect each reference separately. Aggregate balance checks alone
@@ -263,7 +262,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
   }
 
   async replay(report: PayProofReport): Promise<PayProofResult> {
-    // Reset/isolation and controller setup are intentionally delegated to run;
+    // Application-owned preparation/isolation is delegated to the caller;
     // replay only supplies the prior event and schedule metadata.
     return this.run({
       scenario: report.scenario,
@@ -290,7 +289,7 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
       paymentReference: reference,
       event,
       expected: { reference, eligible: false, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 0 },
-      verificationMode: this.options.verify ? "callback" : this.options.verification ? "http" : "none",
+      verificationMode: this.options.verify ? "callback" : "none",
       financiallyVerified: false,
       deliveries: [],
       checkpoints: [],
@@ -305,18 +304,6 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
       completedAt: new Date().toISOString()
     };
     return { passed: false, report };
-  }
-
-  private async resetTarget(): Promise<void> {
-    // A target can opt out when it manages isolation itself, which is useful
-    // for an existing application or a remotely hosted Railway test database.
-    if (this.options.target.reset === false) return;
-    const path = this.options.target.resetPath ?? "/__payproof/reset";
-    const response = await fetch(this.url(path), {
-      method: "POST",
-      headers: this.options.target.headers
-    });
-    if (!response.ok) throw new Error(`Test-state reset failed with HTTP ${response.status}`);
   }
 
   private async runScenarioPlan(
@@ -420,45 +407,15 @@ export class PayProof<TEvent extends PaymentEvent = PaymentEvent> {
   }
 
   private async inspect(reference: string, expected: import("./types.js").ExpectedPaymentState, context: FinancialVerificationContext): Promise<ObservedPaymentState> {
-    const verification = this.options.verification;
-    const completionDeadlineMs = verification?.completionDeadlineMs ?? DEFAULT_TIMEOUT_MS;
-    const negativeDeadline = Date.now() + (expected.eligible ? 0 : verification?.negativeObservationWindowMs ?? DEFAULT_NEGATIVE_OBSERVATION_MS);
+    const financialVerification = this.options.financialVerification;
+    const completionDeadlineMs = financialVerification?.completionDeadlineMs ?? DEFAULT_TIMEOUT_MS;
+    const negativeDeadline = Date.now() + (expected.eligible ? 0 : financialVerification?.negativeObservationWindowMs ?? DEFAULT_NEGATIVE_OBSERVATION_MS);
     const isComplete = (state: ObservedPaymentState) => observedStateComplete(expected, state, negativeDeadline);
-    if (this.options.verify) {
-      return verifyWithCallback(this.options.verify, reference, completionDeadlineMs, context, {
-        pollIntervalMs: verification?.pollIntervalMs,
-        isComplete
-      });
-    }
-    if (!verification) {
-      throw new Error("Financial verification was requested without a callback or HTTP endpoint");
-    }
-    // HTTP verification remains supported for existing users. Callback mode
-    // returns above, so this branch is only reached when an endpoint exists.
-    const endpoint = verification.endpoint;
-    const url = new URL(this.url(endpoint));
-    url.searchParams.set("reference", reference);
-    const deadline = Date.now() + (verification.completionDeadlineMs ?? DEFAULT_TIMEOUT_MS);
-    let lastError: Error | undefined;
-    let lastObserved: ObservedPaymentState | undefined;
-    // Polling accommodates applications that enqueue work after returning the
-    // webhook response. The deadline keeps a broken app from hanging a suite.
-    while (Date.now() <= deadline) {
-      try {
-        const response = await fetch(url, { headers: { ...this.options.target.headers, ...verification.headers } });
-        if (!response.ok) throw new Error(`State inspection failed with HTTP ${response.status}`);
-        const value = normalizeCallbackState(await response.json());
-        if (value.reference === reference) {
-          lastObserved = value;
-          if (isComplete(value)) return value;
-        }
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-      }
-      await new Promise((resolve) => setTimeout(resolve, verification.pollIntervalMs ?? 25));
-    }
-    if (lastObserved && !lastObserved.pending) return lastObserved;
-    throw lastError ?? new Error(`Financial verification remained pending for payment ${reference}`);
+    if (!this.options.verify) throw new Error("Financial verification was requested without a verify callback");
+    return verifyWithCallback(this.options.verify, reference, completionDeadlineMs, context, {
+      pollIntervalMs: financialVerification?.pollIntervalMs,
+      isComplete
+    });
   }
 
   private url(path: string): string {

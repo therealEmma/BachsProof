@@ -1,0 +1,23 @@
+---
+title: "Concurrent webhook testing"
+description: "Understand ordinary concurrency and the optional controlled schedule."
+---
+
+`concurrent-duplicate-credit` sends the same eligible event to the target at
+the same time. The runner uses `Promise.allSettled`, so both successes and all
+delivery errors are retained in the report.
+
+```js
+{
+  name: "duplicate race",
+  scenario: "concurrent-duplicate-credit",
+  concurrency: 3,
+  reference: "prepared-payment-1"
+}
+```
+
+This is black-box HTTP concurrency. It exercises the real route but does not
+guarantee that both requests read the same database state.
+
+For a repeatable application interleaving, configure the optional checkpoint
+mode. See [controlled concurrency](/advanced/controlled-concurrency).

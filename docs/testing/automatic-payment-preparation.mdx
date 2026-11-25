@@ -1,0 +1,37 @@
+---
+title: "Automatic payment preparation"
+description: "Create fresh application records through createPayment(context)."
+---
+
+Automatic preparation is the recommended workflow for repeated local and CI
+runs. PayProof calls your callback only when a selected scenario needs a
+reference and the test did not supply one.
+
+```js
+export async function createPayment({
+  scenario,
+  amountMinor,
+  currency,
+  paymentIndex,
+  paymentCount
+}) {
+  const payment = await applicationTestApi.createPayment({
+    label: `payproof-${scenario}-${paymentIndex}`,
+    amountMinor,
+    currency
+  });
+  if (!payment.reference) throw new Error("payment API returned no reference");
+  return payment.reference;
+}
+```
+
+For `concurrent-unique-payments`, PayProof calls the callback once per
+participant. The callback must return different references. The CLI rejects an
+empty reference, a callback failure, and a reference reused by another selected
+scenario. It sends no webhook for a scenario whose preparation failed.
+
+<Warning>
+The callback must create test records without charging real instruments or
+calling a live financial provider. Use a test API, test service, or isolated
+database seeder owned by your application.
+</Warning>

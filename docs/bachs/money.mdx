@@ -1,0 +1,23 @@
+---
+title: "Amounts and currency handling"
+description: "Understand decimal-string money and PayProof minor-unit comparisons."
+---
+
+Bachs represents money as decimal strings at the currency's precision, such as
+`"5000.00"`. The Bachs adapter parses those strings into an exact coefficient
+and scale using `bigint`, without passing through floating-point arithmetic.
+
+PayProof's provider-neutral core compares integer minor units because the
+financial invariants need exact equality:
+
+```text
+"5000.00" NGN → 500000 minor units at scale 2
+```
+
+The adapter exports `parseBachsMoney`, `compareBachsMoney`,
+`toBachsMinorUnits`, `safeNumberMoney`, and `formatBachsMoney` for package users
+who need the same boundary behavior.
+
+The provider's own rule remains authoritative: [Bachs money is sent as decimal
+strings, never numbers](https://docs.bachs.io/sdks/node#send-requests). Do not
+use JavaScript floating-point arithmetic for financial comparisons.

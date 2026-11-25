@@ -1,0 +1,19 @@
+---
+title: "Expired checkout"
+description: "Prevent fulfilment when a checkout expires without collection."
+---
+
+## In plain English
+
+An open checkout can expire. Expiry is not payment success.
+
+## What PayProof does
+
+It sends a `checkout.expired` envelope without a charge and marks the payment
+ineligible.
+
+## Expected result
+
+Zero credits. `INV-004` detects an application that credits merely because it
+saw a checkout reference. A later valid success is covered by
+[delayed payment confirmation](/scenarios/delayed-payment-confirmation).

@@ -1,0 +1,26 @@
+---
+title: "Financial invariants"
+description: "The rules PayProof applies to independently observed application state."
+---
+
+PayProof evaluates committed state returned by `verify`. It does not inspect a
+database by itself and does not require a particular schema.
+
+The five current invariants are:
+
+| ID | Name | Everyday rule |
+| --- | --- | --- |
+| `INV-001` | Unique Credit | One eligible payment creates at most one credit |
+| `INV-002` | Amount Integrity | A posted credit has the expected amount and currency |
+| `INV-003` | Completion | An eligible payment receives its expected credit |
+| `INV-004` | No Unexpected Credit | An ineligible payment creates no credit |
+| `INV-005` | Aggregate Integrity | The eligible payment's total credit equals the expected amount |
+
+<Warning>
+The expected state is supplied by the provider adapter. It is not a substitute
+for `verify`. A test that does not inspect committed state is reported as
+financially unverified.
+</Warning>
+
+Each violation includes an identifier, name, message, and reference. Start with
+the matching page below when investigating a failure.
