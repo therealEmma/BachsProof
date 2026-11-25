@@ -3,6 +3,15 @@
   "private": true,
   "version": "1.1.0",
   "description": "Payment correctness testing for TypeScript applications",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/therealEmma/PayProof.git"
+  },
+  "homepage": "https://github.com/therealEmma/PayProof#readme",
+  "bugs": {
+    "url": "https://github.com/therealEmma/PayProof/issues"
+  },
   "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": ">=22"

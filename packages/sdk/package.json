@@ -2,6 +2,26 @@
   "name": "@payproof/sdk",
   "version": "1.1.0",
   "description": "Test-only checkpoint instrumentation for PayProof",
+  "keywords": [
+    "payments",
+    "payment-testing",
+    "concurrency",
+    "checkpoints",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/therealEmma/PayProof.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/therealEmma/PayProof#readme",
+  "bugs": {
+    "url": "https://github.com/therealEmma/PayProof/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -11,7 +31,7 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md"],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsup"
   },

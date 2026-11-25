@@ -1,7 +1,27 @@
 {
   "name": "@payproof/bachs",
   "version": "1.1.0",
-  "description": "Local mock Bachs-style provider adapter for PayProof",
+  "description": "Bachs-shaped payment event fixtures, signing helpers, and exact money utilities for PayProof",
+  "keywords": [
+    "payments",
+    "bachs",
+    "webhooks",
+    "payment-testing",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/therealEmma/PayProof.git",
+    "directory": "packages/bachs"
+  },
+  "homepage": "https://github.com/therealEmma/PayProof#readme",
+  "bugs": {
+    "url": "https://github.com/therealEmma/PayProof/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -11,7 +31,7 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md"],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": { "build": "tsup" },
   "engines": { "node": ">=22" },
   "dependencies": { "@payproof/core": "workspace:*", "zod": "^3.24.1" },

@@ -89,7 +89,10 @@ Never send simulated payment webhooks to a production application.
 
 function valueAfter(args: string[], flag: string): string | undefined {
   const index = args.indexOf(flag);
-  return index >= 0 ? args[index + 1] : undefined;
+  if (index >= 0) return args[index + 1];
+  const inline = args.find((arg) => arg.startsWith(`${flag}=`));
+  if (!inline) return undefined;
+  return inline.slice(flag.length + 1).replace(/^("|')(.*)\1$/, "$2");
 }
 
 function has(args: string[], flag: string): boolean {

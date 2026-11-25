@@ -68,7 +68,9 @@ describe("PayProof CLI in an independent repository", () => {
     await run(pnpm, ["install", "--offline", "--ignore-scripts"], fixture);
 
     const cliEntry = join(fixture, "node_modules", "@payproof", "cli", "dist", "cli.js");
-    const initialized = await run("node", [cliEntry, "init"], fixture);
+    const help = await run(pnpm, ["exec", "payproof", "--help"], fixture);
+    expect(help.stdout).toContain("PayProof payment correctness testing");
+    const initialized = await run(pnpm, ["exec", "payproof", "init"], fixture);
     try {
       await access(join(fixture, "payproof.config.mjs"));
     } catch {
@@ -86,7 +88,7 @@ describe("PayProof CLI in an independent repository", () => {
 
     let defaultRunOutput = "";
     try {
-      await run("node", [cliEntry, "test"], fixture);
+      await run(pnpm, ["exec", "payproof", "test"], fixture);
     } catch (error) {
       const failure = error as { stdout?: string; stderr?: string };
       defaultRunOutput = `${failure.stdout ?? ""}\n${failure.stderr ?? ""}`;
@@ -130,7 +132,7 @@ export async function createPayment(context) {
 
     let tested: { stdout: string; stderr: string };
     try {
-      tested = await run("node", [cliEntry, "test", "--json"], fixture, {
+      tested = await run(pnpm, ["exec", "payproof", "test", "--json"], fixture, {
         PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
         PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
         BACHS_WEBHOOK_SECRET: "external-fixture-secret",
@@ -140,13 +142,13 @@ export async function createPayment(context) {
       const failure = error as { stdout?: string; stderr?: string; message?: string };
       throw new Error(`${failure.message ?? "installed CLI failed"}\nstdout=${failure.stdout ?? ""}\nstderr=${failure.stderr ?? ""}`);
     }
-    const runAgain = await run("node", [cliEntry, "test", "--json"], fixture, {
+    const runAgain = await run(pnpm, ["exec", "payproof", "test", "--json"], fixture, {
       PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
       PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
       BACHS_WEBHOOK_SECRET: "external-fixture-secret",
       PAYPROOF_USE_SYNTHETIC_REFERENCES: ""
     });
-    const individualRun = await run("node", [cliEntry, "test", "--name", "underpaid payment", "--json"], fixture, {
+    const individualRun = await run(pnpm, ["exec", "payproof", "test", "--name=\"underpaid payment\"", "--json"], fixture, {
       PAYPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
       PAYPROOF_WEBHOOK_PATH: "/webhooks/bachs",
       BACHS_WEBHOOK_SECRET: "external-fixture-secret",
