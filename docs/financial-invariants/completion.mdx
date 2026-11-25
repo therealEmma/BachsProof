@@ -14,6 +14,10 @@ Passing: expected creditCount 1; observed creditCount 1
 Failing: expected creditCount 1; observed creditCount 0
 ```
 
+For the recurring example, the passing observation is one committed
+`500_000`-kobo NGN credit; the failing observation is no committed credit after
+the configured completion deadline.
+
 ## How BachsProof evaluates it
 
 If `expected.eligible` is true and `observed.creditCount` is less than
@@ -24,4 +28,7 @@ does not hide it.
 Investigate whether the reference exists, the event was recognized, amount or
 currency matching rejected it, a worker is still pending, or the verifier read
 the wrong environment. Use `pending: true` while asynchronous work is still
-unfinished so the comparison happens after the completion deadline.
+unfinished so the comparison happens after the completion deadline. This rule
+applies to eligible scenarios such as successful collection, duplicate
+delivery, and delayed confirmation; it does not require an ineligible event to
+create anything.

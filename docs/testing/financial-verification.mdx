@@ -3,19 +3,24 @@ title: "Implementing financial verification"
 description: "Read committed state from your own application without production changes."
 ---
 
-Your verifier is test-side code. It can import a test database client, call an
-existing internal test service, or read an application-owned store. It must
-return what was committed, not what you expected to be committed.
+The `verify` function is the only application-specific part of BachsProof's
+financial checks. It is test-side code: it reads your isolated test database or
+authorized test service and reports what was committed. BachsProof provides the
+callback contract; it does not provide your ORM queries or database schema.
+
+## A complete Prisma-style example
 
 ```ts
 import { prisma } from "./test-support/prisma.js";
 
 export async function verify(reference: string) {
   const payment = await prisma.payment.findUnique({
-    where: { reference },
-    include: { credits: true }
+    where: { reference }
   });
-  const credits = payment?.credits ?? [];
+
+  const credits = await prisma.walletCredit.findMany({
+    where: { reference }
+  });
 
   return {
     reference,
@@ -27,8 +32,8 @@ export async function verify(reference: string) {
     currency: payment?.currency ?? "NGN",
     status: payment?.status ?? "NOT_FOUND",
     ledgerEntries: credits.map((credit) => ({
-      id: credit.id,
-      type: credit.type,
+      id: String(credit.id),
+      type: String(credit.type),
       amountMinor: Number(credit.amountMinor),
       currency: credit.currency
     }))
@@ -36,12 +41,65 @@ export async function verify(reference: string) {
 }
 ```
 
-The normalized result requires `reference`, `creditCount`,
-`creditedAmountMinor`, and a three-letter `currency`. `status`, `pending`, and
-`ledgerEntries` are optional. `500_000` minor units is ₦5,000 at two decimal
-places.
+Line by line:
 
-Do not return `expected.creditCount`, `context.expectedOutcome`, or a hardcoded
-`0`/`1`. That would only repeat BachsProof's expectation and could hide an
-application defect. Read the same test database or committed store used by the
-webhook process.
+1. Import the test database client. This is your application helper, not a
+   BachsProof import.
+2. Export `verify` so the generated config can import it.
+3. Use the requested `reference` to find the application payment. Do not query
+   “the latest payment”; concurrent tests need a precise key.
+4. Read the committed credit rows for that same reference.
+5. Count rows for duplicate detection.
+6. Sum integer minor units. For NGN with two decimal places, `500_000` means
+   ₦5,000; do not convert money through a floating-point decimal.
+7. Return the application currency and status. The fallback values describe a
+   missing record and are not a credit.
+8. Map optional ledger detail into the documented shape for report diagnostics.
+
+The required fields are `reference`, `creditCount`, `creditedAmountMinor`, and a
+three-letter `currency`. Optional fields are `status`, `pending`, and
+`ledgerEntries`. The callback may also accept a second `context` argument; it
+contains expected data for diagnostics, not evidence.
+
+## What the result means
+
+For an eligible ₦5,000 payment:
+
+```text
+Passing: creditCount=1, creditedAmountMinor=500000, currency=NGN
+Missing: creditCount=0, creditedAmountMinor=0, currency=NGN -> INV-003
+Duplicate: creditCount=2, creditedAmountMinor=1000000 -> INV-001 and aggregate failures
+Wrong amount: creditCount=1, creditedAmountMinor=499900 -> INV-002 / INV-005
+```
+
+For an ineligible event such as an invalid signature or underpayment, the
+passing result is `creditCount=0`. A single credit fails `INV-004`, even if the
+HTTP route returned `200`.
+
+## What not to return
+
+```ts
+// Incorrect: these values repeat the test's expectation.
+return {
+  reference,
+  creditCount: context.expectedOutcome.expectedCreditCount,
+  creditedAmountMinor: context.expectedOutcome.amountMinor,
+  currency: context.expectedOutcome.currency
+};
+```
+
+Do not return a hardcoded zero, a hardcoded one, an in-memory counter that the
+webhook process does not use, or a result calculated from the event body. Those
+answers can make a broken database write look correct.
+
+## Asynchronous processing
+
+If the webhook queues work and returns before a worker writes the credit, return
+the actual current rows with `pending: true` while the worker is unfinished.
+Map every unfinished state used by your queue—not just `PROCESSING`—for example
+`QUEUED`, `WAITING`, `PROCESSING`, `RETRY_SCHEDULED`, and `RETRYING`. See
+[Testing asynchronous applications](/testing/asynchronous-applications) for
+the deadline and negative-window behavior.
+
+The core validates this return value in `packages/core/src/verification.ts` and
+passes it to `verifyPaymentState` in `packages/core/src/invariants.ts`.

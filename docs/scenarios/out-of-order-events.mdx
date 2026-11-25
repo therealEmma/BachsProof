@@ -12,16 +12,21 @@ the completed financial state.
 ## What BachsProof sends
 
 The adapter sends a newer eligible `collection.succeeded` first, then an older
-`checkout.expired` event, sequentially. Both deliveries normally expect 2xx.
-The events have different event IDs and timestamps; the application must use
-the event time and durable state, not arrival order alone.
+`checkout.expired` event. They have different IDs and timestamps and normally
+receive 2xx responses. The event order is intentionally different from the
+timestamp order.
 
-## Expected result and failure
+## What the application should do
 
-The application should keep one completed credit. `INV-001` protects uniqueness
-and `INV-003` protects completion. `INV-004` describes the older event's
-non-fulfilling expectation, but the primary correctness question is that it does
-not undo the valid credit.
+Accept the newer successful state and ignore the older non-fulfilling state when
+it would regress a completed payment. Store event time or an equivalent durable
+ordering value. Arrival order alone is not enough.
+
+## Expected outcome and failure
+
+The application should keep one completed `500_000`-kobo NGN credit. `INV-001`
+protects uniqueness and `INV-003` protects completion. The old event must not
+create an unexpected credit or downgrade the payment.
 
 ```js
 {
@@ -32,5 +37,9 @@ not undo the valid credit.
 }
 ```
 
-The plan is `createBachsScenario` in `packages/bachs/src/fixtures.ts`. The
-corrected reference wallet compares event timestamps in its store.
+## Internal implementation
+
+`createBachsScenario` in `packages/bachs/src/fixtures.ts` creates the expiry at
+`now` and the success at `now + 1_000` ms, then lists the success before the
+expiry. The corrected reference wallet compares event timestamps in
+`processCorrected` and does not downgrade a completed payment.

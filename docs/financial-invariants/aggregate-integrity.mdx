@@ -14,6 +14,9 @@ Passing: expected count 1, amount 500000 NGN; observed count 1, amount 500000 NG
 Failing: expected count 1, amount 500000 NGN; observed count 1, amount 499900 NGN
 ```
 
+The passing result is one ₦5,000 credit. The failing result is one ₦4,999
+credit: the row count looks right, but the total money is wrong.
+
 ## How BachsProof evaluates it
 
 When the expected payment is eligible and the observed credit count equals the
@@ -23,4 +26,6 @@ credit is handled by `INV-003`.
 
 Investigate duplicate partial writes, unit conversion, rounding, fee handling,
 and whether credits from another payment were linked to the same reference.
-The amount is the integer `creditedAmountMinor` returned by your verifier.
+The amount is the integer `creditedAmountMinor` returned by your verifier. This
+rule is evaluated when `creditCount` equals the expected count; a duplicate is
+primarily `INV-001`, and a missing credit is `INV-003`.

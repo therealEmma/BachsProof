@@ -7,15 +7,13 @@ description: "Prevent fulfilment when checkout completed without a collected pay
 
 Finishing a checkout screen does not always mean money was collected. A
 `checkout.completed` event with `payment_status: "no_payment_required"` and no
-charge must not credit a wallet. For the ₦5,000 example, the correct credit
-count is zero, not one `500_000`-kobo entry.
+charge must not credit a wallet. For ₦5,000, the correct credit count is zero.
 
 ## What BachsProof sends
 
-The Bachs plan sends one `checkout.completed` envelope with a completed checkout,
-payment mode, a non-paying status, and `charge: null`. The normal HTTP
-expectation is 2xx because the application can safely record or acknowledge an
-unfulfillable event.
+The plan sends one completed, payment-mode checkout with a non-paying status and
+`charge: null`. It normally expects 2xx because the application may safely
+record or acknowledge an unfulfillable event.
 
 ```js
 {
@@ -26,9 +24,19 @@ unfulfillable event.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-The verifier should observe zero credits. A credit violates `INV-004`. An
-immediate zero is not enough for an asynchronous application; allow the
-negative observation window and return `pending: true` while unfinished work is
-still possible. The fixture plan is in `packages/bachs/src/fixtures.ts`.
+Require a paid status and an actual charge before crediting. A checkout screen
+completing is a user-interface state, not proof that Bachs collected ₦5,000.
+
+## Expected outcome and failure
+
+The verifier should observe zero credits. A credit violates `INV-004`. For an
+asynchronous application, return `pending: true` while unfinished work remains
+and allow the negative observation window to elapse.
+
+## Internal implementation
+
+`checkoutFixture` in `packages/bachs/src/fixtures.ts` sets
+`payment_status: "no_payment_required"`, `charge: null`, and `eligible: false`.
+`expectedNoCredit` sets `expectedCreditCount` to zero.

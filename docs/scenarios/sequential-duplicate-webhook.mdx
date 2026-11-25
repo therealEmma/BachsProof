@@ -5,15 +5,15 @@ description: "Check that a repeated eligible webhook creates one financial effec
 
 ## What problem does it test?
 
-Providers retry when delivery is uncertain. The same successful notification
-must not credit a wallet twice. For a ₦5,000 deposit, two deliveries should
-still result in one `500_000`-kobo credit.
+Providers retry when delivery is uncertain. A customer deposited ₦5,000 once,
+so two sequential deliveries of the same successful notification must still
+produce one `500_000`-kobo credit.
 
 ## What BachsProof sends
 
-`createBachsMockFixture` creates one eligible `collection.succeeded` event.
-The core serializes and delivers the same event twice, in order, with the same
-event ID. Both deliveries normally expect a 2xx response.
+`createBachsMockFixture` creates one eligible `collection.succeeded` event. The
+core serializes and sends that exact event twice, in order, with the same event
+ID and reference:
 
 ```mermaid
 sequenceDiagram
@@ -25,22 +25,32 @@ sequenceDiagram
   A-->>P: 2xx
 ```
 
-## Expected result and failure
+## What the application should do
 
-The application should commit one credit for the expected amount and currency.
-Two credits fail `INV-001`; the aggregate may also fail `INV-002` and `INV-005`.
-Missing credit fails `INV-003`. A delivery error or unexpected status fails the
-HTTP part before financial evaluation.
+Persist event identity or an equivalent durable idempotency key. The second
+delivery should be acknowledged or otherwise handled according to the route's
+contract, but it must not create a second financial effect.
+
+## Expected outcome and failure
+
+Passing state is one ₦5,000 credit in NGN. Two credits fail `INV-001`; the
+aggregate can also fail `INV-002` and `INV-005`. Missing credit fails `INV-003`.
+Without `verify`, a passing HTTP result is delivery-only.
 
 ```js
 {
   name: "sequential ₦5,000 duplicate",
   scenario: "sequential-duplicate-webhook",
   amountMinor: 500_000,
-  currency: "NGN"
+  currency: "NGN",
+  reference: "prepared-payment"
 }
 ```
 
-The implementation path is `BachsProof.run` and its sequential branch in
-`packages/core/src/orchestrator.ts`; the base event is made by
-`createBachsMockFixture` in `packages/bachs/src/fixtures.ts`.
+## Internal implementation
+
+The sequential branch of `BachsProof.run` in
+`packages/core/src/orchestrator.ts` calls `deliver` for `sequential-1`, waits,
+then calls it for `sequential-2`. The base event comes from
+`createBachsMockFixture` in `packages/bachs/src/fixtures.ts`; no provider API is
+called.

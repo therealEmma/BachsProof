@@ -36,3 +36,9 @@ BachsProof has two modes:
 Sending two requests “at the same time” does not guarantee that both handlers
 reach the same line at the same time. Controlled mode makes the named arrival
 point repeatable, but it does not control every OS, network, or database detail.
+
+For a ₦5,000 duplicate test, place the checkpoint after the application has
+read the payment as `PENDING` and before it inserts the credit. Placing it before
+the read tests a different schedule; placing it after the write is too late to
+reproduce the check-then-write race. The application still needs a transaction
+and a durable uniqueness rule.

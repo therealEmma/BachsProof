@@ -6,6 +6,12 @@ description: "Install BachsProof in an independent application repository."
 BachsProof is installed in the application repository that owns the webhook you
 want to test. It does not need to be part of the BachsProof source repository.
 
+The commands below use the intended package names and version `1.1.0`. They are
+the correct commands once the new namespace has been published to the registry;
+this repository does not publish packages automatically. If the registry does
+not yet contain `@bachsproof/cli@1.1.0`, use a packed tarball or a workspace
+checkout instead of assuming that `npx` can download it.
+
 <CodeGroup>
 
 ```bash npm
@@ -24,7 +30,7 @@ yarn add --dev @bachsproof/cli@1.1.0
 
 ## Which package should I install?
 
-The four BachsProof packages are published at version `1.1.0`:
+The four BachsProof packages are released together at version `1.1.0`:
 
 | Package | Install it when | Responsibility |
 | --- | --- | --- |
@@ -57,18 +63,24 @@ call Bachs.
 npx bachsproof init
 ```
 
-`bachsproof init` creates:
+`bachsproof init` creates four files:
 
-- `bachsproof.config.mjs`: provider, target URL, signing, callbacks, and test
-  suite wiring;
-- `tests/bachsproof.test.mjs`: the 15 named scenarios;
-- `tests/bachsproof.setup.mjs`: your application-specific `createPayment` hook;
-- `tests/bachsproof.verify.mjs`: your application-specific `verify` hook.
+- `bachsproof.config.mjs`: imports the adapter and test list, sets the target
+  URL/path and optional signing, and connects the callbacks;
+- `tests/bachsproof.test.mjs`: exports the 15 named scenario definitions and
+  their amounts, currencies, references, and expected HTTP statuses;
+- `tests/bachsproof.setup.mjs`: contains the application-specific
+  `createPayment` function that creates an isolated record and returns its
+  reference;
+- `tests/bachsproof.verify.mjs`: contains the application-specific `verify`
+  function that reads committed credits or ledger entries.
 
 The last two callbacks intentionally throw until you connect them to your own
 test data. This prevents a delivery-only run from looking like a financial
 verification pass. The generated suite uses real application references by
-default. Synthetic references are an explicit fixture-only opt-in.
+default. Synthetic references are an explicit fixture-only opt-in. The config
+imports the test list; the test list does not import the config, so the same
+scenarios can be selected by the CLI without circular setup.
 
 `bachsproof init` refuses to overwrite an existing file. Use
 `bachsproof init --force` only when replacing those files is intentional.

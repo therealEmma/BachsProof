@@ -10,9 +10,7 @@ body is not valid JSON. A parser failure must not become a ₦5,000 credit.
 
 ## What BachsProof sends
 
-It sends the body `{"invalid":` and expects a `4xx` response in the generated
-configuration. This is not a valid Bachs event, so it checks the error path
-rather than event business logic.
+It sends the body `{"invalid":` and expects a `4xx` response:
 
 ```js
 {
@@ -24,9 +22,21 @@ rather than event business logic.
 }
 ```
 
-## Expected result and failure
+This is not a Bachs event; it exercises the parser/error boundary.
+
+## What the application should do
+
+Return a controlled client error, leave the financial store unchanged, and
+avoid accepting a partially parsed body. It should not expose secrets in the
+error response.
+
+## Expected outcome and failure
 
 The application should safely reject the body and commit zero credits. With a
-verifier, `INV-004` checks that no ineligible financial effect appeared. The
-scenario does not prove that every malformed content type or oversized body is
-handled. The body override is in `packages/bachs/src/fixtures.ts`.
+verifier, `INV-004` checks that no ineligible financial effect appeared. This
+does not prove that every malformed content type or oversized body is handled.
+
+## Internal implementation
+
+The body override and expected status are created by `createBachsScenario` in
+`packages/bachs/src/fixtures.ts`; core records the response in `deliver`.

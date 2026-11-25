@@ -1,9 +1,13 @@
 ---
 title: "Checkpoint API"
-description: "Reference for the optional checkpoint runner and SDK surfaces."
+description: "Reference for the optional controlled-concurrency runner and SDK surfaces."
 ---
 
-Core runner configuration:
+Checkpoints are optional test instrumentation. They coordinate a named point
+inside your application; they are not database locks or production
+authorization.
+
+## Core runner configuration
 
 ```ts
 checkpoint?: {
@@ -12,20 +16,70 @@ checkpoint?: {
 }
 ```
 
-SDK exports:
+- `name` is the checkpoint the application calls. The current core uses it for
+  `concurrent-duplicate-credit`.
+- `timeoutMs` bounds how long the core waits for every participant. The default
+  is `10_000` ms. A timeout is recorded as an error and the session is aborted
+  so held requests do not hang.
+
+## SDK configuration
+
+```ts
+interface CheckpointConfig {
+  enabled?: boolean;
+  allowRequestHeaders?: boolean;
+  controllerUrl?: string;
+  sessionId?: string;
+  participantId?: string;
+  token?: string;
+  defaultTimeoutMs?: number;
+}
+
+interface CheckpointOptions {
+  key?: string;
+  metadata?: Record<string, string | number | boolean>;
+  signal?: AbortSignal;
+}
+```
+
+`configureCheckpoint` needs a complete controller context when
+`enabled: true`. For normal middleware use, keep process-wide `enabled: false`
+and set `allowRequestHeaders: true` only inside an authorized test process.
+
+## SDK exports
 
 | Function | Purpose |
 | --- | --- |
 | `configureCheckpoint` | Set process-wide context or explicitly allow request headers |
 | `disableCheckpoints` | Remove process-wide state and header activation |
 | `isCheckpointEnabled` | Check whether a barrier context is active |
-| `runWithCheckpointContext` | Run code under a supplied request context |
+| `runWithCheckpointContext` | Run asynchronous code under a supplied request context |
 | `checkpoint` | Announce arrival at a named barrier and wait for release |
 | `checkpointMiddleware` | Attach request context when both opt-in switches are enabled |
-| `getCheckpointContext` | Read the current context |
+| `getCheckpointContext` | Read the current read-only context |
 
-Checkpoint calls are no-ops when disabled. Enabled request contexts contain
-`controllerUrl`, `sessionId`, `participantId`, `token`, and an optional timeout.
-The controller authenticates the token and participant before it can affect a
-barrier. This is optional test instrumentation, not a production lock or
-authorization mechanism.
+`checkpoint(name, options)` is a no-op when there is no enabled context. When
+enabled, it posts an authenticated arrival containing `participantId`, optional
+`key`, and optional metadata. It waits for the controller response and throws on
+abort, timeout, unauthorized access, duplicate arrival, or a non-successful
+controller response.
+
+## Request headers and security
+
+The core adds these headers only in controlled mode:
+
+```text
+x-bachsproof-enabled: true
+x-bachsproof-controller: http://127.0.0.1:<port>
+x-bachsproof-session: <session id>
+x-bachsproof-participant: <participant id>
+x-bachsproof-token: <session token>
+```
+
+`checkpointMiddleware` accepts them only when the host enabled the middleware
+and `allowRequestHeaders` is true. The controller authenticates the bearer token
+and checks the participant against the session allow-list. Do not expose the
+controller or trust these headers in production.
+
+Implementation: `packages/sdk/src/checkpoint.ts` and
+`packages/core/src/race-controller.ts`.

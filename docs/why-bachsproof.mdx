@@ -5,7 +5,9 @@ description: "Understand the payment correctness problem BachsProof is built to 
 
 # Why BachsProof exists
 
-Payment systems have two different kinds of success:
+Payment systems have two different kinds of success. First, an HTTP request can
+arrive and receive a response. Second, the application can save the correct
+money movement. These are related, but they are not the same result.
 
 1. **Transport success:** the webhook endpoint received and acknowledged a
    request.
@@ -15,7 +17,8 @@ The first is useful, but it is not proof of the second.
 
 ## The duplicate-credit story
 
-Suppose a customer deposits ₦5,000. Your handler performs this sequence:
+Suppose a customer deposits ₦5,000 (`500_000` NGN minor units). Your handler
+performs this sequence:
 
 ```text
 read payment status -> if not completed -> create credit -> mark completed
@@ -37,8 +40,10 @@ sequenceDiagram
 ```
 
 The endpoint can return two successful responses while the wallet is wrong by
-₦5,000. BachsProof makes the duplicate delivery observable and, with `verify`,
-checks the committed credit rows.
+₦5,000. BachsProof makes that delivery pattern observable and, with `verify`,
+checks the committed credit rows. The callback is necessary because BachsProof
+does not know whether your application stores money in a wallet table, a ledger,
+an order record, or another system.
 
 ## Why normal tests miss it
 
@@ -50,6 +55,13 @@ BachsProof can send duplicate deliveries concurrently. Optional checkpoint
 instrumentation can pause both requests after the same application read and
 release them together. That is deeper testing, not a requirement for normal
 black-box use.
+
+## What it is not
+
+BachsProof is not a gateway, a webhook relay, a Bachs account, or a provider
+sandbox. It does not move money, create live payment objects, deliver real
+provider retries, or inspect your database automatically. It sends synthetic
+requests to the test endpoint you configure.
 
 ## Who should use it?
 

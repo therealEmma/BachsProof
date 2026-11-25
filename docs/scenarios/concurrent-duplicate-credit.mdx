@@ -12,9 +12,7 @@ that reads “not completed” and writes later can let both requests add
 ## What BachsProof sends
 
 It creates one eligible `collection.succeeded` event and sends the same body to
-the configured webhook in a concurrent wave. The generated test uses
-`concurrency: 3`, although two participants are enough to show the race. The
-runner uses `Promise.allSettled` and records every delivery error.
+the configured webhook in a concurrent wave:
 
 ```js
 {
@@ -27,16 +25,34 @@ runner uses `Promise.allSettled` and records every delivery error.
 }
 ```
 
-## Expected result and limitations
+The runner uses `Promise.allSettled` so every delivery response and error stays
+in the report. `reference` must identify an isolated application payment unless
+`syntheticReferences: true` is explicitly selected.
 
-One credit is expected, with normal 2xx responses. Two credits fail `INV-001`
-and usually produce an aggregate amount failure. Missing credit fails `INV-003`.
-The relevant rules are `INV-001`, `INV-002`, `INV-003`, and `INV-005`.
+## What the application should do
 
-Ordinary HTTP concurrency is not deterministic: the operating system may let
-one request finish its critical section before the other reads. Add the
-[checkpoint mode](/advanced/controlled-concurrency) to coordinate the named
-after-read point. Controlled mode still requires an atomic database design.
+Authenticate both deliveries, match the reference to the stored order, and
+make the credit operation idempotent. One request may win; the other should be
+recognized as a duplicate without adding money. Both may return 2xx, but the
+committed state must contain one credit.
 
-The delivery branch is in `packages/core/src/orchestrator.ts`; the checkpoint
-controller is `packages/core/src/race-controller.ts`.
+## Expected outcome and failure
+
+One `500_000`-kobo credit is expected. Two credits fail `INV-001` and usually
+also fail `INV-002` and `INV-005` because the aggregate is `1_000_000`. Missing
+credit fails `INV-003`. A delivery error or unexpected HTTP status fails the
+delivery layer before financial evaluation.
+
+Ordinary concurrency is not deterministic: the OS may let one request finish
+before the other reads. Add [controlled concurrency](/advanced/controlled-concurrency)
+to coordinate a named after-read point. The application still needs an atomic
+database design.
+
+## Internal implementation
+
+`BachsProof.run` in `packages/core/src/orchestrator.ts` creates one provider
+event and calls `deliver` once per participant. Without a checkpoint it settles
+the promises with `settleConcurrentDeliveries`. With a checkpoint it creates a
+`RaceController`, waits for all arrivals, releases the barrier, and records the
+trace. `createBachsMockFixture` in `packages/bachs/src/fixtures.ts` creates the
+event.

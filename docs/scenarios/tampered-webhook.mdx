@@ -6,14 +6,14 @@ description: "Check that changing the body after signing is rejected."
 ## What problem does it test?
 
 An attacker or broken proxy changes a signed request. If the application checks
-the signature over one body but parses another, it could accept a forged amount
-and credit a wallet.
+one body but parses another, it could accept a forged amount and credit a
+wallet.
 
 ## What BachsProof sends
 
 The adapter serializes a successful event, signs the original body, changes the
-amount in the body by one minor unit, and sends the changed body with the
-original signature. The generated configuration expects `4xx`.
+amount by one minor unit, and sends the changed body with the original
+signature. The generated configuration expects `4xx`:
 
 ```js
 {
@@ -25,13 +25,22 @@ original signature. The generated configuration expects `4xx`.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-The application should reject the request and commit zero credits. The HTTP
-expectation and financial assertion are separate: a 4xx can pass transport,
-while `INV-004` proves no credit when `verify` is configured. The scenario is
-meaningful only when the target actually verifies the raw Bachs signature.
+Capture the raw bytes, verify the signature over those exact bytes, and parse
+only after verification. Reject the changed body and create no credit.
 
-The body and signing-body override are built by `createBachsScenario` in
-`packages/bachs/src/fixtures.ts`; exact-body signing is delivered by
-`packages/cli/src/runner.ts` or an adapter's `headersForBody`.
+## Expected outcome and failure
+
+The request should be rejected and the verifier should observe zero credits.
+The HTTP expectation and financial assertion are separate: a 4xx can pass the
+transport layer, while `INV-004` proves no ineligible financial effect was
+committed. The scenario is meaningful only when the target verifies raw-body
+signatures.
+
+## Internal implementation
+
+`createBachsScenario` creates the original and tampered bodies and sets
+`signingBody`. Core `deliver` passes the exact body to the adapter's
+`headersForBody`; `withBachsSigning` uses `signBachsWebhook` in
+`packages/cli/src/runner.ts`.

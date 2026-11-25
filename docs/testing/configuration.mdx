@@ -51,3 +51,9 @@ Use `defineConfig` from `@bachsproof/cli` in a TypeScript config when you want
 editor type checking. The CLI supports `.mjs`, `.js`, `.cjs`, and TypeScript
 config files through its loader. Do not enable required financial verification
 until `verify` reads real committed test state.
+
+The generated file is test-runner configuration, not application runtime
+configuration. `BACHSPROOF_TARGET_URL`, `BACHSPROOF_WEBHOOK_PATH`, and
+`BACHS_WEBHOOK_SECRET` are read when the CLI loads the module. Your webhook
+handler must separately be configured with the matching test secret. None of
+these values should point at production.

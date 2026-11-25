@@ -6,16 +6,15 @@ description: "Check that a later valid confirmation is not permanently rejected.
 ## What problem does it test?
 
 An early lifecycle signal can arrive before a payment is confirmed. A later
-successful collection should still be able to fulfil the ₦5,000 payment once it
-is valid. An application should not permanently mark an order unusable because
-it saw an earlier expiry-like signal.
+successful collection should still fulfil the ₦5,000 payment once it is valid.
+An application should not permanently mark an order unusable because it saw an
+earlier expiry-like signal.
 
 ## What BachsProof sends
 
-It sends `checkout.expired` first, then delays a later eligible
-`collection.succeeded` delivery. The delay defaults to 25ms and can be set with
-`delayMs`. The deliveries normally expect 2xx. The verification case is the
-later successful event.
+It sends `checkout.expired` first, then delays an eligible
+`collection.succeeded` delivery. The delay defaults to 25 ms and can be set with
+`delayMs`:
 
 ```js
 {
@@ -27,12 +26,22 @@ later successful event.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-After the success is processed, the verifier should observe one credit. Missing
-completion fails `INV-003`; a duplicate fails `INV-001`. If a worker commits
-later, use `pending: true` and a bounded completion deadline. The scenario does
-not prove behavior beyond the configured delay and verification deadline.
+Record the non-fulfilling state without making a later valid success
+impossible. If a worker is involved, the verifier should return `pending: true`
+until the successful event has been committed.
 
-The ordered plan is built in `packages/bachs/src/fixtures.ts`, and polling is
-implemented in `packages/core/src/verification.ts`.
+## Expected outcome and failure
+
+After the success is processed, the verifier should observe one
+`500_000`-kobo NGN credit. Missing completion fails `INV-003`; a duplicate
+fails `INV-001`. The scenario does not prove behavior beyond the configured
+delay and verification deadline.
+
+## Internal implementation
+
+`createBachsScenario` in `packages/bachs/src/fixtures.ts` creates the two-event
+ordered plan and applies `delayMs` before the successful delivery. Polling is
+implemented by `verifyWithCallback` in `packages/core/src/verification.ts`. The
+delay is a local test schedule, not a live provider settlement delay.

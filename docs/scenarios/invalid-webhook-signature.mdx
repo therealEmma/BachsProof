@@ -11,7 +11,7 @@ not process it as a payment or add a ₦5,000 credit.
 ## What BachsProof sends
 
 It sends a valid-shaped `collection.succeeded` body with a deliberately invalid
-`X-Bachs-Signature-V2` header. The generated test expects a `4xx` response.
+`X-Bachs-Signature-V2` header and expects `4xx`:
 
 ```js
 {
@@ -23,9 +23,23 @@ It sends a valid-shaped `collection.succeeded` body with a deliberately invalid
 }
 ```
 
-## Expected result and failure
+The valid event shape isolates signature authentication from JSON parsing and
+business validation.
 
-The request should be rejected and zero credits should be committed. A 4xx
-alone is only an HTTP observation; configure `verify` so `INV-004` checks the
-financial result. The scenario does not test secret rotation or a live Bachs
-delivery. The invalid header is created in `packages/bachs/src/fixtures.ts`.
+## What the application should do
+
+Reject before business processing, record an appropriate security signal if
+desired, and leave the financial store unchanged. Do not use an invalid event
+as a reason to alter a payment.
+
+## Expected outcome and failure
+
+Zero credits are expected; with `verify`, `INV-004` checks the financial result.
+A 4xx alone is only an HTTP observation. This does not test secret rotation or
+a live Bachs delivery.
+
+## Internal implementation
+
+`createBachsScenario` in `packages/bachs/src/fixtures.ts` supplies a
+`t=0,v1=` header containing zeroed digest bytes and marks the delivery's
+expected status as `4xx`.

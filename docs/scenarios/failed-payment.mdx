@@ -13,9 +13,7 @@ because a checkout or charge reference exists.
 
 It creates a documented-shaped `collection.failed` event with `status:
 "FAILED"` and the configured amount and currency. Delivery is sequential and
-normally accepted by a handler that records the event without crediting. A
-failed collection can leave a checkout open for another attempt; this fixture
-does not model that retry.
+normally accepted by a handler that records the event without crediting:
 
 ```js
 {
@@ -26,8 +24,21 @@ does not model that retry.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-Zero credits are expected. A credit fails `INV-004`; a verifier is needed to
-prove the ledger remains unchanged. The synthetic failed event is constructed
-in `packages/bachs/src/fixtures.ts`, not received from a live provider.
+Preserve the failed state and avoid fulfilment. A later successful attempt must
+have its own valid event and be matched to the correct stored order. The
+existence of a failed event is not a reason to credit the configured amount.
+
+## Expected outcome and failure
+
+Zero credits are expected; a credit fails `INV-004`. A failed collection can
+leave a checkout open for another attempt; this fixture does not model that
+retry.
+
+## Internal implementation
+
+`createBachsScenario` constructs a `collection.failed` envelope with settlement
+and fee fields set to `null`, `eligible: false`, and `expectedNoCredit`. The
+synthetic event is constructed in `packages/bachs/src/fixtures.ts`, not
+received from a live provider.

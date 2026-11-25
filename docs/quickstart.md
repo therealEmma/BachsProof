@@ -92,6 +92,13 @@ import { prisma } from "../src/db.mjs";
 export async function verify(reference, context) {
   const payment = await prisma.payment.findUnique({ where: { reference } });
   const credits = await prisma.walletCredit.findMany({ where: { reference } });
+  const unfinishedWorkerStates = new Set([
+    "QUEUED",
+    "WAITING",
+    "PROCESSING",
+    "RETRY_SCHEDULED",
+    "RETRYING"
+  ]);
   const creditedAmountMinor = credits.reduce(
     (total, credit) => total + Number(credit.amountMinor),
     0
@@ -101,9 +108,9 @@ export async function verify(reference, context) {
     reference,
     creditCount: credits.length,
     creditedAmountMinor,
-    currency: payment?.currency ?? context.expectedOutcome.currency,
-    status: payment?.status ?? "PENDING",
-    pending: !payment || payment.status === "PENDING",
+    currency: payment?.currency ?? "NGN",
+    status: payment?.status ?? "NOT_FOUND",
+    pending: !payment || unfinishedWorkerStates.has(payment.workerStatus),
     ledgerEntries: credits.map((credit) => ({
       id: String(credit.id),
       type: String(credit.type),
@@ -120,9 +127,11 @@ your callback must report what the database says really happened.
 For example, two ₦5,000 credit records should be reported as `creditCount: 2` and
 `creditedAmountMinor: 1000000`. BachsProof will report the duplicate-credit violation.
 
-If a background worker is still processing, return `pending: true`. BachsProof polls
-for a bounded period. For negative scenarios, do not return zero credits merely
-because you expect no credit while processing is unfinished.
+If a background worker is queued, waiting, processing, or scheduled for retry,
+return `pending: true`. The exact status names belong to your application; the
+example lists common unfinished states. BachsProof polls for a bounded period.
+For negative scenarios, do not return zero credits merely because you expect no
+credit while processing is unfinished.
 
 ## 5. Enable both helpers
 

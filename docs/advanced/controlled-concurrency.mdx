@@ -3,78 +3,165 @@ title: "Controlled concurrency"
 description: "Compare ordinary concurrent delivery with an explicit application barrier."
 ---
 
-## Why ordinary concurrency is not enough
+Start with a concrete race. A customer deposits ₦5,000. Two copies of the same
+webhook arrive, and both handlers perform this unsafe sequence:
 
-Sending two requests in the same JavaScript turn does not guarantee that both
-handlers reach the same line together. The operating system, Node event loop,
-HTTP connection, database pool, and database scheduler all influence the
-interleaving.
-
-For a duplicate ₦5,000 deposit, ordinary mode may happen like this:
-
-```mermaid
-sequenceDiagram
-  participant Core as BachsProof runner
-  participant A as Request A
-  participant B as Request B
-  participant DB as Database
-  Core->>A: Send webhook
-  Core->>B: Send webhook
-  A->>DB: Read PENDING
-  A->>DB: Write credit and complete
-  B->>DB: Read COMPLETED
-  B-->>Core: No duplicate credit
+```text
+read payment status -> see PENDING -> insert ₦5,000 credit -> mark COMPLETED
 ```
 
-That is a useful real HTTP test, but it may miss the vulnerable interleaving.
+If both requests read `PENDING` before either transaction commits, the wallet
+can contain two ₦5,000 credits. A correct application needs a transaction,
+unique constraint, or equivalent atomic protection; a test barrier only makes
+the dangerous interleaving easier to observe.
 
-## What a checkpoint changes
-
-Put a named checkpoint after the application reads idempotency state:
+## Ordinary HTTP concurrency
 
 ```mermaid
 sequenceDiagram
-  participant Core as BachsProof runner
+  participant Core as BachsProof core
   participant A as Request A
   participant B as Request B
-  participant C as Checkpoint controller
-  participant DB as Database
-  Core->>A: Send webhook
-  Core->>B: Send webhook
+  participant DB as Application database
+  Core->>A: POST collection.succeeded
+  Core->>B: POST same event
   A->>DB: Read PENDING
-  A->>C: Arrive at after-read
+  A->>DB: Insert credit, mark completed
+  B->>DB: Read COMPLETED
+  B-->>Core: Acknowledge without second credit
+  A-->>Core: 2xx
+```
+
+The core starts both deliveries in one wave using `Promise.allSettled`. This is
+real request overlap, but the OS, event loop, connection pool, and database may
+let A finish before B reads. That is useful coverage, but it is not a promise
+that both requests reached the same application line.
+
+## A checkpoint is a starting gate
+
+A **checkpoint** is a named point in application code. A **participant** is one
+request registered for the run. A **barrier** is the rule that waits until the
+configured participant count has arrived. A **race controller** is BachsProof's
+small local HTTP server that records arrivals and releases the barrier.
+
+Place the checkpoint after the idempotency read and before the credit write:
+
+```mermaid
+sequenceDiagram
+  participant Core as BachsProof core
+  participant A as Request A
+  participant B as Request B
+  participant Gate as RaceController barrier
+  participant DB as Application database
+  Core->>A: POST with participant 1 headers
+  Core->>B: POST with participant 2 headers
+  A->>DB: Read PENDING
+  A->>Gate: checkpoint("after-idempotency-check")
   B->>DB: Read PENDING
-  B->>C: Arrive at after-read
-  C-->>Core: Both participants arrived
-  Core->>C: Release checkpoint
-  C-->>A: Continue
-  C-->>B: Continue
+  B->>Gate: checkpoint("after-idempotency-check")
+  Gate-->>Core: Two arrivals recorded
+  Core->>Gate: release(session, checkpoint)
+  Gate-->>A: HTTP arrival response
+  Gate-->>B: HTTP arrival response
   A->>DB: Attempt credit
   B->>DB: Attempt credit
 ```
 
-The checkpoint is like a starting gate: participants wait until everyone has
-reached the gate, then the controller opens it. It does not make the database
-safe. A unique constraint, transaction, or equivalent atomic design must still
-allow only one credit.
+The requests are now both past the read before either is released. The barrier
+does not wrap a database transaction, does not serialize the writes, and does
+not make arbitrary scheduling deterministic.
 
-Configure the runner:
+## Configure it
 
-```ts
-checkpoint: {
-  name: "after-idempotency-check",
-  timeoutMs: 10_000
-}
+```js
+export default {
+  // ...provider, target, verify, and tests...
+  checkpoint: {
+    name: "after-idempotency-check",
+    timeoutMs: 10_000
+  }
+};
 ```
 
-The core creates a local `RaceController`, registers participants, sends the
-webhooks with checkpoint headers, waits for arrivals, releases the named
-checkpoint, records the trace, and cleans up the session. The controller is an
-HTTP service so a separate application process can participate.
+The core enables the checkpoint path only for
+`concurrent-duplicate-credit`. It creates the `RaceController`, registers one
+participant per `concurrency`, sends the requests, waits for arrivals, calls
+`release`, records the trace, and cleans the session in `finally`.
 
-## What it can and cannot guarantee
+## Complete Express-style application example
 
-Controlled mode can make the named instrumented point repeatable and records
-which participants arrived. It cannot make all operating-system, network,
-connection-pool, or database scheduling deterministic. It is test-only and
-should be used after ordinary black-box delivery is working.
+```ts
+import express from "express";
+import {
+  checkpoint,
+  checkpointMiddleware,
+  configureCheckpoint
+} from "@bachsproof/sdk";
+
+const app = express();
+const testMode = process.env.BACHSPROOF_TEST_MODE === "true";
+
+configureCheckpoint({
+  enabled: false,
+  allowRequestHeaders: testMode
+});
+
+app.use(checkpointMiddleware({
+  enabled: testMode,
+  timeoutMs: 10_000
+}));
+
+app.post("/webhooks/bachs", express.json(), async (req, res) => {
+  const payment = await readPayment(req.body.data.reference);
+  if (payment.status === "COMPLETED") return res.sendStatus(200);
+
+  await checkpoint("after-idempotency-check", { key: payment.reference });
+
+  await creditPaymentAtomically(payment);
+  return res.sendStatus(200);
+});
+```
+
+Line by line:
+
+- The SDK imports are optional test instrumentation; the application can run
+  without them in ordinary black-box mode.
+- `testMode` is an explicit environment switch. Keep it false in production.
+- `configureCheckpoint` refuses request-header activation unless the test
+  process opts in. `enabled: false` avoids a process-wide credential context.
+- `checkpointMiddleware` reads the request-scoped controller details and stores
+  them with `AsyncLocalStorage`. It does nothing when either switch is off.
+- The handler reads payment state first. That is the race point we want both
+  requests to reach.
+- The named `checkpoint` announces the participant and waits for the core's
+  release. The `key` is trace metadata; it is not a lock.
+- `creditPaymentAtomically` still needs real transaction/uniqueness protection.
+  The checkpoint cannot replace it.
+
+## Waiting, release, and timeout behavior
+
+`checkpoint(name)` sends an authenticated `POST` to the controller's
+`/sessions/{session}/checkpoints/{name}/arrive` endpoint. The body contains the
+participant ID and optional key/metadata. The controller rejects unknown
+participants, duplicate arrivals, bad tokens, and malformed routes.
+
+The core's `waitForArrivals` resolves when the required count is present. The
+core then calls `release`; the controller completes the held arrival responses.
+If the count is not reached by `timeoutMs`, the core records an arrival timeout,
+aborts the session, and completes waiting participants with a conflict response
+so they do not hang forever. The trace records arrivals, release, or abort.
+
+## Controlled-execution limits
+
+- It coordinates only the named checkpoint.
+- It does not control the database isolation level or lock scheduling.
+- It does not prove behavior after the checkpoint or after the observation
+  deadline.
+- It is local test instrumentation, not a distributed lock, auth mechanism, or
+  production failover strategy.
+- The application must reach the checkpoint in every participant or the test
+  will time out.
+
+Use ordinary concurrency first. Add a checkpoint when you need to reproduce a
+specific application-level interleaving and can explain why that placement
+matters.

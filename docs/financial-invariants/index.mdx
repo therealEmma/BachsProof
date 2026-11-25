@@ -7,6 +7,13 @@ An invariant is a rule that should remain true after a payment event is
 processed. BachsProof evaluates the state returned by your `verify` callback. It
 does not inspect a database by itself and does not require a particular schema.
 
+Scenarios describe the input pattern; invariants describe the financial result.
+For example, `sequential-duplicate-webhook` and
+`concurrent-duplicate-credit` send different delivery schedules, but both can
+exercise `INV-001` if two credits are committed. `invalid-webhook-signature`
+and `underpaid-payment` send different ineligible events, but both can exercise
+`INV-004` if the application credits them.
+
 For the recurring example, an eligible NGN ₦5,000 payment has expected state
 `creditCount: 1` and `creditedAmountMinor: 500_000`. An ineligible event has
 expected credit count zero.

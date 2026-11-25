@@ -6,15 +6,14 @@ description: "Prevent fulfilment when the event currency does not match the orde
 ## What problem does it test?
 
 An order priced in NGN must not be fulfilled by an otherwise successful event
-priced in another currency. ₦5,000 and an amount of 5,000 in USD are not the
-same financial instruction.
+priced in another currency. ₦5,000 and 5,000 USD are not the same financial
+instruction.
 
 ## What BachsProof sends
 
 It creates a success-shaped event with the configured amount but a different
-currency. The fixture uses `USD` unless the configured currency is already USD,
-in which case it uses `EUR`. The normal expectation is 2xx, because the
-application may acknowledge a rejected business event.
+currency. The fixture uses USD unless the configured currency is already USD,
+then it uses EUR:
 
 ```js
 {
@@ -25,9 +24,20 @@ application may acknowledge a rejected business event.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-Zero credits are expected; a credit fails `INV-004`. Amount and currency
-matching are application responsibilities. The fixture does not model currency
-conversion, exchange rates, or a provider settlement. The mutation is built in
-`packages/bachs/src/fixtures.ts`.
+Compare currency as well as integer amount. Do not silently treat
+`500_000 USD` as `500_000 NGN` or perform an unrequested conversion during
+fulfilment.
+
+## Expected outcome and failure
+
+Zero credits are expected; a credit fails `INV-004`. The normal HTTP expectation
+is 2xx because an application may acknowledge a rejected business event. The
+fixture does not model conversion, exchange rates, or provider settlement.
+
+## Internal implementation
+
+`createBachsScenario` chooses the alternate currency and creates the event with
+`createBachsMockFixture`; `expectedNoCredit` supplies the zero-credit state.
+The mutation is built in `packages/bachs/src/fixtures.ts`.

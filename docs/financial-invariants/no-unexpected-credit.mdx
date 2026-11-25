@@ -14,6 +14,11 @@ Passing: expected eligible false; observed creditCount 0
 Failing: expected eligible false; observed creditCount 1, amount 500000 NGN
 ```
 
+The passing case means no ₦5,000 row exists. The failing case means the
+application created a ₦5,000 credit even though the event was not eligible.
+The amount could be `1` or `1_000_000`; any positive credit count fails this
+rule.
+
 ## How BachsProof evaluates it
 
 If `expected.eligible` is false and `observed.creditCount > 0`, the invariant
@@ -23,4 +28,7 @@ is expected, use `verify` to establish that no credit was committed.
 Investigate fulfilment based on checkout status alone, skipped signature
 verification, missing amount/currency matching, or treating an error state as a
 success. The negative observation window gives queued work a bounded chance to
-appear before this rule is evaluated.
+appear before this rule is evaluated. `incomplete-checkout`, `expired-checkout`,
+`tampered-webhook`, `invalid-webhook-signature`, `malformed-webhook`,
+`incorrect-payment-amount`, `incorrect-payment-currency`, `underpaid-payment`,
+and `failed-payment` all use this expected zero-credit outcome.

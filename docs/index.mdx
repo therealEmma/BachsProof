@@ -5,9 +5,9 @@ description: "Test payment correctness beyond webhook HTTP responses."
 
 # Payment correctness beyond HTTP responses
 
-BachsProof is an independent, unofficial testing framework for Bachs integrations. It sends payment-shaped
-requests to an isolated copy of your application and, when you configure a
-verifier, reads the financial records your application actually saved.
+BachsProof is an independent, unofficial testing framework for Bachs
+integrations. It sends test payment notifications to an isolated copy of your
+application and checks what your application actually saved.
 
 It is not affiliated with or endorsed by Bachs.
 
@@ -15,10 +15,12 @@ That second part matters. A webhook returning `200 OK` only says that an HTTP
 request was acknowledged. It does not tell you whether a wallet was credited,
 whether the amount was correct, or whether a retry created a second credit.
 
-For example, if a customer deposits **₦5,000** into a wallet, the application
-should normally create one ₦5,000 credit. BachsProof can send the same payment
-notification twice, send two notifications at once, and then check the saved
-credits instead of trusting the two HTTP responses.
+For example, imagine a customer deposits **₦5,000**. In a two-decimal currency
+that is `500_000` minor units, or kobo for NGN. The application should create
+one ₦5,000 credit. BachsProof can send the same notification twice, send two
+notifications at once, and then ask your test-side `verify` callback how many
+credits were actually saved. Two successful HTTP responses can therefore still
+be reported as a duplicate ₦5,000 credit.
 
 <Note>
 BachsProof is a testing tool. It does not move real money, create live Bachs
@@ -33,7 +35,9 @@ payments, or certify that an application is production-ready.
   payment-state scenarios.
 - Lets your test code create fresh application payments through `createPayment`.
 - Lets your test code read committed credits or ledger entries through `verify`.
-- Compares that observed state with five financial rules, called invariants.
+- Compares that observed state with five financial rules. In this documentation
+  those rules are called financial invariants: simple checks such as “one
+  payment creates no more than one credit.”
 - Offers an optional test-only checkpoint for coordinating a particular race.
 
 ## What BachsProof does not do
@@ -49,8 +53,16 @@ payments, or certify that an application is production-ready.
 
 The word **synthetic** means “made for the test.” A synthetic webhook can be
 useful for checking your handler, authentication, and database logic, but it is
-not evidence that Bachs collected money. Use a Bachs sandbox separately when
-you need provider-side checkout or settlement evidence.
+not evidence that Bachs collected money.
+
+<Note>
+BachsProof is not a payment gateway, webhook delivery service, or payment
+provider sandbox. It does not accept customer payments, forward production
+webhooks, create Bachs checkouts, or simulate provider settlement. It is the
+test runner that sends controlled, Bachs-shaped input to your own test
+application. Use the Bachs sandbox separately for provider-side checkout and
+settlement evidence.
+</Note>
 
 ## Start here
 

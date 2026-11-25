@@ -35,6 +35,12 @@ The result is two committed `WalletCredit` rows for one payment. The
 checkpoint is outside the transaction, so it does not hold a database
 transaction open while waiting.
 
+With the repository's ₦5,000 example, the vulnerable observation is
+`creditCount: 2` and `creditedAmountMinor: 1_000_000`; the test fails with
+`INV-001`. The important bug is not that two HTTP requests existed. It is that
+the handler made a non-atomic decision from a stale snapshot and had no unique
+business key on the credit.
+
 ## The corrected strategy
 
 The corrected path uses two identities:
@@ -46,8 +52,9 @@ The corrected path uses two identities:
 Inside the transaction, `PrismaWalletStore.processCorrected` re-reads the
 payment, checks customer/currency/amount, records event identity, protects
 completed state from older events, inserts the unique credit, increments the
-wallet, and updates payment/event state. A concurrent unique-key loser is
-reconciled as an idempotent duplicate.
+wallet, and updates payment/event state. The unique
+`bachs:payment:<reference>` key means a concurrent loser is reconciled as an
+idempotent duplicate instead of adding another balance increment.
 
 The in-memory store has an intentionally unsafe method for the demonstration
 and a synchronous critical section for the corrected fast test. It is not a
@@ -70,6 +77,18 @@ pnpm exec vitest run apps/reference-wallet/tests/wallet.postgres.integration.tes
 The PostgreSQL suite is skipped when `DATABASE_URL` is absent; a skipped test
 is not a pass. The test files create scoped references and clean up only their
 own records.
+
+If you connect the started wallet to an application-side
+`bachsproof.config.mjs`, the focused CLI command is:
+
+```bash
+npx bachsproof test --name "concurrent duplicate credit"
+```
+
+The in-process Vitest reproduction is the authoritative checked-in example
+because it supplies the store-backed `verify` callback directly. The standalone
+server intentionally exposes no state endpoint, so the command above is not a
+drop-in command for the reference-wallet package by itself.
 
 ## Repository evidence
 

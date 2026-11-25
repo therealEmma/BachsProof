@@ -14,6 +14,9 @@ Passing: expected 500000 NGN; observed 500000 NGN; creditCount 1
 Failing: expected 500000 NGN; observed 499900 NGN; creditCount 1
 ```
 
+That is one ₦5,000 credit passing and one ₦4,999 credit failing. An observed
+`500_000 USD` also fails because currency is part of the financial value.
+
 ## How BachsProof evaluates it
 
 When at least one credit exists, BachsProof compares
@@ -24,3 +27,7 @@ sum arbitrary database rows itself.
 
 Investigate order amount matching, currency checks, decimal-to-minor
 conversion, and whether fees were incorrectly included in the customer credit.
+
+This rule is most useful with `incorrect-payment-amount`,
+`incorrect-payment-currency`, and the duplicate scenarios. A zero-credit
+ineligible event does not enter this comparison; it is covered by `INV-004`.

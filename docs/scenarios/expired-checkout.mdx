@@ -23,9 +23,21 @@ handling test, not a live provider expiry.
 }
 ```
 
-## Expected result and failure
+## What the application should do
+
+Record the expiry if useful, but do not fulfil the order or credit the wallet. A
+later successful collection is a separate event and must be matched to the
+correct stored payment.
+
+## Expected outcome and failure
 
 The verifier should observe zero credits; any credit fails `INV-004`. A later
 valid success may still arrive in a real lifecycle, which is why
 [delayed payment confirmation](/scenarios/delayed-payment-confirmation) is a
-separate scenario. The plan is in `packages/bachs/src/fixtures.ts`.
+separate scenario.
+
+## Internal implementation
+
+`checkoutFixture` in `packages/bachs/src/fixtures.ts` sets the checkout as
+expired, with no payment status and no charge. The scenario's expected state is
+created by `expectedNoCredit`.

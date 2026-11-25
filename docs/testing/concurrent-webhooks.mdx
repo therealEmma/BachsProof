@@ -25,3 +25,8 @@ mode and place a checkpoint after the application's idempotency read. See
 [controlled concurrency](/advanced/controlled-concurrency). Even controlled
 mode coordinates only the named application point; the database still needs a
 durable unique constraint or equivalent atomic protection.
+
+Think of ordinary concurrency as two runners entering a room at nearly the
+same time. Controlled concurrency adds a starting gate: both runners must reach
+the named line before either is allowed to continue. The gate makes a test
+schedule repeatable; it does not make the application correct for you.

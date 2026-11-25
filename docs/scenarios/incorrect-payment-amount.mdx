@@ -7,13 +7,12 @@ description: "Prevent fulfilment when the event amount does not match the order.
 
 Your order expects ₦5,000 (`500_000` kobo), but a successful-looking event
 reports one minor unit more. The application must not credit the order until
-the event amount matches the amount it stored for that reference.
+the event amount matches the stored amount.
 
 ## What BachsProof sends
 
-It creates a `collection.succeeded`-shaped event with the same reference and
-currency but `amountMinor + 1`. The event is valid-shaped, so a handler may
-return 2xx while deciding not to fulfil it.
+It creates a valid-shaped `collection.succeeded` event with the same reference
+and currency but `amountMinor + 1`:
 
 ```js
 {
@@ -24,9 +23,23 @@ return 2xx while deciding not to fulfil it.
 }
 ```
 
-## Expected result and failure
+The application may return 2xx while deciding not to fulfil a valid-shaped but
+business-invalid event.
 
-Zero credits are expected. A credit fails `INV-004`. BachsProof does not know your
-order table and cannot itself decide whether the mismatch is correct; the
-application must compare the provider event with the stored order. The mutated
-fixture is made in `packages/bachs/src/fixtures.ts`.
+## What the application should do
+
+Compare integer amount and scale with the amount stored for the reference. Do
+not trust the event's amount as the order price and do not create a credit for
+`500_001` minor units when the order expects `500_000`.
+
+## Expected outcome and failure
+
+Zero credits are expected; a credit fails `INV-004`. BachsProof does not know
+your order table and cannot decide whether the mismatch is correct without your
+application's verification callback.
+
+## Internal implementation
+
+`createBachsScenario` calls `createBachsMockFixture` with `amountMinor + 1` and
+uses `expectedNoCredit` for the reference. The mutation is in
+`packages/bachs/src/fixtures.ts`.

@@ -13,7 +13,7 @@ must not credit the full ₦5,000 order before the shortfall is resolved.
 It creates a documented-shaped `collection.underpaid` event containing
 `amount_paid`, `amount_expected`, `amount_remaining`, `currency`, and
 `status: "UNDERPAID"`. The fixture pays half of the configured amount when
-possible. The normal HTTP expectation is 2xx.
+possible:
 
 ```js
 {
@@ -24,9 +24,20 @@ possible. The normal HTTP expectation is 2xx.
 }
 ```
 
-## Expected result and failure
+## What the application should do
 
-Zero credits are expected, so a credit fails `INV-004`. BachsProof does not send a
-later top-up success in this scenario. If your business process supports a
-later payment, test that lifecycle separately and allow asynchronous work to
-settle before verifying. The event is built in `packages/bachs/src/fixtures.ts`.
+Record the shortfall, request or await the remaining amount according to its
+business rules, and withhold the full ₦5,000 credit. `amount_paid` describes
+what arrived; it is not permission to fulfil the complete order.
+
+## Expected outcome and failure
+
+Zero credits are expected, so a credit fails `INV-004`. BachsProof does not send
+a later top-up success in this scenario. Test that lifecycle separately and
+allow asynchronous work to settle before verifying.
+
+## Internal implementation
+
+`createBachsScenario` computes `paidMinor`, the expected amount, and the
+remaining amount, then constructs a `collection.underpaid` event with
+`eligible: false`. The event is built in `packages/bachs/src/fixtures.ts`.
