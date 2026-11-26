@@ -26,9 +26,10 @@ the provider/event records needed for reconciliation.
 
 ## Expected outcome and failure
 
-One `500_000`-kobo NGN credit is expected. Two credits fail `INV-001`; missing
-credit fails `INV-003`; a wrong amount or currency fails `INV-002` and possibly
-`INV-005`. Configure `verify` to prove the one-credit result.
+One `500_000`-kobo NGN credit is expected. Two credits fail `INV-001` and the
+wrong aggregate also fails `INV-002`; a missing credit fails `INV-003`. A wrong
+amount or currency on one expected credit fails `INV-002` and possibly `INV-005`.
+Configure `verify` to prove the one-credit result.
 
 ```bash
 npx bachsproof test --name "cross-event duplicate payment"

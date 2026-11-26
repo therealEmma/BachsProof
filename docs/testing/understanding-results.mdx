@@ -11,6 +11,11 @@ FAIL concurrent duplicate credit (financially verified; 31ms; 1 financial violat
 Summary: 1/2 passed, 1 failed, 2 financially verified, 0 unverified, 1 financial violations, 55ms
 ```
 
+Read the result from left to right: delivery tells you whether the HTTP request
+worked, verification tells you what your callback read, and invariants tell you
+whether that saved state followed the money rules. A green delivery result is
+not automatically a green financial result.
+
 Investigate the failure by layer:
 
 | Symptom | Likely layer |

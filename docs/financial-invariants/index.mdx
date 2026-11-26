@@ -3,9 +3,27 @@ title: "Financial invariants"
 description: "The rules BachsProof applies to independently observed application state."
 ---
 
-An invariant is a rule that should remain true after a payment event is
-processed. BachsProof evaluates the state returned by your `verify` callback. It
-does not inspect a database by itself and does not require a particular schema.
+An **invariant** is a rule that should remain true after a payment event is
+processed. In simple English, it is a safety check such as “one payment must
+not create two credits.” BachsProof evaluates the state returned by your
+`verify` callback. It does not inspect a database by itself and does not require
+a particular schema.
+
+## Expected, observed, and committed state
+
+These words describe three different things:
+
+- **Expected state:** what this test says should happen, such as one
+  `₦5,000` credit or no credit. The provider adapter supplies this to the core.
+- **Observed state:** what your `verify` callback returns, such as
+  `creditCount: 2` and `creditedAmountMinor: 1_000_000`.
+- **Committed state:** data that the application has actually saved in its
+  database or ledger. Your callback must read this state; it must not repeat the
+  expected values from the test.
+
+For a ₦5,000 payment, a passing observation is one committed credit of
+`500_000` NGN minor units. Two credits mean the application saved ₦10,000 and
+the test should fail.
 
 Scenarios describe the input pattern; invariants describe the financial result.
 For example, `sequential-duplicate-webhook` and

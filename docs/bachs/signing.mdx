@@ -23,6 +23,17 @@ The signed message is the timestamp, a period, and the original UTF-8 body.
 For tampered-body tests, BachsProof signs one body and deliberately sends
 another, so a correct verifier must reject it.
 
+## HMAC is authentication, not encryption
+
+HMAC is a shared-secret checksum. BachsProof and your webhook handler both know
+the secret, so the handler can calculate the checksum again and compare it with
+the header. If the body changed, the checksum changes. If the sender does not
+know the secret, it cannot create the right checksum.
+
+HMAC does **not** hide the JSON body. It is not encryption. Use HTTPS to protect
+the request while it travels over the network, and keep the signing secret out
+of source control and production logs.
+
 ## Verify before parsing
 
 In a Node/TypeScript application, use the official SDK on raw bytes or the raw
@@ -43,4 +54,6 @@ signature validity and timestamp tolerance. It does not store processed event
 IDs or run your business handler; your application owns those steps.
 
 Never reuse a production secret in local or CI tests. Synthetic signing proves
-your raw-body verification path, not that Bachs sent or settled a live payment.
+that your raw-body verification path works; it does not prove that Bachs sent
+or settled a live payment. The [official Bachs webhook guide](https://docs.bachs.io/guides/webhooks/overview)
+describes the live headers and secret-management rules.

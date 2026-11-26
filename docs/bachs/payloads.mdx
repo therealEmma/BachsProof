@@ -28,15 +28,23 @@ For a collection event, the current fixture includes:
 }
 ```
 
-Important identities have different jobs:
+## Do not confuse the IDs
 
-- `id` is the provider event/delivery identity;
-- `charge_id` or the normalized provider payment ID identifies the collection;
-- `checkout_id` identifies the checkout;
-- `reference` links the provider data to the application's order or wallet
-  deposit;
+These values identify different things. In simple English:
+
+- `id` identifies this event delivery. A retry can have the same event ID.
+- `charge_id` identifies the provider's collection or charge.
+- `checkout_id` identifies the checkout session where the customer paid.
+- `reference` links the provider data to your application's order or wallet
+  deposit. This is usually the key your application uses to find the business
+  payment.
 - `amount` and `currency` describe the provider event, while the application
   must compare them with its stored order.
+
+The event ID answers “have I seen this delivery before?” The payment reference
+answers “which order or wallet payment should this affect?” A safe application
+may store both, because one financial payment can have more than one event
+type.
 
 For `collection.underpaid`, the adapter validates `amount_paid`,
 `amount_expected`, `amount_remaining`, `currency`, and `status: "UNDERPAID"`.

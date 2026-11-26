@@ -33,8 +33,8 @@ contract, but it must not create a second financial effect.
 
 ## Expected outcome and failure
 
-Passing state is one ₦5,000 credit in NGN. Two credits fail `INV-001`; the
-aggregate can also fail `INV-002` and `INV-005`. Missing credit fails `INV-003`.
+Passing state is one ₦5,000 credit in NGN. Two credits fail `INV-001` and the
+wrong aggregate also fails `INV-002`. A missing credit fails `INV-003`.
 Without `verify`, a passing HTTP result is delivery-only.
 
 ```js

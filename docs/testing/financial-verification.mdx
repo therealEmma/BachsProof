@@ -8,6 +8,11 @@ financial checks. It is test-side code: it reads your isolated test database or
 authorized test service and reports what was committed. BachsProof provides the
 callback contract; it does not provide your ORM queries or database schema.
 
+In simple English, BachsProof cannot know where your application keeps money.
+Your callback is the small bridge between the test runner and your application:
+it reads the real saved records and reports them in a common shape. Never fill
+the result with the values you hoped to see.
+
 ## A complete Prisma-style example
 
 ```ts
@@ -68,7 +73,7 @@ For an eligible ₦5,000 payment:
 ```text
 Passing: creditCount=1, creditedAmountMinor=500000, currency=NGN
 Missing: creditCount=0, creditedAmountMinor=0, currency=NGN -> INV-003
-Duplicate: creditCount=2, creditedAmountMinor=1000000 -> INV-001 and aggregate failures
+Duplicate: creditCount=2, creditedAmountMinor=1000000 -> INV-001 and INV-002
 Wrong amount: creditCount=1, creditedAmountMinor=499900 -> INV-002 / INV-005
 ```
 

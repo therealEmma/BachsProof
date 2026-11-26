@@ -7,6 +7,9 @@ Each run returns a `BachsProofResult` containing `passed` and a structured
 `BachsProofReport`. The report is designed for debugging and replay, not only for
 a green/red status.
 
+Read it as a story: what BachsProof sent, how the application responded, what
+your callback saw in the database, and which money rule passed or failed.
+
 ## What the report tells you
 
 - `scenario`, `provider`, and `mode` identify what ran;

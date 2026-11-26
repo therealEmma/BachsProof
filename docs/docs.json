@@ -146,12 +146,11 @@
         ]
       },
       {
-        "group": "Engineering case studies",
+        "group": "Engineering case study",
         "icon": "microscope",
         "pages": [
           "case-studies/index",
-          "case-studies/reference-wallet",
-          "case-studies/norma"
+          "case-studies/reference-wallet"
         ]
       },
       {
@@ -176,6 +175,7 @@
         "pages": [
           "resources/index",
           "resources/faq",
+          "resources/glossary",
           "resources/troubleshooting",
           "resources/security",
           "resources/limitations",

@@ -14,6 +14,17 @@ scenario value behind it is `concurrent-duplicate-credit`. The command must run
 from an application repository with an installed `@bachsproof/cli@1.1.0` and
 an isolated test application.
 
+## The short version
+
+The CLI chooses a test. The adapter creates a local Bachs-shaped event. The
+core sends it to your test application. Your application saves or rejects the
+financial effect. The `verify` callback reads what was saved, and the five
+invariants decide whether that result is correct.
+
+For a ₦5,000 duplicate test, two requests can both read `PENDING`. A `200`
+response from both requests is only delivery evidence. One committed
+`500_000`-kobo credit is the financial result BachsProof expects.
+
 ## The communication path
 
 ```mermaid
@@ -176,8 +187,8 @@ different amount.
 `verifyPaymentState` in `packages/core/src/invariants.ts` compares the expected
 state from the adapter with the normalized observation from the callback. For
 this eligible duplicate test, one credit of `500_000` NGN passes; two credits
-violate `INV-001` and can also violate `INV-002` and `INV-005`; zero credits
-violates `INV-003`.
+violate `INV-001` and `INV-002`; zero credits violates `INV-003`. A single
+credit with the wrong total can violate `INV-002` and `INV-005`.
 
 The comparison uses integer minor units. It does not inspect the database
 directly and does not infer records from HTTP responses.

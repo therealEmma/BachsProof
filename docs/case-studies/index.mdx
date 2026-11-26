@@ -1,21 +1,27 @@
 ---
-title: "Engineering case studies"
-description: "Reproducible experiments that show what BachsProof can and cannot prove."
+title: "Reference wallet case study"
+description: "See BachsProof find and then verify a real duplicate-credit bug in a small test wallet."
 ---
 
-The case studies are demonstrations, not production-readiness certificates.
+BachsProof's reference wallet is the main engineering demonstration in this
+documentation. It is a small test application with two versions of the same
+webhook handler:
+
+- the vulnerable version can credit one payment twice when two requests overlap;
+- the corrected version uses the store's protection and credits it once. The
+  in-memory test uses a synchronous critical section; the PostgreSQL test uses
+  a transaction and a unique idempotency key.
+
+The experiment uses local synthetic events and an isolated test store. It does
+not represent a live Bachs payment or prove that another application is safe.
 
 <CardGroup cols={2}>
-  <Card title="Reference wallet" href="/case-studies/reference-wallet" icon="wallet-cards">
-    A vulnerable and corrected Express/PostgreSQL wallet tested with committed
-    financial records.
+  <Card title="Read the experiment" href="/case-studies/reference-wallet" icon="wallet-cards">
+    Follow the bug, the fix, the financial rules, and the commands that run the
+    checked-in tests.
   </Card>
-  <Card title="Norma / Noma evidence status" href="/case-studies/norma" icon="file-question">
-    A transparent record of what is and is not reproducible from this repository
-    about the independent fintech experiment.
+  <Card title="Learn the mental model" href="/how-bachsproof-works/architecture" icon="workflow">
+    See how the CLI, core, Bachs adapter, optional SDK, application, database,
+    verifier, and report fit together.
   </Card>
 </CardGroup>
-
-Use the reference wallet when you need a complete local reproduction. Treat the
-independent-application page as an evidence checklist until application-specific
-artifacts are added.

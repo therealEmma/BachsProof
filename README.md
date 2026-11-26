@@ -2,7 +2,11 @@
 
 **Beyond webhook delivery. Verify financial correctness.**
 
-BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.
+BachsProof is a financial correctness testing framework for applications that
+use Bachs. In simple English, it sends safe test payment notifications to your
+application and checks whether the application saved the right money state. It
+complements Bachs' developer tools and normal test frameworks; it does not
+replace them.
 
 BachsProof is an independent, unofficial project. It is not affiliated with or endorsed by Bachs.
 
@@ -53,6 +57,18 @@ BachsProof helps detect these problems by generating controlled payment events, 
 - **Programmatic API:** Integrate payment correctness tests into existing JavaScript and TypeScript test suites.
 - **Optional checkpoint instrumentation:** Coordinate specific concurrent execution patterns for reproducible race-condition experiments.
 - **Extensible provider architecture:** Support additional payment providers through provider adapters.
+
+## Three levels of testing
+
+| Level | What it checks | What you add |
+| --- | --- | --- |
+| Delivery only | The webhook route receives the test event and returns the expected HTTP status | Provider, target, and scenario list |
+| Financially verified | The application saved the right credit count, amount, currency, and payment state | A real test reference and `verify` callback |
+| Controlled concurrency | Selected requests meet at a named application point | Optional `@bachsproof/sdk` instrumentation and checkpoint settings |
+
+Start with delivery-only while wiring the route. Use financially verified tests
+for meaningful CI results. Use controlled concurrency when you need to repeat a
+specific race; the checkpoint is not a database lock.
 
 ## Requirements
 
@@ -349,24 +365,27 @@ BachsProof's conclusions depend on the completeness and accuracy of the financia
 
 ```mermaid
 flowchart TD
-    A[BachsProof CLI or Programmatic API]
-    B[Core Testing Engine]
-    C[Prepare Test Payments]
-    D[Bachs Provider Adapter]
-    E[Application Webhook Endpoint]
-    F[(Application Database and Ledger)]
-    G[Financial Verification Callback]
-    H[Financial Invariants]
-    I[Test Report]
+    A[CLI or programmatic API]
+    S[15 test scenarios]
+    B[Core engine]
+    C[Payment preparation]
+    D[Bachs provider adapter]
+    E[Application webhook]
+    F[(Test database or ledger)]
+    G[Verify callback]
+    H[Five financial invariants]
+    I[Test report]
+    K[Optional checkpoint SDK]
 
-    A --> B
+    A --> S --> B
     B --> C
-    C --> D
-    D -->|Signed test webhooks| E
+    B --> D
+    D -->|Synthetic signed body| E
     E --> F
-    F --> G
-    G --> H
-    H --> I
+    G -->|Reads committed state| F
+    G --> B
+    B --> H --> I
+    K -. coordinates named application points .-> E
 ```
 
 BachsProof separates test orchestration, provider-specific behaviour, application processing, and financial verification.
@@ -445,13 +464,7 @@ Checkpoint instrumentation must remain restricted to test environments.
 
 See the [checkpoint documentation](packages/sdk/README.md) for advanced usage.
 
-## Experimental validation
-
-BachsProof includes a controlled reference application and preserves a separate
-historical account of an independent fintech wallet investigation. The two
-evidence types are intentionally distinguished below.
-
-### Reference wallet experiment
+## Reference wallet experiment
 
 The reference wallet is an Express and Prisma application designed to demonstrate payment correctness failures.
 
@@ -472,7 +485,9 @@ Uses transactional safeguards to prevent duplicate financial credits.
 
 BachsProof detected the duplicate-credit violation in the vulnerable implementation and verified the corrected implementation.
 
-The experiments included PostgreSQL-backed verification using a Railway-hosted test database.
+The fast experiment uses an in-memory store. A separate PostgreSQL experiment is
+available when you provide an isolated test database. In the final audit, that
+database was unreachable, so this README makes no PostgreSQL pass claim.
 
 Run the reference wallet experiment:
 
@@ -480,38 +495,13 @@ Run the reference wallet experiment:
 pnpm exec vitest run apps/reference-wallet/tests/wallet.integration.test.ts
 ```
 
-Run the PostgreSQL-backed experiments with an isolated test database configured:
+Run the PostgreSQL experiment with an isolated test database configured:
 
 ```bash
 pnpm test:postgres
 ```
 
 Skipped database tests must not be interpreted as successful database verification.
-
-### Independent application findings — Norma
-
-The repository preserves a historical account of a BachsProof investigation in
-Norma, an independent fintech wallet backend using Node.js, TypeScript, Prisma,
-and PostgreSQL. Unlike the reference wallet, Norma was not built for BachsProof.
-
-The reported financial correctness problem involved a **synthetic** checkout
-completion event with no collected payment being treated as an eligible deposit:
-
-| Historical observation | Expected | Reported |
-| --- | ---: | ---: |
-| Financial credits after incomplete checkout | 0 | 1 |
-| Credited amount | ₦0 | ₦5,000 |
-
-The historical report attributed this to NGN checkout-completion handling that
-could normalize an incomplete checkout into a confirmed deposit without enough
-payment-eligibility validation. It also records a separate run of 100 concurrent
-duplicate deliveries that observed one credit and no invariant violation.
-
-These are independent-application findings from synthetic events, not live Bachs
-settlement evidence. The authorized Norma repository, configuration, verifier,
-and complete output are not checked into this repository, so the claims are not
-independently reproducible here. See the [Norma evidence note](docs/case-studies/norma.mdx)
-for the required evidence and the limits of this historical account.
 
 ## Using BachsProof with Vitest
 
@@ -597,13 +587,16 @@ BachsProof should be used alongside unit tests, integration tests, security revi
 
 ## Documentation
 
-- [Getting started](docs/quickstart.md)
-- [CLI usage](docs/cli.md)
-- [Payment scenarios](docs/scenarios.md)
-- [Financial invariants](docs/financial-invariants.md)
-- [Bachs integration](docs/bachs-integration.md)
-- [Controlled concurrency and replay](docs/replay.md)
-- [Reference wallet engineering report](docs/engineering-demo.md)
+- [Mintlify documentation home](docs/index.mdx)
+- [Beginner quickstart](docs/quickstart.mdx)
+- [CLI usage](docs/api/cli.mdx)
+- [Payment scenarios](docs/scenarios/index.mdx)
+- [Financial invariants](docs/financial-invariants/index.mdx)
+- [Bachs integration](docs/bachs/index.mdx)
+- [Controlled concurrency](docs/advanced/controlled-concurrency.mdx)
+- [Reference wallet case study](docs/case-studies/reference-wallet.mdx)
+- [Plain-English glossary](docs/resources/glossary.mdx)
+- [Engineering evidence report](docs/engineering-demo.md)
 - [PostgreSQL test setup](docs/railway-postgres.md)
 - [Core API](packages/core/README.md)
 - [CLI API](packages/cli/README.md)

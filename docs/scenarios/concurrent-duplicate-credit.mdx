@@ -38,10 +38,11 @@ committed state must contain one credit.
 
 ## Expected outcome and failure
 
-One `500_000`-kobo credit is expected. Two credits fail `INV-001` and usually
-also fail `INV-002` and `INV-005` because the aggregate is `1_000_000`. Missing
-credit fails `INV-003`. A delivery error or unexpected HTTP status fails the
-delivery layer before financial evaluation.
+One `500_000`-kobo credit is expected. Two credits fail `INV-001` and, because
+the aggregate is now `1_000_000`, also fail `INV-002`. A missing credit fails
+`INV-003`. `INV-005` applies when the expected count is present but the total is
+wrong, so it is not the duplicate-count rule. A delivery error or unexpected
+HTTP status fails the delivery layer before financial evaluation.
 
 Ordinary concurrency is not deterministic: the OS may let one request finish
 before the other reads. Add [controlled concurrency](/advanced/controlled-concurrency)

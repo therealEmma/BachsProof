@@ -7,6 +7,11 @@ description: "Add optional request-scoped checkpoint instrumentation for a test-
 dependency. Its middleware accepts a generic request shape, so it can be
 adapted to Fastify, NestJS, or another HTTP framework.
 
+In simple English, the SDK gives a webhook request a safe way to say “I have
+reached this test point; pause me here.” The core controller then releases the
+requests together. It is useful for exposing a race, but it is not a lock and
+it does not make an unsafe database operation safe.
+
 You need it only when ordinary concurrent HTTP delivery does not reliably reach
 the application point you want to test. It must never be enabled in production.
 

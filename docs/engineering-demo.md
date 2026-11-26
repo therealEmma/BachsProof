@@ -1,120 +1,91 @@
-# PayProof engineering demonstration
+# BachsProof reference-wallet engineering demonstration
 
-Date of this report: 2026-11-24.
+Date of this report: 2026-11-26.
 
-## Problem
+## The problem
 
-Webhook handlers often implement payment idempotency as a read followed by a write:
+Imagine a customer deposits **₦5,000**. The application should create one
+credit of `500_000` kobo. A common unsafe handler does this:
 
-1. Read whether a payment reference was completed.
-2. Credit the wallet.
-3. Mark the payment completed.
+1. Read the payment and see `PENDING`.
+2. Add the credit.
+3. Mark the payment as completed.
 
-Two concurrent deliveries can both observe `PENDING` and both commit credits. A sequential unit or integration test usually runs the first request to completion before starting the second, so it never creates the interleaving that matters.
+If two webhook requests read `PENDING` before either one saves the new status,
+both can add a credit. The wallet then shows ₦10,000 even though the customer
+paid once.
 
-PayProof makes that interleaving explicit. Two requests pause after the idempotency read, the controller confirms both arrivals, and both are released together. The test verifies committed ledger rows and the wallet balance rather than treating two HTTP 200 responses as proof of correctness.
+The reference wallet keeps both versions of the handler so BachsProof can show
+the failure and the fix under the same test schedule.
 
-## Bachs-specific boundary
+## What the reference wallet tests
 
-The reference wallet receives Bachs-shaped webhook envelopes. The provider adapter serializes only the documented envelope, not its local normalized fields. In signature-enabled mode, the route verifies the original request bytes with the official SDK before JSON parsing. The code does not fabricate live Bachs events or call live payment APIs.
+The application accepts Bachs-shaped webhook bodies on the same route in both
+modes:
 
-The implementation covers the verified one-time payment signals `checkout.completed`, `checkout.expired`, `collection.succeeded`, `collection.underpaid`, and `collection.failed`. `checkout.completed` and `collection.succeeded` can reference the same `charge_id`/checkout and are intentionally tested as distinct event IDs. Incomplete/expired delivery is non-fulfilling; a later eligible success may fulfil it. The typed underpayment fixture uses the documented paid, expected, and remaining decimal-string fields and remains non-fulfilling.
+- **Vulnerable mode:** reads first and writes later, with no unique business
+  key or atomic transaction around the credit.
+- **Corrected mode:** uses storage-specific protection. The in-memory test uses
+  a synchronous critical section. The PostgreSQL store uses a transaction and
+  a unique idempotency key.
 
-Amounts are parsed as decimal strings into exact `bigint` coefficients and explicit scales. No provider amount is converted through floating-point arithmetic. PostgreSQL stores the resulting integer amount and scale as `BIGINT` + `amountScale`.
+BachsProof pauses both duplicate requests after the payment read, releases them
+together, and calls a test-side verifier. The verifier reads the committed
+credit rows and wallet state. A successful HTTP response is not treated as
+financial proof.
 
-## Vulnerable sequence
+The wallet also demonstrates raw-body signature verification, payment matching,
+event ordering, incomplete and expired checkouts, underpayment, failed
+collections, and delayed confirmation. These are local synthetic events; the
+application does not call Bachs or move money.
 
-```text
-delivery A: read Payment(PENDING)
-delivery B: read Payment(PENDING)
-delivery A: barrier arrival
-delivery B: barrier arrival
-controller: release both
-delivery A: insert WalletCredit, increment Wallet, mark Payment(COMPLETED)
-delivery B: insert another WalletCredit, increment Wallet, mark Payment(COMPLETED)
+## Actual results checked in this workspace
+
+The fast reference-wallet suite passed:
+
+| Implementation | Expected credits | Observed credits | Result |
+| --- | ---: | ---: | --- |
+| Vulnerable handler | 1 | 2 | Failed with `INV-001`, as intended |
+| Corrected handler | 1 | 1 | Passed |
+
+The same suite also passed sequential duplicate delivery, replay, and callback
+verification checks. The Bachs-native integration suite passed its five tests.
+
+The full workspace test run reported **14 test files passed, 45 tests passed,
+and 2 PostgreSQL tests skipped**. The explicit PostgreSQL run was attempted with
+the existing `DATABASE_URL`, but the configured database server was unreachable.
+Therefore this report makes no PostgreSQL pass claim.
+
+Run the fast experiment with:
+
+```bash
+pnpm exec vitest run apps/reference-wallet/tests/wallet.integration.test.ts
 ```
 
-The vulnerable handler intentionally has no unique idempotency key and no atomic transaction. It remains in the repository so the demonstration proves that PayProof can fail a real persisted implementation.
+Try the PostgreSQL experiment with:
 
-## Corrected strategy
-
-The corrected path uses two identities:
-
-- `WebhookEvent.eventId` deduplicates one Bachs delivery.
-- `WalletCredit.idempotencyKey` is derived from the local payment reference, so distinct Bachs events for one financial payment cannot create distinct credits.
-
-After the checkpoint, a short PostgreSQL transaction:
-
-1. Re-reads the payment.
-2. Inserts the webhook event identity.
-3. Records non-fulfilling/out-of-order state without downgrading a completed payment.
-4. Inserts the unique wallet credit.
-5. Increments the wallet balance.
-6. Marks the payment completed and the webhook event processed.
-
-All financial effects commit or roll back together. The checkpoint is outside that transaction, so a barrier timeout cannot hold a database transaction open. Initialization uses find/create with bounded retry around unique-key races instead of relying on a concurrent Prisma upsert.
-
-## Actual local evidence
-
-The following commands were run in this workspace:
-
-```text
-pnpm exec vitest run
-  14 test files passed
-  42 tests passed and 2 PostgreSQL tests skipped because Vitest does not load
-  the repository .env automatically
-
-pnpm vitest run apps/reference-wallet/tests/wallet.integration.test.ts
-  vulnerable controlled race: failed as expected with 2 committed credits
-  corrected controlled race: passed with 1 committed credit
-  sequential duplicate and replay: passed
-  callback verification: passed
-
-pnpm vitest run apps/reference-wallet/tests/bachs-native.integration.test.ts
-  5 tests passed
-  raw-body signature acceptance and tamper rejection
-  exact decimal parsing
-  checkout.completed + collection.succeeded duplicate financial effect
-  expired/incomplete delivery followed by delayed success
-  malformed input and test-route authentication
-
-TypeScript checks for all workspace packages: passed.
-
-Prisma schema validation with a non-secret placeholder DATABASE_URL: passed.
-
-`pnpm pack:check` passed, rebuilding the workspace and regenerating the core,
-SDK, Bachs, and CLI archives. The independent-repository packaging test passed
-after installing those fresh archives and running the installed CLI.
-
-The PostgreSQL suite was then run with the quoted `DATABASE_URL` from `.env`
-explicitly loaded into the test process:
-
-```text
+```bash
 pnpm exec vitest run apps/reference-wallet/tests/wallet.postgres.integration.test.ts
-  2 tests passed
-  vulnerable handler: duplicate committed credits detected
-  corrected handler: exactly one committed credit
-```
 ```
 
-The fast suite is in-memory and demonstrates application behavior and the exact
-race schedule. The separate PostgreSQL suite below is the evidence for the
-committed database rows.
+The PostgreSQL suite uses unique references and scoped cleanup. It is skipped
+when the database is missing or unreachable. A skipped test is not a database
+pass.
 
-## PostgreSQL evidence status
+## What this evidence means
 
-The PostgreSQL integration suite uses Railway or any supplied `DATABASE_URL`,
-the checked-in migrations, unique per-run references/customer IDs, and scoped
-cleanup. It contains separate vulnerable and corrected assertions against
-committed `WalletCredit` rows. The default Vitest command still skips this file
-because the repository does not auto-load `.env`; the explicit run above proves
-the supplied database configuration works. This suite does not represent a
-live Bachs checkout, settlement, or provider retry.
+The result proves that the checked-in reference wallet's vulnerable handler can
+save two credits under the controlled schedule and that the corrected handler
+saves one. It does not prove that another application is safe, that a live
+Bachs payment settled, or that every production schedule is covered.
 
-## Remaining limitations
+## Remaining limits
 
-- The host used for this run is Node 20.19.2; the project and official Bachs SDK target Node 22+. The test suite passed on the available host, but Node 22/24 acceptance was not run here.
-- The host used for this run allowed the build only with normal child-process permissions outside the restricted sandbox; the build itself passed. A Node 22/24 environment should still be used for release acceptance because this host is Node 20.
-- No live Bachs sandbox checkout, real webhook forwarding, settlement, retry delivery, or provider reconciliation was executed.
-- Synthetic lifecycle fixtures are not live Bachs sandbox deliveries and do not prove provider-side settlement or retry behavior.
-- The checkpoint controls named instrumented barriers; it does not make arbitrary operating-system, network, or database scheduling deterministic.
+- The current adapter creates synthetic local events and does not call Bachs.
+- No live checkout, settlement, provider retry, or reconciliation was tested.
+- The checkpoint controls only the named application point; it cannot control
+  every operating-system, network, or database decision.
+- A finite verification window cannot rule out a later erroneous write.
+- The validation host is Node 20.19.2, while the project requires Node 22 or
+  later. Build and typecheck passed here with an engine warning; release
+  acceptance should also run on a supported Node version.

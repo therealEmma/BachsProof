@@ -3,9 +3,9 @@ title: "Configuring your application"
 description: "Configure the target URL, provider adapter, signing, and callbacks."
 ---
 
-The generated config is an ordinary JavaScript module. BachsProof loads it from
-the application repository at test time. The application server does not import
-this file.
+The generated config is a normal JavaScript module. BachsProof loads it from
+your application repository when tests run. Your production server does not
+import this file.
 
 ```js
 import { bachsAdapter } from "@bachsproof/cli";
@@ -46,6 +46,24 @@ export default {
   error instead of allowing an unverified CLI run.
 - `financialVerification` controls polling and bounded observation.
 - `tests` is the named scenario list.
+
+## What is required at each testing level?
+
+| Level | Required config | Optional config |
+| --- | --- | --- |
+| Delivery only | `provider`, `target`, and a non-empty `tests` array | `signing`, `reference`, `references`, `syntheticReferences` |
+| Financially verified | Delivery-only settings plus `verify` and real isolated references | `createPayment`, polling settings, `requireFinancialVerification` |
+| Controlled concurrency | Financial verification plus `checkpoint` and application-side SDK setup | A different `checkpoint` timeout or trace metadata |
+
+`createPayment` is a convenient way to create fresh test records. Manual
+references are fine when another test already prepared the records. Synthetic
+references are for fixture-only checks and should not be used as proof that an
+application found or saved a real payment.
+
+The current core uses `checkpoint` only for the
+`concurrent-duplicate-credit` scenario. Checkpoint settings alone do nothing
+unless the target application also installs the optional SDK middleware and
+calls `checkpoint(name)`.
 
 Use `defineConfig` from `@bachsproof/cli` in a TypeScript config when you want
 editor type checking. The CLI supports `.mjs`, `.js`, `.cjs`, and TypeScript

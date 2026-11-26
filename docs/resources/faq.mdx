@@ -47,4 +47,30 @@ description: "Common questions about BachsProof and payment testing."
     No. Use it only when you want to coordinate a named application execution
     point. Ordinary black-box concurrency remains the default.
   </Accordion>
+  <Accordion title="Why do I need a separate test database?">
+    Tests create duplicate, failed, and incomplete payment events on purpose.
+    A separate database protects real customer data and lets each test use fresh
+    records. BachsProof never resets your database for you.
+  </Accordion>
+  <Accordion title="Does BachsProof query my database directly?">
+    No. Your `verify` callback reads your database, ledger, or test service and
+    returns a small standard result. This keeps BachsProof independent of
+    Prisma, PostgreSQL, Express, and other application choices.
+  </Accordion>
+  <Accordion title="Why can an idempotent application still be financially wrong?">
+    Idempotency mainly prevents duplicates. The application can still save one
+    credit with the wrong amount or credit an ineligible payment. BachsProof
+    checks amount, currency, eligibility, completion, and aggregate totals too.
+  </Accordion>
+  <Accordion title="What if my verification callback is inaccurate?">
+    BachsProof can only check the state your callback returns. A callback that
+    reads the wrong database or copies expected values can produce a misleading
+    result. Read committed records for the requested reference and treat the
+    callback as part of the test code that needs its own review.
+  </Accordion>
+  <Accordion title="What happens when background processing is slow?">
+    Return `pending: true` while a worker can still change the financial state.
+    BachsProof polls until the completion deadline. If the deadline ends while
+    the state is still pending, the run fails instead of calling it complete.
+  </Accordion>
 </AccordionGroup>

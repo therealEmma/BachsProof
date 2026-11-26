@@ -5,11 +5,15 @@ description: "Beyond webhook delivery. Verify financial correctness."
 
 # Beyond webhook delivery. Verify financial correctness.
 
-BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.
+BachsProof is a financial correctness testing framework for applications that
+use Bachs. In simple English: it sends safe test payment notifications to your
+application and checks whether your application saved the right money state.
+It complements Bachs' developer tools and normal test frameworks; it does not
+replace them.
 
 BachsProof is an independent, unofficial project for testing Bachs integrations. It sends controlled, synthetic payment events to your isolated application and checks the financial state your application actually commits. It does not process real payments, verify provider settlement, or certify production readiness.
 
-## Four ways to test what matters
+## What you can test
 
 <CardGroup cols={2}>
   <Card title="Financial correctness" icon="wallet">
@@ -47,9 +51,25 @@ Expected wallet credit: ₦5,000
 Actual wallet credit:   ₦10,000
 ```
 
-Both deliveries can receive successful HTTP responses. Delivery succeeded, but
-the financial outcome is wrong. BachsProof sends the controlled test events and
-uses your application-specific `verify` callback to inspect the committed state.
+Both deliveries can receive successful HTTP responses. The request was accepted,
+but the money is wrong. BachsProof sends the test events and uses your
+application-specific `verify` callback to inspect the state that was actually
+saved.
+
+## Three levels of testing
+
+Start with the smallest level that answers your question:
+
+| Level | What it checks | What you must provide |
+| --- | --- | --- |
+| Delivery only | The endpoint receives the event and returns the expected HTTP status | `provider`, `target`, and `tests` |
+| Financially verified | The saved credit count, amount, currency, and payment state | The first level plus real test references and `verify` |
+| Controlled concurrency | A chosen application execution point is coordinated across requests | The second level plus optional `@bachsproof/sdk` instrumentation and `checkpoint` settings |
+
+Delivery-only is useful for checking the webhook boundary, but it cannot prove
+that money was saved correctly. Most teams should make financially verified
+tests their normal CI level. Add controlled concurrency only when you need to
+reproduce a particular race.
 
 ## Start here
 
@@ -68,7 +88,21 @@ uses your application-specific `verify` callback to inspect the committed state.
   <Card title="Vitest and Jest" icon="test-tube" href="/advanced/vitest-and-jest">
     Add payment-specific correctness checks to an existing test suite.
   </Card>
+  <Card title="Glossary" icon="book-marked" href="/resources/glossary">
+    Read plain-English explanations of the words used in payment testing.
+  </Card>
 </CardGroup>
+
+## A simple reading path
+
+If payment testing is new to you, read [Why BachsProof exists](/why-bachsproof),
+then [Quickstart](/quickstart), and then [Financial verification](/testing/financial-verification).
+After that, choose the scenarios and invariants that match your application.
+
+If you already build payment systems, read [Architecture](/how-bachsproof-works/architecture),
+[Execution lifecycle](/how-bachsproof-works/execution-lifecycle), and the
+[Reference wallet case study](/case-studies/reference-wallet). Use the API
+reference only when you need exact types and defaults.
 
 <Note>
 Financial verification requires callbacks that know your application's payment,

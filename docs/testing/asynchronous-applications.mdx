@@ -8,6 +8,11 @@ validate and enqueue a job, return `202 Accepted`, and let a worker perform the
 database transaction later. That architecture is reasonable, but an immediate
 database read can confuse “not finished yet” with “nothing will ever happen.”
 
+This is **eventual consistency**: the webhook request finishes first, and the
+financial record becomes visible later. **Polling** means reading the state
+again after a short wait. BachsProof polls your `verify` callback; it does not
+poll Bachs or guess what your worker is doing.
+
 ## Return pending for every unfinished worker state
 
 The old one-state pattern is too narrow:
@@ -112,6 +117,27 @@ financialVerification: {
   It gives a queued erroneous job a short chance to appear; it is not a
   permanent guarantee.
 
+### A timing example
+
+```text
+0 ms       webhook returns 202; worker job is queued
+25 ms      verify reads pending=true; BachsProof waits and polls again
+100 ms     worker commits one ₦5,000 credit
+125 ms     verify reads pending=false and one credit; eligible test can pass
+```
+
+For a negative test, the meaning is different:
+
+```text
+0 ms       an incomplete checkout is accepted; no credit is visible
+250 ms     the negative observation window ends with no credit; INV-004 passes
+afterward  a later credit could still appear; the test cannot rule that out
+```
+
+The completion deadline is the maximum time allowed for an eligible result to
+become complete. The negative observation window is the shorter waiting period
+used to look for an unexpected credit. They answer different questions.
+
 For an eligible event, the core stops when `pending` is false and the expected
 financial state passes, or when the completion deadline expires. For an
 ineligible event, a detected credit is enough to finish with a failure; no
@@ -143,6 +169,11 @@ The polling behavior is implemented by `verifyWithCallback` in
 `packages/core/src/verification.ts`; deadline selection and the negative
 window are implemented by `BachsProof.inspect` in
 `packages/core/src/orchestrator.ts`. This page changes no framework behavior.
+
+The runner stops waiting when its deadline is reached, but JavaScript cannot
+force-stop arbitrary callback code that is still running. Keep the callback
+query bounded and make it read the same committed test database used by the
+worker.
 
 <Note>
 The existing `workerStatus === "PROCESSING"` example was incomplete for

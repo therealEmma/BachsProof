@@ -5,7 +5,7 @@ description: "Document the current BachsProof release boundary."
 
 ## 1.1.0
 
-The four BachsProof packages are published publicly at version `1.1.0`:
+The repository's four BachsProof packages are versioned together as `1.1.0`:
 
 - `@bachsproof/core`: provider-neutral runner, callback verification, five
   invariants, reports, replay metadata, and the HTTP race controller;
@@ -15,10 +15,11 @@ The four BachsProof packages are published publicly at version `1.1.0`:
   payment preparation, JSON output, and config validation;
 - `@bachsproof/sdk`: optional request-scoped checkpoint middleware and helpers.
 
-The release also includes bounded asynchronous verification, the reference
-wallet and PostgreSQL demonstration, independent package-installation tests,
-and an explicit boundary between synthetic events and live provider claims.
+This release also includes bounded asynchronous verification, the reference
+wallet and PostgreSQL demonstration, package-installation tests, and a clear
+boundary between synthetic events and live provider claims.
 
-This release does not add live Bachs checkout creation to BachsProof. Provider
+The repository does not add live Bachs checkout creation to BachsProof. Provider
 sandbox validation, settlement, and production readiness remain outside the
-mock adapter's evidence boundary.
+mock adapter's evidence boundary. Package publication is a separate release
+step and is not claimed by this page.

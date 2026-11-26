@@ -3,31 +3,43 @@ title: "Architecture overview"
 description: "See how the provider adapter, runner, application, verifier, and optional checkpoint fit together."
 ---
 
-BachsProof has one important boundary: the framework creates test input and
-observes the result, while your application owns authentication, persistence,
-workers, and database rules. The package split keeps that boundary visible.
+BachsProof has one simple boundary: BachsProof creates test input and reads the
+result; your application decides how to authenticate, store, queue, and credit
+payments. The package split keeps that responsibility clear.
 
 ```mermaid
 flowchart LR
-  Config[bachsproof.config.mjs] --> CLI[@bachsproof/cli]
+  Config[Config and test names] --> CLI[@bachsproof/cli]
+  Tests[15 test scenarios] --> CLI
   CLI --> Core[@bachsproof/core]
-  CLI --> Bachs[@bachsproof/bachs]
-  Bachs -->|ProviderAdapter types| Core
-  Core -->|createPayment + createScenario| Bachs
-  Core -->|POST serialized body| App[Your isolated application]
+  CLI --> Adapter[@bachsproof/bachs]
+  Adapter -->|Bachs-shaped fixtures| Core
+  Core -->|payment preparation| Prep[Your test setup]
+  Core -->|HTTP webhook delivery| App[Your isolated application]
   App --> DB[(Your test database)]
-  Verify[Your verify callback] --> DB
-  Verify --> Core
-  Core --> Invariants[verifyPaymentState: five rules]
+  App -. optional checkpoint call .-> SDK[@bachsproof/sdk]
+  Core -. local race controller .-> SDK
+  Verify[Your verify callback] -->|committed state| Core
+  Verify --> DB
+  Core --> Invariants[Five financial invariants]
   Invariants --> Report[Report and CLI exit code]
-  SDK[@bachsproof/sdk] -. optional request checkpoints .-> App
-  Core -. local RaceController .-> SDK
 ```
 
-The arrows are dependencies and communication paths, not production network
-connections. The core uses `undici.fetch` for the webhook request. The optional
-checkpoint path uses a local HTTP controller so the application can run in a
-separate process.
+The arrows show package calls and test communication, not a production payment
+flow. The core sends the webhook over HTTP. The callback reads your test data.
+The optional checkpoint path uses a small local controller, so the application
+can run in a separate process.
+
+| Package | Talks to | Main job |
+| --- | --- | --- |
+| `@bachsproof/cli` | Your config, the core, and the terminal | Creates starter files, loads config, selects tests, and prints the result |
+| `@bachsproof/core` | The adapter, your webhook, your callback, and the checkpoint controller | Runs the test and applies the financial rules |
+| `@bachsproof/bachs` | The core | Creates Bachs-shaped local events, signatures, money conversions, and scenario plans |
+| `@bachsproof/sdk` | Your application and the local controller | Lets selected test requests pause at a named application point |
+
+The CLI is the normal front door. It uses the core and Bachs adapter for you.
+The programmatic API can call the core directly. The SDK is separate because
+most applications need no application code changes at all.
 
 ## The four packages
 
@@ -142,6 +154,11 @@ to the controller and waits until the core calls `release`.
 
 **Install it directly?** Only when you choose controlled concurrency. It is
 optional for black-box testing and must not be enabled in production.
+
+It is called an **SDK** (software development kit) because it is a small set of
+helpers that application code can import. It does not run the test suite or
+own the database; it only lets test requests announce that they reached a
+named point in the application.
 
 **Important files and functions:** `packages/sdk/src/checkpoint.ts` contains
 `configureCheckpoint`, `checkpointMiddleware`, `checkpoint`,

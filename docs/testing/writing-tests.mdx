@@ -6,6 +6,11 @@ description: "Configure one scenario or a complete suite."
 The CLI test file exports an array of named `BachsProofCliTest` objects. The
 `name` is used by `--name`; the remaining fields are `RunOptions`.
 
+Start with one delivery-only test if you are learning the setup. Add a real
+reference and `verify` when you want a financial result. Add `checkpoint` only
+after ordinary concurrent delivery is working and you need one repeatable
+application schedule.
+
 ```js
 export const tests = [
   {

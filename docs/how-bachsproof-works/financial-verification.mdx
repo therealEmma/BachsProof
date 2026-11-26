@@ -89,7 +89,7 @@ Your callback supplies **observed** state. For example:
 | Observation | Meaning | Result |
 | --- | --- | --- |
 | `creditCount: 1`, `500_000 NGN` | One correct committed credit | Pass |
-| `creditCount: 2`, `1_000_000 NGN` | The same payment was credited twice | `INV-001`, plus aggregate failures |
+| `creditCount: 2`, `1_000_000 NGN` | The same payment was credited twice | `INV-001` and `INV-002` |
 | `creditCount: 0`, `0 NGN` | Nothing was credited for an eligible payment | `INV-003` |
 | `creditCount: 1`, `499_900 NGN` | A credit exists, but it is ₦4,999 | `INV-002` and possibly `INV-005` |
 | `creditCount: 1` for an ineligible event | An expired, invalid, or underpaid event created money | `INV-004` |
@@ -122,7 +122,7 @@ export async function verify(reference: string, context?: FinancialVerificationC
     creditedAmountMinor: credits.reduce((sum, credit) => sum + credit.amountMinor, 0),
     currency: payment?.currency ?? "NGN",
     status: payment?.status ?? "NOT_FOUND",
-    pending: payment?.workerStatus !== undefined && unfinished.has(payment.workerStatus),
+    pending: !payment || (payment.workerStatus !== undefined && unfinished.has(payment.workerStatus)),
     ledgerEntries: credits.map((credit) => ({
       id: credit.id,
       type: credit.type,

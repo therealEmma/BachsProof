@@ -8,6 +8,23 @@ event plan; none calls Bachs or creates a real payment. Unless you explicitly
 opt into synthetic references, the payment reference still needs to point at a
 real isolated application record.
 
+## The simple mental model
+
+Keep these four jobs separate:
+
+1. **Scenarios** say what input or delivery pattern to test.
+2. **Checkpoints** optionally control how selected requests meet at a named
+   point. They do not decide whether the result is correct.
+3. **The `verify` callback** reads the committed state from your test
+   application.
+4. **Invariants** compare that observed state with the expected financial
+   result.
+
+For example, the concurrent duplicate scenario sends the same event twice.
+The checkpoint can pause both requests after they read `PENDING`. The callback
+then reports whether the database contains one ₦5,000 credit or two. The
+invariants make the pass/fail decision.
+
 | Scenario | What it sends | Expected financial result |
 | --- | --- | --- |
 | `sequential-duplicate-webhook` | Same eligible event twice in order | One credit |
@@ -25,6 +42,38 @@ real isolated application record.
 | `incorrect-payment-currency` | Success-shaped event with wrong currency | Zero credits |
 | `underpaid-payment` | `collection.underpaid` with a shortfall | Zero credits |
 | `failed-payment` | `collection.failed` | Zero credits |
+
+## Scenario-to-invariant map
+
+This table follows the conditions in
+`packages/core/src/invariants.ts`. It lists rules that can apply to the
+scenario's expected state; a particular run may report only some of them. For
+an eligible scenario, a duplicate usually produces `INV-001` and `INV-002`, a
+missing credit produces `INV-003`, and a wrong total with one credit can produce
+`INV-002` and `INV-005`.
+
+| Scenario | Expected state | Invariants that can apply |
+| --- | --- | --- |
+| `sequential-duplicate-webhook` | Eligible, one credit | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `concurrent-duplicate-credit` | Eligible, one credit | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `concurrent-unique-payments` | Each payment eligible, one credit each | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `cross-event-duplicate-payment` | Eligible, one credit | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `out-of-order-events` | Eligible, one credit | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `delayed-payment-confirmation` | Eligible, one credit | `INV-001`, `INV-002`, `INV-003`, `INV-005` |
+| `incomplete-checkout` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `expired-checkout` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `tampered-webhook` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `invalid-webhook-signature` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `malformed-webhook` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `incorrect-payment-amount` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `incorrect-payment-currency` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `underpaid-payment` | Ineligible, zero credits | `INV-002`, `INV-004` |
+| `failed-payment` | Ineligible, zero credits | `INV-002`, `INV-004` |
+
+`INV-002` can also appear for an ineligible event if the application created a
+credit with the wrong amount or currency. `INV-004` is the main rule for the
+unexpected credit itself. One scenario can therefore produce several
+violations, and many different scenarios can exercise the same rule.
 
 Use a fresh application reference for each independent scenario. Configure
 `verify` when you need the financial result to be evidence rather than a

@@ -6,6 +6,16 @@ description: "See how two webhook requests can both make the wrong decision."
 Concurrency means that two pieces of work overlap in time. A race condition
 appears when the result depends on which request happens to reach a line first.
 
+There are two useful kinds of concurrency testing:
+
+- **Natural concurrency** starts requests in the same delivery wave. This is
+  close to what a real server sees, but the operating system, event loop,
+  connection pool, and database choose the exact order.
+- **Controlled concurrency** uses an optional checkpoint to pause requests at a
+  named application point and release them together. This makes one schedule
+  easier to repeat, but it still does not control every database or network
+  action.
+
 For a ₦5,000 deposit, a vulnerable handler might do this:
 
 1. Request A reads “payment is pending.”

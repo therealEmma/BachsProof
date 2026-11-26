@@ -3,6 +3,9 @@ title: "Troubleshooting"
 description: "Fix common BachsProof configuration, delivery, and verification failures."
 ---
 
+Start with the layer that failed: preparation, HTTP delivery, or financial
+verification. A green HTTP response does not override a red financial check.
+
 ## “Real application reference is required”
 
 Implement `createPayment`, add a real `reference`/`references` value, or
@@ -39,6 +42,18 @@ Return `pending: true` while work is in flight, inspect the same test database
 used by the worker, and increase the bounded deadline only when the application
 needs it. A callback error or malformed value is a real failure, not a pending
 state.
+
+If the callback returns inaccurate data, check that it reads the same isolated
+database used by the webhook worker and filters by the requested reference. A
+callback that returns expected values instead of committed rows can make a bad
+test look good.
+
+## Separate test data
+
+Use a separate test database or a clearly isolated test schema. BachsProof does
+not reset, migrate, or delete application data, and duplicate or negative
+scenarios intentionally create unusual inputs. Fresh references and scoped
+cleanup prevent one run from changing the next run.
 
 ## Duplicate or stale results
 

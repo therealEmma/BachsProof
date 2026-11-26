@@ -5,7 +5,8 @@ description: "Create fresh application records through createPayment(context)."
 
 Automatic preparation is the recommended workflow for repeated local and CI
 runs. BachsProof calls your callback only when a selected scenario needs a
-reference and the test did not supply one.
+reference and the test did not supply one. In simple English, this helper makes
+a fresh test payment before the webhook arrives.
 
 ```js
 export async function createPayment({
@@ -43,3 +44,14 @@ The callback must create test records without charging real instruments or
 calling a live financial provider. Use a test API, test service, or isolated
 database seeder owned by your application.
 </Warning>
+
+## Which reference method should I choose?
+
+| Use this | Choose it when | Financial evidence? |
+| --- | --- | --- |
+| `createPayment` | You want every run to create a fresh application record | Yes, when paired with `verify` |
+| `reference` / `references` | You already created isolated records and know their IDs | Yes, when paired with `verify` |
+| `syntheticReferences: true` | You are testing fixture serialization, signing, or a route without a real payment record | No; fixture-only |
+
+Use only one method for a given run. Explicit references take precedence over
+automatic preparation, and synthetic mode is an explicit opt-in.
