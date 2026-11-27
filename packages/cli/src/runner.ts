@@ -125,3 +125,4 @@ export function summarizeRuns(results: BachsProofCliRun[]): BachsProofSummary {
     durationMs
   };
 }
+
