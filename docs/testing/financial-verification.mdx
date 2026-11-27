@@ -3,108 +3,123 @@ title: "Implementing financial verification"
 description: "Read committed state from your own application without production changes."
 ---
 
-The `verify` function is the only application-specific part of BachsProof's
-financial checks. It is test-side code: it reads your isolated test database or
-authorized test service and reports what was committed. BachsProof provides the
-callback contract; it does not provide your ORM queries or database schema.
+Financial verification is a read from your application's isolated test store.
+It is the difference between “the webhook returned 200” and “the application
+saved exactly one correct credit.” BachsProof does not know whether your money
+lives in wallets, orders, invoices, deposits, or a double-entry ledger, so you
+implement the small `verify(reference, context)` bridge.
 
-In simple English, BachsProof cannot know where your application keeps money.
-Your callback is the small bridge between the test runner and your application:
-it reads the real saved records and reports them in a common shape. Never fill
-the result with the values you hoped to see.
+## The smallest valid response
 
-## A complete Prisma-style example
+```js
+export async function verify(reference) {
+  return {
+    reference,
+    creditCount: 0,
+    creditedAmountMinor: 0,
+    currency: "NGN"
+  };
+}
+```
 
-```ts
-import { prisma } from "./test-support/prisma.js";
+The four fields are required. `status`, `pending`, and `ledgerEntries` are
+optional. The example is only the shape; a real callback must query committed
+records.
 
-export async function verify(reference: string) {
-  const payment = await prisma.payment.findUnique({
-    where: { reference }
-  });
+## A complete Prisma/PostgreSQL example
 
-  const credits = await prisma.walletCredit.findMany({
-    where: { reference }
-  });
+```js
+import { prisma } from "./test-support/prisma.mjs";
+
+function toSafeMinorUnits(value) {
+  const number = typeof value === "bigint" ? Number(value) : Number(value);
+  if (!Number.isSafeInteger(number)) {
+    throw new Error("Financial amount exceeds JavaScript safe integer range");
+  }
+  return number;
+}
+
+export async function verify(reference, context) {
+  const payment = await prisma.payment.findUnique({ where: { reference } });
+  const credits = await prisma.walletCredit.findMany({ where: { reference } });
+  const unfinishedWorkerStates = new Set([
+    "QUEUED", "WAITING", "PROCESSING", "RETRY_SCHEDULED", "RETRYING"
+  ]);
 
   return {
     reference,
     creditCount: credits.length,
     creditedAmountMinor: credits.reduce(
-      (sum, credit) => sum + Number(credit.amountMinor),
+      (total, credit) => total + toSafeMinorUnits(credit.amountMinor),
       0
     ),
     currency: payment?.currency ?? "NGN",
     status: payment?.status ?? "NOT_FOUND",
+    pending: !payment || unfinishedWorkerStates.has(payment.workerStatus),
     ledgerEntries: credits.map((credit) => ({
       id: String(credit.id),
       type: String(credit.type),
-      amountMinor: Number(credit.amountMinor),
+      amountMinor: toSafeMinorUnits(credit.amountMinor),
       currency: credit.currency
     }))
   };
 }
 ```
 
-Line by line:
+The table and field names are examples. Adapt them to your schema, but keep the
+meaning of each returned field:
 
-1. Import the test database client. This is your application helper, not a
-   BachsProof import.
-2. Export `verify` so the generated config can import it.
-3. Use the requested `reference` to find the application payment. Do not query
-   “the latest payment”; concurrent tests need a precise key.
-4. Read the committed credit rows for that same reference.
-5. Count rows for duplicate detection.
-6. Sum integer minor units. For NGN with two decimal places, `500_000` means
-   ₦5,000; do not convert money through a floating-point decimal.
-7. Return the application currency and status. The fallback values describe a
-   missing record and are not a credit.
-8. Map optional ledger detail into the documented shape for report diagnostics.
+| Field | Meaning |
+| --- | --- |
+| `reference` | The exact reference requested by BachsProof. |
+| `creditCount` | Count of committed credit records for that reference. |
+| `creditedAmountMinor` | Sum of committed integer minor-unit amounts. |
+| `currency` | Currency of the observed records. |
+| `status` | Optional application status for the report. |
+| `pending` | Optional signal that asynchronous work can still change the state. |
+| `ledgerEntries` | Optional evidence; each entry needs `id`, `type`, and `amountMinor`, with optional `currency`. |
 
-The required fields are `reference`, `creditCount`, `creditedAmountMinor`, and a
-three-letter `currency`. Optional fields are `status`, `pending`, and
-`ledgerEntries`. The callback may also accept a second `context` argument; it
-contains expected data for diagnostics, not evidence.
+The runtime schema requires `type` on every supplied ledger entry. An optional
+array does not make its entries optional. A missing `type` is reported as an
+invalid value at `ledgerEntries[0].type`, with the expected and received types.
 
-## What the result means
+## Money and evidence
 
-For an eligible ₦5,000 payment:
+Amounts are integer minor units. In a two-decimal currency, `500_000` NGN is
+₦5,000. Prisma returns PostgreSQL `BIGINT` values as JavaScript `bigint`; use a
+safe-integer check before converting them to the `number` required by the
+callback contract. Do not read a cached balance or calculate the answer from
+the webhook body.
 
-```text
-Passing: creditCount=1, creditedAmountMinor=500000, currency=NGN
-Missing: creditCount=0, creditedAmountMinor=0, currency=NGN -> INV-003
-Duplicate: creditCount=2, creditedAmountMinor=1000000 -> INV-001 and INV-002
-Wrong amount: creditCount=1, creditedAmountMinor=499900 -> INV-002 / INV-005
+The callback's `context` is useful for diagnostics, but it is not evidence:
+
+- expected state comes from the provider adapter and scenario;
+- observed state comes from your committed database or ledger rows;
+- invariant evaluation is performed by BachsProof after it receives both.
+
+For an eligible payment, one correct committed credit should report one row and
+the expected amount. Two rows or an incorrect aggregate become invariant
+violations. For an ineligible payment, a credit is a violation even if the HTTP
+route returned success.
+
+## Asynchronous applications
+
+Return the current database observation with `pending: true` while a queued,
+waiting, processing, or retrying worker can still write the financial record.
+Do not infer this solely from a payment status of `PENDING`; that may be a
+business status left behind after a failed worker. Use the application's actual
+job state.
+
+```js
+financialVerification: {
+  completionDeadlineMs: 10_000,
+  pollIntervalMs: 25,
+  negativeObservationWindowMs: 250
+}
 ```
 
-For an ineligible event such as an invalid signature or underpayment, the
-passing result is `creditCount=0`. A single credit fails `INV-004`, even if the
-HTTP route returned `200`.
-
-## What not to return
-
-```ts
-// Incorrect: these values repeat the test's expectation.
-return {
-  reference,
-  creditCount: context.expectedOutcome.expectedCreditCount,
-  creditedAmountMinor: context.expectedOutcome.amountMinor,
-  currency: context.expectedOutcome.currency
-};
-```
-
-Do not return a hardcoded zero, a hardcoded one, an in-memory counter that the
-webhook process does not use, or a result calculated from the event body. Those
-answers can make a broken database write look correct.
-
-## Asynchronous processing
-
-If the webhook queues work and returns before a worker writes the credit, return
-the actual current rows with `pending: true` while the worker is unfinished.
-Map every unfinished state used by your queue—not just `PROCESSING`—for example
-`QUEUED`, `WAITING`, `PROCESSING`, `RETRY_SCHEDULED`, and `RETRYING`. See
-[Testing asynchronous applications](/testing/asynchronous-applications) for
-the deadline and negative-window behavior.
-
-The core validates this return value in `packages/core/src/verification.ts` and
-passes it to `verifyPaymentState` in `packages/core/src/invariants.ts`.
+The completion deadline bounds polling for eligible results. The negative
+observation window gives an ineligible result with no credit a short, bounded
+chance to reveal a late erroneous write. Neither window proves what a future
+job will do after testing ends. See [asynchronous applications](/testing/asynchronous-applications)
+for the full timing explanation.

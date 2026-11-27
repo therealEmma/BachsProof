@@ -28,3 +28,16 @@ result contains violations. Without a verifier, delivery success can return
 `passed: true` while `financiallyVerified` remains false. The report stores a
 structured event object, not the exact raw serialized body or all request
 headers; replay therefore does not claim byte-for-byte reproduction.
+
+The CLI explains the existing fields using five display states:
+
+| CLI wording | Report evidence |
+| --- | --- |
+| Financial verification not configured | `verificationMode: "none"` |
+| Financial verification configured; did not run | Callback mode, but preparation or run setup stopped before an observation. |
+| Financial verification attempted; could not complete | Callback mode with a verifier error, timeout, or invalid callback response. |
+| Financial verification completed | `financiallyVerified: true` and no violations. |
+| Financial verification completed; financial violations detected | `financiallyVerified: true` and one or more `verification.violations`. |
+
+These are CLI labels, not new report fields, so the v1.1 report schema remains
+compatible.

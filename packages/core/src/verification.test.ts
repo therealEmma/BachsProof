@@ -22,6 +22,18 @@ describe("callback verification", () => {
     }), "PAY-001", 100)).rejects.toThrow("PAY-WRONG");
   });
 
+  it("reports the invalid nested ledger property and expected type", async () => {
+    await expect(verifyWithCallback(() => ({
+      reference: "PAY-LEDGER-001",
+      creditCount: 1,
+      creditedAmountMinor: 5_000_000,
+      currency: "NGN",
+      ledgerEntries: [{ id: "credit-1", amountMinor: 5_000_000 }]
+    }) as unknown as import("./types.js").FinancialVerificationInput, "PAY-LEDGER-001", 100)).rejects.toThrow(
+      "ledgerEntries[0].type: expected string, received undefined"
+    );
+  });
+
   it("bounds a callback that never resolves", async () => {
     await expect(verifyWithCallback(() => new Promise(() => undefined), "PAY-001", 10)).rejects.toThrow("timed out");
   });

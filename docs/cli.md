@@ -69,11 +69,17 @@ Example setup using an existing test-only application API:
 
 ```js
 // tests/bachsproof.setup.mjs
-export async function createPayment({ scenario, amountMinor, currency }) {
+export async function createPayment({
+  scenario,
+  amountMinor,
+  currency,
+  paymentIndex,
+  paymentCount
+}) {
   const response = await fetch(`${process.env.BACHSPROOF_TEST_API}/payments`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ scenario, amountMinor, currency, testOnly: true })
+    body: JSON.stringify({ scenario, amountMinor, currency, paymentIndex, paymentCount, testOnly: true })
   });
   if (!response.ok) throw new Error(`test payment creation failed: HTTP ${response.status}`);
   const payment = await response.json();
@@ -139,12 +145,25 @@ export default {
   createPayment,
   requireFinancialVerification: true,
   verify: async (reference, context) => {
+    const payment = await prisma.payment.findUnique({ where: { reference } });
     const credits = await prisma.walletCredit.findMany({ where: { reference } });
+    const toSafeMinorUnits = (value) => {
+      const number = typeof value === "bigint" ? Number(value) : Number(value);
+      if (!Number.isSafeInteger(number)) throw new Error("Financial amount exceeds JavaScript safe integer range");
+      return number;
+    };
     return {
       reference,
       creditCount: credits.length,
-      creditedAmountMinor: credits.reduce((sum, credit) => sum + Number(credit.amountMinor), 0),
-      currency: credits[0]?.currency ?? "NGN"
+      creditedAmountMinor: credits.reduce((sum, credit) => sum + toSafeMinorUnits(credit.amountMinor), 0),
+      currency: payment?.currency ?? "NGN",
+      status: payment?.status ?? "NOT_FOUND",
+      ledgerEntries: credits.map((credit) => ({
+        id: String(credit.id),
+        type: String(credit.type),
+        amountMinor: toSafeMinorUnits(credit.amountMinor),
+        currency: credit.currency
+      }))
     };
   }
 };

@@ -20,6 +20,32 @@ export const financialVerificationSchema = z.object({
   })).optional()
 });
 
+function formatPath(path: (string | number)[]): string {
+  if (path.length === 0) return "the returned value";
+  return path.reduce<string>((result, segment) => (
+    typeof segment === "number" ? `${result}[${segment}]` : `${result}${result ? "." : ""}${segment}`
+  ), "");
+}
+
+function formatCallbackError(error: unknown): Error {
+  if (error instanceof z.ZodError) {
+    const issue = error.issues[0];
+    if (issue?.code === "invalid_type") {
+      return new Error(
+        `Financial verification callback returned invalid data at ${formatPath(issue.path)}: ` +
+        `expected ${issue.expected}, received ${issue.received}`
+      );
+    }
+    if (issue) {
+      return new Error(`Financial verification callback returned invalid data at ${formatPath(issue.path)}: ${issue.message}`);
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.startsWith("Financial verification")
+    ? new Error(message)
+    : new Error(`Financial verification failed: ${message}`);
+}
+
 /**
  * Convert the public callback shape into the core's normalized observation
  * shape. The default status keeps the callback API small while preserving the
@@ -73,7 +99,7 @@ export async function verifyWithCallback(
       lastObserved = normalized;
       if (!options.isComplete || options.isComplete(normalized)) return normalized;
     } catch (error) {
-      const candidate = error instanceof Error ? error : new Error(String(error));
+      const candidate = formatCallbackError(error);
       // Callback exceptions and malformed callback values are configuration or
       // application errors, not asynchronous "not ready" state. Developers
       // should return pending: true while work is in flight so an unimplemented

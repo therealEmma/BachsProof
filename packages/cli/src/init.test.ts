@@ -49,8 +49,12 @@ describe("BachsProof init", () => {
     expect(setupSource).toContain("Implement createPayment in tests/bachsproof.setup.mjs");
     expect(setupSource).toContain("fresh test payment or order");
     expect(setupSource).toContain("paymentIndex");
+    expect(setupSource).toContain("paymentCount");
+    expect(setupSource).toContain("applicationTestApi.createPayment");
     expect(verifierSource).toContain("creditedAmountMinor");
     expect(verifierSource).toContain("pending");
+    expect(verifierSource).toContain("Minimal valid response");
+    expect(verifierSource).toContain("type: String(credit.type)");
     expect(testSource).not.toContain("BACHSPROOF_REFERENCES");
     expect(testSource).toContain("tests duplicate-credit races");
     expect(testSource).toContain("pnpm exec bachsproof test --name");

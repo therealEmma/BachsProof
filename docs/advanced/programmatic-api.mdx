@@ -1,25 +1,173 @@
 ---
 title: "Programmatic testing API"
-description: "Run BachsProof from Vitest, Jest, or another TypeScript test runner."
+description: "Run BachsProof from an existing test suite or a small JavaScript script."
 ---
 
-In simple English, the programmatic API lets Vitest, Jest, or another test
-runner call BachsProof directly instead of starting the CLI. Import
-`BachsProof`, configure an adapter and target, then call `run`:
+There are two programmatic entry points. Start with the configuration-based API
+if you already used `bachsproof init`: it reuses the same config, scenarios,
+payment preparation callback, verifier, and CLI signing settings. Use the Direct
+Core API when your test suite wants to construct the runner itself.
+
+| Surface | What it does | Who owns setup? |
+| --- | --- | --- |
+| CLI command | Loads a config, runs named scenarios, prints human or JSON output, and sets the process result. | BachsProof command plus your config file. |
+| Configuration-based API | Reuses that config from your own JavaScript or TypeScript script. | Your script chooses runs, output, and exit code. |
+| Direct Core API | Constructs `BachsProof` and calls `runner.run()` directly. | Your test suite supplies the adapter, target, callbacks, signing, and lifecycle. |
+| Optional SDK | Lets an application announce arrival at a configured checkpoint. | Your test-only application build; it does not run scenarios or verify money. |
+
+<CardGroup cols={2}>
+  <Card title="Approach A: configuration-based" icon="file-code">
+    Reuse `bachsproof.config.mjs` with `loadConfig`, `runConfig`, and
+    `summarizeRuns`.
+  </Card>
+  <Card title="Approach B: Direct Core API" icon="code">
+    Construct `BachsProof` and a provider adapter inside the test suite.
+  </Card>
+</CardGroup>
+
+## Approach A — configuration-based programmatic API
+
+### 1. Install the package
+
+```bash
+pnpm add -D @bachsproof/cli@1.1.0
+```
+
+This package exposes the CLI and the configuration-based runner. You do not
+need `@bachsproof/sdk` for this approach. The SDK is only for optional
+application-side checkpoint instrumentation.
+
+### 2. Create a script
+
+Create `scripts/bachsproof.mjs` yourself. The filename is a convention, not a
+framework requirement; you can put the script anywhere your repository keeps
+test tools.
+
+```js
+import { loadConfig, runConfig, summarizeRuns } from "@bachsproof/cli";
+
+const mode = process.argv[2] ?? "suite";
+const selectedName = mode === "one" ? process.argv[3] : undefined;
+if (mode !== "one" && mode !== "suite") {
+  throw new Error("Usage: node scripts/bachsproof.mjs [one <test-name>|suite]");
+}
+if (mode === "one" && !selectedName) {
+  throw new Error("Usage: node scripts/bachsproof.mjs one <test-name>");
+}
+
+const config = await loadConfig("bachsproof.config.mjs");
+const runs = await runConfig(config, { testName: selectedName });
+
+for (const { name, result } of runs) {
+  console.log(`${result.passed ? "PASS" : "FAIL"} ${name}`);
+  console.dir({
+    expected: result.report.expected,
+    observed: result.report.observed,
+    violations: result.report.verification?.violations ?? [],
+    errors: result.report.errors,
+    deliveries: result.report.deliveries
+  }, { depth: null });
+}
+
+const summary = summarizeRuns(runs);
+console.log(
+  `${summary.passed}/${summary.total} passed; ` +
+  `${summary.financiallyVerified} financially verified; ` +
+  `${summary.financialViolations} financial violations`
+);
+process.exitCode = summary.failed === 0 ? 0 : 1;
+```
+
+The script is ordinary JavaScript. It is responsible for choosing the config
+path, selecting one named scenario or the complete configured suite, printing
+results, and returning a non-zero exit code when a run fails.
+
+### 3. Run it
+
+```bash
+node scripts/bachsproof.mjs one "sequential duplicate webhook"
+node scripts/bachsproof.mjs suite
+```
+
+`loadConfig()` loads the existing config and its callbacks. `runConfig()` runs
+the selected name when `testName` is supplied, or every configured test when it
+is omitted. Existing `createPayment` and `verify` callbacks can be reused
+without modification.
+
+Each result contains:
+
+- `result.report.expected`: the financial state the scenario should produce;
+- `result.report.observed`: the committed state returned by `verify`;
+- `result.report.verification?.violations`: failed financial invariants;
+- `result.report.errors`: preparation, delivery, callback, or configuration
+  errors;
+- `result.report.payments`: per-reference results for unique-payment scenarios;
+- `result.report.deliveries`: HTTP statuses and response details.
+
+`summary = summarizeRuns(runs)` gives totals, pass/fail counts, financially
+verified counts, violation counts, and duration. The config-based runner applies
+the same Bachs signing configuration as the CLI.
+
+## Approach B — Direct Core API
+
+### 1. Install the packages
+
+```bash
+pnpm add -D @bachsproof/core@1.1.0 @bachsproof/bachs@1.1.0
+```
+
+### 2. Construct a runner
+
+This is a complete shape. Replace the two application helpers with your own
+isolated database-backed preparation and verification code:
 
 ```ts
 import { BachsProof } from "@bachsproof/core";
-import { bachsAdapter } from "@bachsproof/bachs";
+import { bachsAdapter, signBachsWebhook } from "@bachsproof/bachs";
+
+const baseProvider = bachsAdapter({ mode: "mock" });
+const webhookSecret = process.env.BACHS_WEBHOOK_SECRET;
+if (!webhookSecret) throw new Error("BACHS_WEBHOOK_SECRET is required");
+
+const provider = {
+  ...baseProvider,
+  headers(event) {
+    return {
+      ...(baseProvider.headers?.(event) ?? {}),
+      ...signBachsWebhook(baseProvider.serialize(event), webhookSecret)
+    };
+  },
+  headersForBody(event, body) {
+    return {
+      ...(baseProvider.headers?.(event) ?? {}),
+      ...signBachsWebhook(body, webhookSecret)
+    };
+  }
+};
 
 const runner = new BachsProof({
-  provider: bachsAdapter({ mode: "mock" }),
+  provider,
   target: {
-    baseUrl: "http://127.0.0.1:3000",
-    webhookPath: "/webhooks/bachs"
+    baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
+    webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
   },
-  createPayment: async ({ amountMinor, currency }) =>
-    (await createIsolatedPayment({ amountMinor, currency })).reference,
-  verify: async (reference) => inspectCommittedState(reference),
+  createPayment: async ({
+    scenario,
+    amountMinor,
+    currency,
+    paymentIndex,
+    paymentCount
+  }) => {
+    const payment = await applicationTestApi.createPayment({
+      scenario,
+      amountMinor,
+      currency,
+      paymentIndex,
+      paymentCount
+    });
+    return payment.reference;
+  },
+  verify: (reference, context) => applicationTestApi.verify(reference, context),
   financialVerification: {
     completionDeadlineMs: 10_000,
     pollIntervalMs: 25,
@@ -34,26 +182,71 @@ const result = await runner.run({
   concurrency: 2
 });
 
-if (!result.passed) {
-  console.error(result.report.errors, result.report.verification?.violations);
-}
+console.dir({
+  passed: result.passed,
+  expected: result.report.expected,
+  observed: result.report.observed,
+  violations: result.report.verification?.violations ?? [],
+  errors: result.report.errors
+}, { depth: null });
+
+if (!result.passed) process.exitCode = 1;
 ```
 
-`createIsolatedPayment` and `inspectCommittedState` in this example are
-application test helpers, not BachsProof exports. A real reference can also be
-passed directly. Use `syntheticReferences: true` only for fixture-only runs.
+`applicationTestApi` is application code, not a BachsProof export. The direct
+runner accepts the same `createPayment` and `verify` contracts as the CLI.
 
-## Important methods and results
+### Direct Core signing is explicit
 
-| Surface | Meaning |
-| --- | --- |
-| `new BachsProof(options)` | Stores the adapter, target, callbacks, polling, and optional checkpoint configuration |
-| `runner.run(input)` | Prepares references, delivers the scenario, verifies state, and returns `BachsProofResult` |
-| `result.passed` | False for configuration/preparation/delivery errors or failed financial verification; may be true without financial proof if no verifier exists |
-| `result.report` | Structured deliveries, observations, violations, checkpoint trace, and replay metadata |
-| `runner.replay(report)` | Reuses the structured event and schedule metadata; it does not reset application state |
+`BachsProof` from `@bachsproof/core` does not load
+`bachsproof.config.mjs`, so it does not automatically inherit the CLI's
+`signing` option. The example wraps the adapter with the supported
+`signBachsWebhook` helper and signs the exact body passed to
+`headersForBody`.
 
-`RaceController`, `verifyPaymentState`, `verifyWithCallback`, `writeReport`,
-and `redactSecrets` are lower-level exports for advanced integrations. The
-optional checkpoint SDK is separate: core controls the barrier, while the SDK
-lets the application announce an instrumented arrival.
+That detail preserves security scenarios: a tampered body is sent with a
+signature for the original body, while an invalid-signature scenario can still
+override the generated header with its deliberately invalid value. Do not
+disable webhook signature validation to make a direct runner work.
+
+## Using either API in Vitest
+
+Use the runner inside a normal test when CI should fail with the rest of the
+suite:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
+
+describe("payment correctness", () => {
+  it("credits one payment once", async () => {
+    const reference = await applicationTestApi.createPayment({
+      amountMinor: 500_000,
+      currency: "NGN"
+    });
+    const runner = new BachsProof({
+      provider: bachsAdapter({ mode: "mock" }),
+      target: { baseUrl: applicationTestApi.baseUrl, webhookPath: "/webhooks/bachs" },
+      verify: (paymentReference) => applicationTestApi.verify(paymentReference)
+    });
+
+    const result = await runner.run({
+      scenario: "concurrent-duplicate-credit",
+      reference: reference.reference,
+      amountMinor: 500_000,
+      currency: "NGN",
+      concurrency: 2
+    });
+
+    expect(result.passed).toBe(true);
+    expect(result.report.financiallyVerified).toBe(true);
+  });
+});
+```
+
+Vitest or Jest still owns application startup, database isolation, cleanup, and
+assertions. BachsProof supplies provider-shaped events, delivery schedules,
+bounded financial polling, and structured invariant results. The optional
+`@bachsproof/sdk` is only for controlled checkpoint instrumentation; it is not
+needed for ordinary programmatic runs.

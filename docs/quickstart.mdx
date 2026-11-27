@@ -4,31 +4,50 @@ description: "Run your first financially verified BachsProof test."
 ---
 
 This guide assumes an existing backend with a Bachs-compatible webhook route.
-The route can be Express, Fastify, NestJS, Go, Python, or another HTTP server.
-BachsProof does not modify it. Use an isolated application process and database
-throughout this guide.
-
-The goal is a small, useful test: a customer deposits **₦5,000**, the same
-successful notification is delivered twice, and the application must save one
-credit of ₦5,000.
+BachsProof sends synthetic signed requests to an isolated copy of that backend;
+it does not call Bachs or move real money.
 
 <Steps>
   <Step title="Install and initialize">
     ```bash
     pnpm add -D @bachsproof/cli@1.1.0
-    npx bachsproof init
+    pnpm exec bachsproof init
     ```
 
-    Start the application in its isolated test configuration. The application
-    must expose the webhook path you will put in `bachsproof.config.mjs`.
+    The command creates `bachsproof.config.mjs`,
+    `tests/bachsproof.test.mjs`, `tests/bachsproof.setup.mjs`, and
+    `tests/bachsproof.verify.mjs`. The last two are your application test code;
+    their generated errors are intentional until you connect them to your test
+    database or test service.
   </Step>
 
-  <Step title="Configure the endpoint and signing secret">
+  <Step title="Load one isolated test environment">
+    Load these values into both the application process and the BachsProof
+    process:
+
+    ```powershell
+    $env:BACHSPROOF_TARGET_URL = "http://127.0.0.1:3000"
+    $env:BACHSPROOF_WEBHOOK_PATH = "/webhooks/bachs"
+    $env:BACHS_WEBHOOK_SECRET = "your-test-only-secret"
+    $env:BACHSPROOF_TEST_DATABASE_URL = "postgresql://user:password@localhost:5432/bachsproof_test"
+    ```
+
+    In a monorepo, load the root `.env` with the environment loader already used
+    by your application, for example `dotenv.config({ path: "../../.env" })`.
+    The application and both callbacks must use the same dedicated test
+    database URL. Never point this at production.
+  </Step>
+
+  <Step title="Enable the generated callbacks">
     Edit `bachsproof.config.mjs`:
 
     ```js
     import { bachsAdapter } from "@bachsproof/cli";
     import { tests } from "./tests/bachsproof.test.mjs";
+    import { createPayment } from "./tests/bachsproof.setup.mjs";
+    import { verify } from "./tests/bachsproof.verify.mjs";
+
+    const signingSecret = process.env.BACHS_WEBHOOK_SECRET;
 
     export default {
       provider: bachsAdapter({ mode: "mock" }),
@@ -36,88 +55,147 @@ credit of ₦5,000.
         baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
         webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
       },
-      signing: process.env.BACHS_WEBHOOK_SECRET
-        ? { type: "bachs", secret: process.env.BACHS_WEBHOOK_SECRET }
-        : undefined,
+      ...(signingSecret ? { signing: { type: "bachs", secret: signingSecret } } : {}),
+      createPayment,
+      verify,
+      requireFinancialVerification: true,
+      financialVerification: {
+        completionDeadlineMs: 10_000,
+        pollIntervalMs: 25,
+        negativeObservationWindowMs: 250
+      },
       tests
     };
     ```
 
-    `baseUrl + webhookPath` is where BachsProof sends the POST request. The
-    signing secret is the test-only secret your application uses to verify the
-    raw webhook body. It is not a Bachs API key.
+    Signing uses the raw request body and the test-only secret. Your webhook
+    handler must verify that same body before parsing it.
   </Step>
 
-  <Step title="Create a fresh application payment">
-    Open `tests/bachsproof.setup.mjs` and connect `createPayment` to an existing
-    test API, application service, ORM, or seed helper:
+  <Step title="Create a fresh payment">
+    `createPayment` is implemented by you. The callback receives the same five
+    properties in every entry point:
+
+    | Property | Meaning |
+    | --- | --- |
+    | `scenario` | The scenario currently running. |
+    | `amountMinor` | Integer minor units expected by the scenario. `500_000` NGN is ₦5,000. |
+    | `currency` | Three-letter currency code. |
+    | `paymentIndex` | Zero-based payment number within the scenario. |
+    | `paymentCount` | Total payments needed by the scenario. |
+
+    Replace the generated error with your application logic:
 
     ```js
-    export async function createPayment({ scenario, amountMinor, currency, paymentIndex }) {
-      const payment = await testSupport.createPayment({
+    export async function createPayment({
+      scenario,
+      amountMinor,
+      currency,
+      paymentIndex,
+      paymentCount
+    }) {
+      const payment = await applicationTestApi.createPayment({
         scenario,
         amountMinor,
         currency,
-        paymentIndex
+        paymentIndex,
+        paymentCount
       });
+      if (!payment?.reference) throw new Error("payment API returned no reference");
       return payment.reference;
     }
     ```
 
-    Uncomment the import and `createPayment` property in the config. Every
-    call must create a fresh isolated record. The function above is application
-    code: `testSupport.createPayment` is not a BachsProof API.
-
-    Money in BachsProof is an integer minor-unit value. With two decimal places,
-    `500_000` kobo means ₦5,000. The adapter implementation's omitted default
-    is `5_000_000`, so set `amountMinor: 500_000` when you want this guide's
-    ₦5,000 example.
+    `applicationTestApi` is illustrative application code, not a BachsProof
+    API. It can be an ORM, order service, wallet fixture, invoice factory, or
+    test-only endpoint. Every call must create a fresh unique reference and
+    must not move real money.
   </Step>
 
-  <Step title="Read the committed financial state">
-    Implement `verify` in `tests/bachsproof.verify.mjs`. It must read actual
-    committed credits or ledger entries, not return the expected values:
+  <Step title="Read committed financial state">
+    A response from the webhook route is not financial proof. `verify` must read
+    the payment and actual credit or ledger rows from the same test database.
+
+    The smallest valid shape is:
 
     ```js
-    export async function verify(reference, context) {
-      const state = await testSupport.readCommittedState(reference);
+    export async function verify(reference) {
       return {
         reference,
-        creditCount: state.credits.length,
-        creditedAmountMinor: state.credits.reduce(
-          (sum, credit) => sum + credit.amountMinor,
-          0
-        ),
-        currency: state.currency,
-        status: state.status,
-        pending: state.pending
+        creditCount: 0,
+        creditedAmountMinor: 0,
+        currency: "NGN"
       };
     }
     ```
 
-    Uncomment `verify` and `requireFinancialVerification: true` in the config.
-    The `context` argument is optional diagnostic information; it is not proof
-    of what the application saved. If a worker is still processing, return
-    `pending: true` until the committed read is complete.
+    A real Prisma/PostgreSQL verifier looks like this (adapt field names to your
+    schema):
+
+    ```js
+    import { prisma } from "./test-support/prisma.mjs";
+
+    function toSafeMinorUnits(value) {
+      const number = typeof value === "bigint" ? Number(value) : Number(value);
+      if (!Number.isSafeInteger(number)) {
+        throw new Error("Financial amount exceeds JavaScript safe integer range");
+      }
+      return number;
+    }
+
+    export async function verify(reference, context) {
+      const payment = await prisma.payment.findUnique({ where: { reference } });
+      const credits = await prisma.walletCredit.findMany({ where: { reference } });
+      const unfinishedWorkerStates = new Set([
+        "QUEUED", "WAITING", "PROCESSING", "RETRY_SCHEDULED", "RETRYING"
+      ]);
+
+      return {
+        reference,
+        creditCount: credits.length,
+        creditedAmountMinor: credits.reduce(
+          (total, credit) => total + toSafeMinorUnits(credit.amountMinor),
+          0
+        ),
+        currency: payment?.currency ?? "NGN",
+        status: payment?.status ?? "NOT_FOUND",
+        pending: !payment || unfinishedWorkerStates.has(payment.workerStatus),
+        ledgerEntries: credits.map((credit) => ({
+          id: String(credit.id),
+          type: String(credit.type),
+          amountMinor: toSafeMinorUnits(credit.amountMinor),
+          currency: credit.currency
+        }))
+      };
+    }
+    ```
+
+    `ledgerEntries` is optional, but each supplied entry requires `id`, `type`,
+    and integer `amountMinor`; `currency` is optional. PostgreSQL `BIGINT`
+    values are JavaScript `bigint`, so convert them only after the safe-integer
+    check. `pending: true` is for work that can still change committed state;
+    a `PENDING` payment status alone does not prove that a webhook worker is
+    still running. BachsProof uses a bounded deadline and negative observation
+    window, so it cannot guarantee that a future job will never write a credit.
   </Step>
 
   <Step title="Run one test, then the suite">
     ```bash
-    npx bachsproof test --name "sequential duplicate webhook"
-    npx bachsproof test
+    pnpm exec bachsproof test --name "sequential duplicate webhook"
+    pnpm exec bachsproof test
     ```
 
-    The CLI runs selected tests sequentially, while deliveries inside a
-    concurrent scenario still overlap. A financially verified result means
-    BachsProof inspected the callback result and all applicable invariants passed.
-    A delivery-only result is clearly reported as unverified.
+    A financially verified result means the callback returned valid committed
+    state and the applicable invariants passed. A delivery-only result is not
+    proof of a financial write. Use `--json` for CI:
 
-    Read `deliveries` for HTTP behavior, `observed` for the records returned by
-    your verifier, and `verification.violations` for the failed financial rule.
+    ```bash
+    pnpm exec bachsproof test --json > bachsproof-results.json
+    ```
   </Step>
 </Steps>
 
 <Warning>
-Never point the generated configuration at production. BachsProof's Bachs
-fixtures are synthetic and must stay inside an authorized test environment.
+Use only an isolated application, database, queue, and test secret. BachsProof
+synthetic events must never be sent to production.
 </Warning>

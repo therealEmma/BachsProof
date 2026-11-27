@@ -41,6 +41,11 @@ scenario, expected outcome, related event identifiers, and delivery records.
 The callback must return independently observed committed state. It must not
 return hardcoded expected values.
 
+The required callback fields are `reference`, `creditCount`,
+`creditedAmountMinor`, and `currency`. Optional `ledgerEntries` entries must
+contain `id`, `type`, and `amountMinor` (with optional `currency`). A missing
+`type` is a runtime validation error even though the array itself is optional.
+
 If the callback returns pending: true, the core polls until the configured
 bounded deadline. Missing or unsuccessful verification never becomes a
 financial pass. Omitting verify is valid for delivery-only testing, but
@@ -55,3 +60,8 @@ The core does not reset application state or call a state-inspection endpoint.
 The target application owns preparation, isolation, cleanup, and state access.
 For optional controlled concurrency testing, install @bachsproof/sdk only in a
 test-enabled application build.
+
+When the target enforces Bachs webhook signatures, the Direct Core API does not
+inherit CLI configuration automatically. Wrap the adapter with
+`signBachsWebhook` from `@bachsproof/bachs` and sign the exact body supplied to
+`headersForBody`; the programmatic API guide contains the complete example.

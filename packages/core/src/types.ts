@@ -32,6 +32,7 @@ export interface FinancialVerificationContext {
   expected: ExpectedPaymentState;
   expectedOutcome: {
     eligible: boolean;
+    
     expectedCreditCount: number;
     amountMinor: number;
     currency: string;

@@ -21,6 +21,14 @@ application repository:
 The generated setup and verifier templates fail until implemented. BachsProof does
 not invent application references or treat expected values as financial proof.
 
+`createPayment` receives exactly `{ scenario, amountMinor, currency,
+paymentIndex, paymentCount }`. It must create a fresh isolated application
+payment and return its reference. `verify(reference, context)` must read
+committed state and return `reference`, `creditCount`, `creditedAmountMinor`,
+and `currency`; optional `ledgerEntries` entries must each include `id`, `type`,
+and `amountMinor`. The helper names shown in templates are illustrative
+application code, not BachsProof APIs.
+
 The target application does not need BachsProof routes, controllers, services, or
 production instrumentation. It only needs a reachable webhook URL. The
 application owns test payment preparation, isolation, cleanup, and committed
@@ -46,4 +54,6 @@ For optional controlled concurrency testing, configure a checkpoint and use
 concurrency is not deterministic race-condition coverage.
 
 See the repository [quickstart](../../docs/quickstart.md) and
-[CLI guide](../../docs/cli.md) for the complete workflow.
+[CLI guide](../../docs/cli.md) for the complete workflow. The
+[programmatic API guide](../../docs/advanced/programmatic-api.mdx) explains how
+to reuse this configuration from a script.

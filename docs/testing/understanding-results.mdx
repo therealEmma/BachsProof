@@ -6,8 +6,8 @@ description: "Read CLI summaries and separate delivery, verification, and invari
 The CLI prints one line per configured scenario and a consolidated summary:
 
 ```text
-PASS sequential duplicate webhook (financially verified; 24ms; 0 financial violations)
-FAIL concurrent duplicate credit (financially verified; 31ms; 1 financial violations)
+PASS sequential duplicate webhook (financial verification completed; 24ms; 0 financial violations)
+FAIL concurrent duplicate credit (financial verification completed; financial violations detected; 31ms; 1 financial violations)
 Summary: 1/2 passed, 1 failed, 2 financially verified, 0 unverified, 1 financial violations, 55ms
 ```
 
@@ -15,6 +15,12 @@ Read the result from left to right: delivery tells you whether the HTTP request
 worked, verification tells you what your callback read, and invariants tell you
 whether that saved state followed the money rules. A green delivery result is
 not automatically a green financial result.
+
+The verification phrase also tells you which stage was reached: not configured,
+configured but did not run, attempted but unable to complete, completed, or
+completed with financial violations. These are display labels; the report keeps
+the compatible `verificationMode`, `financiallyVerified`, `verification`, and
+`errors` fields.
 
 Investigate the failure by layer:
 

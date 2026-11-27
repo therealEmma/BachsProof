@@ -144,6 +144,10 @@ BACHS_WEBHOOK_SECRET=your-test-webhook-secret
 ```
 
 Ensure these variables are loaded into the environment before running BachsProof.
+In a monorepo, load the root `.env` explicitly with the same loader used by the
+application, and use one dedicated test database for the application and both
+callbacks. BachsProof reads `process.env`; it does not choose a `.env` file for
+you.
 
 Your configuration should look like this:
 
@@ -195,7 +199,7 @@ export async function createPayment({
   paymentIndex,
   paymentCount
 }) {
-  const payment = await testSupport.createIsolatedPayment({
+  const payment = await applicationTestApi.createPayment({
     scenario,
     amountMinor,
     currency,
@@ -207,7 +211,9 @@ export async function createPayment({
 }
 ```
 
-`testSupport.createIsolatedPayment()` is an illustrative application-specific helper, not a function provided by BachsProof.
+`applicationTestApi.createPayment()` is illustrative application-specific code,
+not a function provided by BachsProof. Replace it with your ORM, application
+service, test fixture, or isolated test API.
 
 You can implement payment preparation using your existing:
 
@@ -232,7 +238,7 @@ This callback reads the financial records your application actually committed.
 ```javascript
 export async function verify(reference, context) {
   const state =
-    await testSupport.readCommittedFinancialState(reference);
+    await applicationTestApi.readCommittedFinancialState(reference);
 
   return {
     reference,
@@ -247,12 +253,17 @@ export async function verify(reference, context) {
     currency: state.currency,
     status: state.status,
     pending: state.pending,
-    ledgerEntries: state.credits
+    ledgerEntries: state.credits.map((credit) => ({
+      id: String(credit.id),
+      type: String(credit.type),
+      amountMinor: Number(credit.amountMinor),
+      currency: credit.currency
+    }))
   };
 }
 ```
 
-`testSupport.readCommittedFinancialState()` is an illustrative application-specific helper. Implement it using your own database or ledger infrastructure.
+`applicationTestApi.readCommittedFinancialState()` is illustrative application-specific code, not a BachsProof API. Implement it using your own database or ledger infrastructure. Every `ledgerEntries` item must include `id`, `type`, and `amountMinor`; `currency` is optional.
 
 The callback must return actual observed financial state, not expected values copied from the test configuration.
 
@@ -518,19 +529,25 @@ BachsProof provides payment-specific testing functionality, including:
 - Financial invariant verification.
 - Structured payment correctness reports.
 
-A configured BachsProof instance can be used programmatically inside an existing test suite:
+A configured BachsProof run can also be used from a script or an existing test
+suite. Reuse the CLI configuration with the public functions
+`loadConfig()`, `runConfig()`, and `summarizeRuns()`:
 
 ```javascript
-const result = await bachsproof.run({
-  scenario: "concurrent-duplicate-credit",
-  reference: "isolated-order-001"
-});
+import { loadConfig, runConfig, summarizeRuns } from "@bachsproof/cli";
 
-expect(result.passed).toBe(true);
-expect(result.report.financiallyVerified).toBe(true);
+const config = await loadConfig("bachsproof.config.mjs");
+const runs = await runConfig(config, { testName: "sequential duplicate webhook" });
+const summary = summarizeRuns(runs);
+
+console.dir(runs, { depth: null });
+process.exitCode = summary.failed === 0 ? 0 : 1;
 ```
 
-This example assumes that the BachsProof instance, provider, target application, and financial verifier have already been configured.
+Use `runConfig(config)` without `testName` to execute the complete configured
+suite. The result report contains expected state, observed state, invariant
+violations, execution errors, and HTTP delivery records. For the lower-level
+`BachsProof` API and webhook-signing example, see the [programmatic API guide](docs/advanced/programmatic-api.mdx).
 
 Use the CLI for standalone payment testing or the programmatic API when integrating with an existing test suite.
 

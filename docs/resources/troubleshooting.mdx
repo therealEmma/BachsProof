@@ -30,11 +30,23 @@ For tampered, invalid-signature, and malformed-body tests, a 4xx is the normal
 generated expectation. A 2xx may mean the application accepted an event it was
 supposed to reject.
 
-## Financially unverified
+## Financial verification status messages
 
-Import and enable `verify`. Delivery-only results are intentionally not claimed
-as financial correctness. Set `requireFinancialVerification: true` in CLI
-configuration when CI must refuse an unverified run.
+The CLI uses the existing report fields to distinguish these cases:
+
+- **Financial verification not configured** — no `verify` callback is enabled;
+  the result is delivery-only.
+- **Financial verification configured; did not run** — preparation or run setup
+  stopped before BachsProof could call the callback.
+- **Financial verification attempted; could not complete** — the callback timed
+  out, threw, or returned a value that failed runtime validation.
+- **Financial verification completed** — committed state was read and the
+  invariants passed.
+- **Financial verification completed; financial violations detected** — state
+  was read, but one or more invariant rules failed.
+
+Import and enable `verify`. Set `requireFinancialVerification: true` when CI
+must refuse an unverified run.
 
 ## Verifier timeout
 
@@ -47,6 +59,10 @@ If the callback returns inaccurate data, check that it reads the same isolated
 database used by the webhook worker and filters by the requested reference. A
 callback that returns expected values instead of committed rows can make a bad
 test look good.
+
+If validation reports a path such as `ledgerEntries[0].type`, add the missing
+required property. Each ledger entry needs `id`, `type`, and `amountMinor`; the
+array itself is optional.
 
 ## Separate test data
 

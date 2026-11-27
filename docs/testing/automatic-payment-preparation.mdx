@@ -3,10 +3,11 @@ title: "Automatic payment preparation"
 description: "Create fresh application records through createPayment(context)."
 ---
 
-Automatic preparation is the recommended workflow for repeated local and CI
-runs. BachsProof calls your callback only when a selected scenario needs a
-reference and the test did not supply one. In simple English, this helper makes
-a fresh test payment before the webhook arrives.
+Automatic preparation is the recommended workflow for local and CI runs. In
+simple English, BachsProof calls your callback to create the application record
+before it sends the synthetic webhook.
+
+## The callback contract
 
 ```js
 export async function createPayment({
@@ -17,7 +18,7 @@ export async function createPayment({
   paymentCount
 }) {
   const payment = await applicationTestApi.createPayment({
-    label: `bachsproof-${scenario}-${paymentIndex}`,
+    scenario,
     amountMinor,
     currency,
     paymentIndex,
@@ -28,30 +29,92 @@ export async function createPayment({
 }
 ```
 
-The function above is application-specific. `applicationTestApi` is not
-provided by BachsProof; it might call a test-only endpoint, an application
-service, or a database seeder. It must create an order for the requested
-amount and return its reference. For the recurring example, `500_000` NGN
-minor units represents ₦5,000.
+`applicationTestApi` is application-specific code. It is not exported by
+BachsProof. Replace it with your ORM, repository, test service, fixture, or
+test-only endpoint.
 
+| Property | Meaning |
+| --- | --- |
+| `scenario` | The named scenario currently running. |
+| `amountMinor` | The integer amount expected by the scenario. `500_000` NGN is ₦5,000. |
+| `currency` | The three-letter currency code. |
+| `paymentIndex` | Zero-based payment number within this scenario. |
+| `paymentCount` | Total number of payments this scenario requires. |
+
+The callback must create a fresh record and return its non-empty reference. A
+reference may be an order ID, invoice ID, deposit ID, or application payment
+reference—the value only needs to be the key your webhook handler understands.
 For `concurrent-unique-payments`, BachsProof calls the callback once per
-participant. The callback must return different references. BachsProof validates
-empty values and the CLI rejects a reference reused by another selected test.
-It sends no webhook for a scenario whose preparation failed.
+participant; return a different reference for each call.
 
-<Warning>
-The callback must create test records without charging real instruments or
-calling a live financial provider. Use a test API, test service, or isolated
-database seeder owned by your application.
-</Warning>
+Each prepared payment needs a fresh reference because the application database
+may already contain the outcome from an earlier run. Reusing a reference can
+make a later scenario observe another test's credit, hide an idempotency bug, or
+cause the CLI to reject the selected suite. The CLI tracks references within a
+suite and rejects accidental reuse.
 
-## Which reference method should I choose?
+## Prisma and PostgreSQL
+
+Prisma is only an example. BachsProof remains database-agnostic and does not add
+Prisma to your project. If you use Prisma, pass the dedicated test database URL
+explicitly:
+
+```js
+import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
+
+dotenv.config({ path: process.env.BACHSPROOF_ENV_FILE ?? ".env" });
+
+const databaseUrl = process.env.BACHSPROOF_TEST_DATABASE_URL;
+if (!databaseUrl) throw new Error("BACHSPROOF_TEST_DATABASE_URL is required");
+
+export const prisma = new PrismaClient({
+  datasources: { db: { url: databaseUrl } }
+});
+```
+
+The target application and `createPayment`/`verify` callbacks must use this same
+isolated URL. In a monorepo, make the root `.env` path explicit or export the
+variable before starting both processes. Do not let the callback fall back to a
+developer or production `DATABASE_URL`.
+
+Then adapt the callback to your schema:
+
+```js
+import { randomUUID } from "node:crypto";
+import { prisma } from "./test-support/prisma.mjs";
+
+export async function createPayment({
+  scenario,
+  amountMinor,
+  currency,
+  paymentIndex,
+  paymentCount
+}) {
+  const reference = `bachsproof-${scenario}-${paymentIndex}-${randomUUID()}`;
+  const payment = await prisma.payment.create({
+    data: {
+      reference,
+      amountMinor: BigInt(amountMinor),
+      currency,
+      status: "PENDING"
+    }
+  });
+  return payment.reference;
+}
+```
+
+The same pattern works when the application calls the record a wallet deposit,
+order, invoice, or ledger operation. Create the record that the webhook handler
+will look up; do not start a live provider charge.
+
+## Choosing a reference method
 
 | Use this | Choose it when | Financial evidence? |
 | --- | --- | --- |
-| `createPayment` | You want every run to create a fresh application record | Yes, when paired with `verify` |
-| `reference` / `references` | You already created isolated records and know their IDs | Yes, when paired with `verify` |
-| `syntheticReferences: true` | You are testing fixture serialization, signing, or a route without a real payment record | No; fixture-only |
+| `createPayment` | You want each run to create a fresh record. | Yes, with `verify`. |
+| `reference` / `references` | Another test already created isolated records. | Yes, with `verify`. |
+| `syntheticReferences: true` | You are testing fixtures, signing, or HTTP behavior only. | No; fixture-only. |
 
-Use only one method for a given run. Explicit references take precedence over
-automatic preparation, and synthetic mode is an explicit opt-in.
+Explicit references take precedence over automatic preparation. Synthetic mode is
+an explicit opt-in and must not be presented as a financially verified run.

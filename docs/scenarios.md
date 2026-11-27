@@ -20,9 +20,9 @@ payment index, and payment count. It invokes the callback twice for
 
 ```js
 // tests/bachsproof.setup.mjs
-export async function createPayment({ scenario, amountMinor, currency, paymentIndex }) {
+export async function createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount }) {
   // Call an existing isolated test API, application service, or seed helper.
-  const payment = await testSupport.createPayment({ scenario, amountMinor, currency, paymentIndex });
+  const payment = await applicationTestApi.createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount });
   if (!payment?.reference) throw new Error("test payment preparation returned no reference");
   return payment.reference;
 }

@@ -11,6 +11,10 @@ const configTemplate = `/**
  *
  * Both helpers are test-only. BachsProof does not add routes or modify the
  * production application.
+ *
+ * If this is a monorepo and your .env file is not loaded by the test command,
+ * load it with the environment loader already used by your application before
+ * reading process.env here.
  */
 import { bachsAdapter } from "@bachsproof/cli";
 import { tests } from "./tests/bachsproof.test.mjs";
@@ -57,7 +61,7 @@ const testTemplate = `/**
  * Run one: pnpm exec bachsproof test --name "sequential duplicate webhook"
  * Run all: pnpm exec bachsproof test
  */
-const amountMinor = Number(process.env.BACHSPROOF_AMOUNT_MINOR ?? 5_000_000);
+const amountMinor = Number(process.env.BACHSPROOF_AMOUNT_MINOR ?? 500_000);
 const currency = process.env.BACHSPROOF_CURRENCY ?? "NGN";
 const syntheticReferences = process.env.BACHSPROOF_USE_SYNTHETIC_REFERENCES === "true";
 
@@ -119,25 +123,38 @@ const setupTemplate = `/**
  * call must create a fresh test payment or order and return its reference.
  * It must not charge a card, call a live provider, or move real money.
  *
- * Context: scenario, amountMinor, currency, paymentIndex, paymentCount.
+ * BachsProof passes five properties:
+ *   - scenario: the named scenario currently running;
+ *   - amountMinor: the integer amount expected by that scenario;
+ *   - currency: the three-letter currency code;
+ *   - paymentIndex: the zero-based payment number within this scenario;
+ *   - paymentCount: the total number of payments this scenario needs.
  *
  * Use an existing isolated test API, application service, ORM, or seed helper.
  */
-export async function createPayment(context) {
+export async function createPayment({
+  scenario,
+  amountMinor,
+  currency,
+  paymentIndex,
+  paymentCount
+}) {
   throw new Error(
     "Implement createPayment in tests/bachsproof.setup.mjs. " +
     "Create an isolated test payment and return its fresh reference for " +
-    context.scenario + " (" + (context.paymentIndex + 1) + " of " +
-    context.paymentCount + ")."
+    scenario + " (" + (paymentIndex + 1) + " of " + paymentCount + ")."
   );
 
-  // Example:
-  // const payment = await testSupport.createPayment({
-  //   scenario: context.scenario,
-  //   amountMinor: context.amountMinor,
-  //   currency: context.currency,
-  //   paymentIndex: context.paymentIndex
+  // Replace applicationTestApi with your own test API, application service,
+  // ORM, or database seeder. This helper is not provided by BachsProof.
+  // const payment = await applicationTestApi.createPayment({
+  //   scenario,
+  //   amountMinor,
+  //   currency,
+  //   paymentIndex,
+  //   paymentCount
   // });
+  // if (!payment?.reference) throw new Error("payment API returned no reference");
   // return payment.reference;
 }
 `;
@@ -149,8 +166,10 @@ const verifierTemplate = `/**
  * callback must read the payment and actual credit or ledger records.
  * Do not return hardcoded expected values.
  *
- * Return reference, creditCount, creditedAmountMinor, currency, and optional
- * status, pending, and ledgerEntries fields.
+ * Return the four required fields: reference, creditCount,
+ * creditedAmountMinor, and currency. You may also return status, pending, and
+ * ledgerEntries. Every ledger entry must contain id, type, and amountMinor;
+ * currency is optional on an entry.
  */
 export async function verify(reference, context) {
   throw new Error(
@@ -158,8 +177,17 @@ export async function verify(reference, context) {
     "financial records for " + reference + " before enabling it."
   );
 
-  // Example:
-  // const state = await testSupport.readCommittedFinancialState(reference);
+  // Minimal valid response:
+  // return { reference, creditCount: 0, creditedAmountMinor: 0, currency: "NGN" };
+  //
+  // Complete example. Replace applicationTestApi with your own database or
+  // ledger reader. This helper is not provided by BachsProof.
+  // const state = await applicationTestApi.readCommittedFinancialState(reference);
+  // const toSafeMinorUnits = (value) => {
+  //   const number = typeof value === "bigint" ? Number(value) : Number(value);
+  //   if (!Number.isSafeInteger(number)) throw new Error("Financial amount exceeds JavaScript safe integer range");
+  //   return number;
+  // };
   // return {
   //   reference,
   //   creditCount: state.credits.length,
@@ -170,7 +198,12 @@ export async function verify(reference, context) {
   //   currency: state.currency,
   //   status: state.status,
   //   pending: state.pending,
-  //   ledgerEntries: state.credits
+  //   ledgerEntries: state.credits.map((credit) => ({
+  //     id: String(credit.id),
+  //     type: String(credit.type),
+  //     amountMinor: toSafeMinorUnits(credit.amountMinor),
+  //     currency: credit.currency
+  //   }))
   // };
 }
 `;

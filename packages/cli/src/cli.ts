@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { initProject } from "./init.js";
 import { loadConfig, runConfig, summarizeRuns } from "./runner.js";
+import { financialVerificationLabel } from "./verification-status.js";
 
 function usage(): string {
   return `BachsProof payment correctness testing
@@ -130,7 +131,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   } else {
     console.log(`BachsProof: ${resolve(configPath)}`);
     for (const { name, result } of results) {
-      const verification = result.report.financiallyVerified ? "financially verified" : "delivery-only; financial verification not configured";
+      const verification = financialVerificationLabel(result.report);
       const duration = result.report.completedAt ? Math.max(0, Date.parse(result.report.completedAt) - Date.parse(result.report.startedAt)) : 0;
       const violations = result.report.verification?.violations.length ?? 0;
       console.log(`${result.passed ? "PASS" : "FAIL"} ${name} (${verification}; ${duration}ms; ${violations} financial violations)`);

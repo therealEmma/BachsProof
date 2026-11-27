@@ -45,7 +45,12 @@ export async function verify(reference) {
     currency: state.currency,
     status: state.status,
     pending: !state.paymentExists || unfinishedWorkerStates.has(workerStatus),
-    ledgerEntries: state.credits
+    ledgerEntries: state.credits.map((credit) => ({
+      id: String(credit.id),
+      type: String(credit.type),
+      amountMinor: Number(credit.amountMinor),
+      currency: credit.currency
+    }))
   };
 }
 ```
