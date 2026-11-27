@@ -3,42 +3,34 @@ title: "Failed payment"
 description: "Prevent fulfilment when a collection attempt failed."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-The collection attempt failed. A failed attempt must not be treated as a paid
-order or wallet deposit. The customer must not receive a ₦5,000 credit merely
-because a checkout or charge reference exists.
+This test sends a `collection.failed` event for a payment that was not
+collected.
 
-## What BachsProof sends
+## Why does it matter?
 
-It creates a documented-shaped `collection.failed` event with `status:
-"FAILED"` and the configured amount and currency. Delivery is sequential and
-normally accepted by a handler that records the event without crediting:
+A failed attempt is not proof of payment. The customer must not receive a
+₦5,000 credit just because a checkout or payment reference exists.
 
-```js
-{
-  name: "failed collection is not fulfilled",
-  scenario: "failed-payment",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof sends a Bachs-shaped `collection.failed` event with status `FAILED`,
+the configured amount, and the configured currency. The normal expected HTTP
+response is 2xx so the application can record the failure without fulfilling.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "failed payment"
 ```
 
 ## What the application should do
 
-Preserve the failed state and avoid fulfilment. A later successful attempt must
-have its own valid event and be matched to the correct stored order. The
-existence of a failed event is not a reason to credit the configured amount.
+Save the failed state and do not create a credit. A later successful attempt
+must provide its own valid event and must still match the correct order.
 
-## Expected outcome and failure
+## Pass and failure
 
-Zero credits are expected; a credit fails `INV-004`. A failed collection can
-leave a checkout open for another attempt; this fixture does not model that
-retry.
-
-## Internal implementation
-
-`createBachsScenario` constructs a `collection.failed` envelope with settlement
-and fee fields set to `null`, `eligible: false`, and `expectedNoCredit`. The
-synthetic event is constructed in `packages/bachs/src/fixtures.ts`, not
-received from a live provider.
+A pass has zero credits. Any credit fails `INV-004`. This scenario does not
+send a later retry success; test that lifecycle separately.

@@ -1,56 +1,48 @@
 ---
 title: "Sequential duplicate webhook"
-description: "Check that a repeated eligible webhook creates one financial effect."
+description: "Check that a repeated successful webhook creates one credit."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Providers retry when delivery is uncertain. A customer deposited ₦5,000 once,
-so two sequential deliveries of the same successful notification must still
-produce one `500_000`-kobo credit.
+This test sends the same successful payment notification twice, one after the
+other. Imagine a customer paying ₦5,000 and the provider retrying the same
+notification because the first response was delayed.
 
-## What BachsProof sends
+## Why does it matter?
 
-`createBachsMockFixture` creates one eligible `collection.succeeded` event. The
-core serializes and sends that exact event twice, in order, with the same event
-ID and reference:
+Retries are normal. If the second notification creates another credit, the
+customer receives money twice and your ledger no longer matches the payment.
 
-```mermaid
-sequenceDiagram
-  participant P as BachsProof
-  participant A as Application
-  P->>A: collection.succeeded, event E1
-  A-->>P: 2xx
-  P->>A: collection.succeeded, event E1 again
-  A-->>P: 2xx
+## What BachsProof does
+
+BachsProof creates one eligible `collection.succeeded` event and sends the same
+event, with the same event ID and payment reference, two times in order:
+
+```text
+send event E1 → wait for the response → send event E1 again
+```
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "sequential duplicate webhook"
 ```
 
 ## What the application should do
 
-Persist event identity or an equivalent durable idempotency key. The second
-delivery should be acknowledged or otherwise handled according to the route's
-contract, but it must not create a second financial effect.
+Use the event ID, payment reference, or another durable idempotency key to
+recognize the second delivery. It may acknowledge the retry, but it must not
+create another credit.
 
-## Expected outcome and failure
+## Pass and failure
 
-Passing state is one ₦5,000 credit in NGN. Two credits fail `INV-001` and the
-wrong aggregate also fails `INV-002`. A missing credit fails `INV-003`.
-Without `verify`, a passing HTTP result is delivery-only.
+For an expected ₦5,000 payment, a financially verified pass has exactly one
+`500_000`-kobo NGN credit. These results fail:
 
-```js
-{
-  name: "sequential ₦5,000 duplicate",
-  scenario: "sequential-duplicate-webhook",
-  amountMinor: 500_000,
-  currency: "NGN",
-  reference: "prepared-payment"
-}
-```
+- two credits: `INV-001` (duplicate credit);
+- the wrong total or currency: `INV-002` and possibly `INV-005`;
+- no credit after processing: `INV-003`.
 
-## Internal implementation
-
-The sequential branch of `BachsProof.run` in
-`packages/core/src/orchestrator.ts` calls `deliver` for `sequential-1`, waits,
-then calls it for `sequential-2`. The base event comes from
-`createBachsMockFixture` in `packages/bachs/src/fixtures.ts`; no provider API is
-called.
+Without `verify()`, a passing HTTP response is delivery-only and does not prove
+that money was saved correctly.

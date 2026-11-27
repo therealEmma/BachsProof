@@ -8,6 +8,10 @@ if you already used `bachsproof init`: it reuses the same config, scenarios,
 payment preparation callback, verifier, and CLI signing settings. Use the Direct
 Core API when your test suite wants to construct the runner itself.
 
+Choose the configuration-based API when you want one source of truth for CLI
+and code. Choose the Direct Core API when your test already owns application
+startup, database cleanup, and assertions.
+
 | Surface | What it does | Who owns setup? |
 | --- | --- | --- |
 | CLI command | Loads a config, runs named scenarios, prints human or JSON output, and sets the process result. | BachsProof command plus your config file. |
@@ -118,8 +122,9 @@ pnpm add -D @bachsproof/core@1.1.0 @bachsproof/bachs@1.1.0
 
 ### 2. Construct a runner
 
-This is a complete shape. Replace the two application helpers with your own
-isolated database-backed preparation and verification code:
+This is a complete runner shape. The two `applicationTestApi` calls are the only
+application-specific part: replace them with your isolated database-backed
+preparation and verification code. They are not BachsProof functions.
 
 ```ts
 import { BachsProof } from "@bachsproof/core";
@@ -193,8 +198,9 @@ console.dir({
 if (!result.passed) process.exitCode = 1;
 ```
 
-`applicationTestApi` is application code, not a BachsProof export. The direct
-runner accepts the same `createPayment` and `verify` contracts as the CLI.
+The direct runner accepts the same `createPayment` and `verify` contracts as the
+CLI. Keep the preparation and verification code in your test environment; do
+not point it at production records.
 
 ### Direct Core signing is explicit
 

@@ -1,46 +1,39 @@
 ---
 title: "Tampered webhook"
-description: "Check that changing the body after signing is rejected."
+description: "Check that changing a signed body is rejected."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-An attacker or broken proxy changes a signed request. If the application checks
-one body but parses another, it could accept a forged amount and credit a
-wallet.
+This test changes a signed request after the signature was created. The changed
+request looks like a successful payment but no longer matches the signature.
 
-## What BachsProof sends
+## Why does it matter?
 
-The adapter serializes a successful event, signs the original body, changes the
-amount by one minor unit, and sends the changed body with the original
-signature. The generated configuration expects `4xx`:
+An attacker or broken proxy could change an amount or reference. If the handler
+verifies one body but parses another, it may credit the wrong payment.
 
-```js
-{
-  name: "changed signed body is rejected",
-  scenario: "tampered-webhook",
-  expectedStatus: "4xx",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof signs the original event, changes the amount by one minor unit, and
+sends the changed body with the original signature. The generated test normally
+expects a 4xx response.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "tampered webhook"
 ```
 
 ## What the application should do
 
-Capture the raw bytes, verify the signature over those exact bytes, and parse
-only after verification. Reject the changed body and create no credit.
+Capture the original raw request bytes, verify the signature over those exact
+bytes, and parse the JSON only after verification. Reject the changed body and
+create no credit.
 
-## Expected outcome and failure
+## Pass and failure
 
-The request should be rejected and the verifier should observe zero credits.
-The HTTP expectation and financial assertion are separate: a 4xx can pass the
-transport layer, while `INV-004` proves no ineligible financial effect was
-committed. The scenario is meaningful only when the target verifies raw-body
-signatures.
-
-## Internal implementation
-
-`createBachsScenario` creates the original and tampered bodies and sets
-`signingBody`. Core `deliver` passes the exact body to the adapter's
-`headersForBody`; `withBachsSigning` uses `signBachsWebhook` in
-`packages/cli/src/runner.ts`.
+A pass rejects the request and the verifier observes zero credits. The 4xx
+checks transport behavior; `INV-004` checks the saved financial state. If the
+target does not verify signatures, this scenario cannot test that security
+boundary.

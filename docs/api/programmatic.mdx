@@ -1,7 +1,11 @@
 ---
 title: "Programmatic API reference"
-description: "Reference for configuration-based and Direct Core BachsProof APIs."
+description: "Run BachsProof from a script or test framework and inspect the result."
 ---
+
+Use the configuration-based functions when you already have a
+`bachsproof.config.mjs`. Use the Direct Core API when your test owns the
+provider, application startup, payment setup, and verifier.
 
 ## Configuration-based API
 
@@ -84,6 +88,10 @@ The Core API does not read CLI config and does not automatically add webhook
 signatures. Wrap the provider as shown when the target validates Bachs
 signatures. `headersForBody` must sign the body it receives so tampered-payload
 and invalid-signature scenarios retain their intended behavior.
+
+`applicationTestApi` in the example is your own test database or service. It is
+not a BachsProof export. The verifier must read committed rows for the requested
+reference; it must not return the expected values from the scenario.
 
 ## Core exports
 

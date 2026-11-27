@@ -3,40 +3,34 @@ title: "Malformed webhook"
 description: "Check that invalid JSON is rejected safely."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Your endpoint should not crash or create a financial effect when the request
-body is not valid JSON. A parser failure must not become a ₦5,000 credit.
+This test sends a request body that is not valid JSON.
 
-## What BachsProof sends
+## Why does it matter?
 
-It sends the body `{"invalid":` and expects a `4xx` response:
+Parser errors are normal input failures. They must not crash the route, expose
+secrets, or accidentally create a financial record from a partially read body.
 
-```js
-{
-  name: "malformed JSON is rejected",
-  scenario: "malformed-webhook",
-  expectedStatus: "4xx",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof sends the body `{"invalid":` and normally expects a 4xx response. It
+does not pretend that this body is a Bachs event.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "malformed webhook"
 ```
-
-This is not a Bachs event; it exercises the parser/error boundary.
 
 ## What the application should do
 
 Return a controlled client error, leave the financial store unchanged, and
-avoid accepting a partially parsed body. It should not expose secrets in the
+avoid parsing or processing incomplete data. Do not include secrets in the
 error response.
 
-## Expected outcome and failure
+## Pass and failure
 
-The application should safely reject the body and commit zero credits. With a
-verifier, `INV-004` checks that no ineligible financial effect appeared. This
-does not prove that every malformed content type or oversized body is handled.
-
-## Internal implementation
-
-The body override and expected status are created by `createBachsScenario` in
-`packages/bachs/src/fixtures.ts`; core records the response in `deliver`.
+A pass rejects the body with the configured 4xx status and commits zero credits.
+With `verify()`, `INV-004` confirms that no financial effect was saved. A 4xx
+alone checks only the HTTP boundary.

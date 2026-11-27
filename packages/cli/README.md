@@ -1,59 +1,50 @@
-# @bachsproof/cli
+# `@bachsproof/cli`
 
-**Beyond webhook delivery. Verify financial correctness.**
+The command-line way to test a Bachs webhook.
 
-Package-installable CLI onboarding for BachsProof, a financial correctness
-testing framework for applications integrating Bachs.
+Install it in the application repository that owns the webhook:
 
-    pnpm add -D @bachsproof/cli
-    pnpm exec bachsproof init
-    pnpm exec bachsproof test
+```bash
+pnpm add -D @bachsproof/cli@1.1.0
+pnpm exec bachsproof init
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+```
 
-`bachsproof init` creates a small configuration and test suite in the independent
-application repository:
+`init` creates a configuration, the 15 scenario definitions, a payment setup
+callback, and a financial verification callback. The last two files fail with a
+clear message until you connect them to your isolated test data. This is
+intentional: BachsProof must not pretend that it verified money when it did not
+read your database.
 
-- `bachsproof.config.mjs` for the provider, webhook target, signing secret,
-  payment preparation, verification, and polling settings;
-- `tests/bachsproof.test.mjs` with all 15 supported scenario definitions;
-- `tests/bachsproof.setup.mjs` for the optional `createPayment(context)` callback;
-- `tests/bachsproof.verify.mjs` for the `verify(reference, context)` callback.
+## What you configure
 
-The generated setup and verifier templates fail until implemented. BachsProof does
-not invent application references or treat expected values as financial proof.
+- `bachsproof.config.mjs` points to the running test application and connects
+  the callbacks.
+- `tests/bachsproof.setup.mjs` creates a fresh payment or order and returns its
+  reference.
+- `tests/bachsproof.verify.mjs` reads the committed payment and credit state.
+- `tests/bachsproof.test.mjs` selects scenarios and their test amounts.
 
-`createPayment` receives exactly `{ scenario, amountMinor, currency,
-paymentIndex, paymentCount }`. It must create a fresh isolated application
-payment and return its reference. `verify(reference, context)` must read
-committed state and return `reference`, `creditCount`, `creditedAmountMinor`,
-and `currency`; optional `ledgerEntries` entries must each include `id`, `type`,
-and `amountMinor`. The helper names shown in templates are illustrative
-application code, not BachsProof APIs.
+The target application needs only its normal webhook route. It does not need a
+BachsProof route or a production-only inspection endpoint.
 
-The target application does not need BachsProof routes, controllers, services, or
-production instrumentation. It only needs a reachable webhook URL. The
-application owns test payment preparation, isolation, cleanup, and committed
-state access.
+## Commands
 
-Real application references are the default. Use `createPayment` for fresh test
-records, explicit `reference` or `references` for manual fixtures, and
-`syntheticReferences: true` only for isolated adapter/HTTP fixture tests.
+```bash
+pnpm exec bachsproof init
+pnpm exec bachsproof init --force
+pnpm exec bachsproof test
+pnpm exec bachsproof test --name "underpaid payment"
+pnpm exec bachsproof test --json > bachsproof-results.json
+```
 
-The CLI runs configured scenarios sequentially. Delivery waves inside a
-concurrency scenario remain concurrent. `--name` runs one exact test name and
-`--json` emits machine-readable reports:
+Use `--force` only when replacing generated files is intentional. Use
+`requireFinancialVerification: true` when CI must fail unless `verify()` read
+committed financial state.
 
-    pnpm exec bachsproof test --name "underpaid payment"
-    pnpm exec bachsproof test --json
+The normal runner sends local, Bachs-shaped test events. It does not call the
+Bachs API and does not need a Bachs API key. Keep the target URL, test database,
+and signing secret isolated from production.
 
-Add `requireFinancialVerification: true` when the suite must fail unless the
-callback has observed committed financial state. Without a callback, BachsProof
-can still test HTTP delivery, but it reports the run as financially unverified.
-
-For optional controlled concurrency testing, configure a checkpoint and use
-`@bachsproof/sdk` in an explicitly enabled test build. Ordinary black-box HTTP
-concurrency is not deterministic race-condition coverage.
-
-See the repository [quickstart](../../docs/quickstart.md) and
-[CLI guide](../../docs/cli.md) for the complete workflow. The
-[programmatic API guide](../../docs/advanced/programmatic-api.mdx) explains how
-to reuse this configuration from a script.
+For a complete setup, read the [quickstart](../../docs/quickstart.md). For
+programmatic use, read the [programmatic API guide](../../docs/advanced/programmatic-api.mdx).

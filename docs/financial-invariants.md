@@ -1,17 +1,36 @@
 # Financial invariants
 
-- `INV-001` Unique Credit: one eligible payment reference has at most one posted credit.
-- `INV-002` Amount Integrity: the posted amount and currency equal the expected integer minor-unit values.
-- `INV-003` Completion: an eligible payment receives its expected credit.
-- `INV-004` No Unexpected Credit: an ineligible payment receives no credit.
-- `INV-005` Aggregate Integrity: the observed amount for the payment equals the expected amount.
+An invariant is a rule that should stay true after a payment is processed. For
+example: one customer payment must not create two wallet credits.
 
-The verifier takes state returned by the `verify(reference, context)` callback.
-The second callback argument is optional for backward compatibility, so an
-existing `verify(reference)` callback continues to work. The context identifies
-the scenario, expected outcome, related provider event IDs, and delivery
-records for the reference. Callback values are validated with Zod before
-evaluation. HTTP success is not treated as financial success. Individual
-references are checked, and amounts remain integer minor units throughout.
+BachsProof checks the state returned by your `verify(reference, context)`
+callback. The callback must read your committed database or ledger rows. HTTP
+`200` is not financial proof.
 
-For asynchronous applications, return `{ pending: true, ... }` until committed state is readable. BachsProof polls for the configured bounded completion window. Negative scenarios also use a short observation window, so an immediate zero-credit response is not treated as proof that a delayed handler will never create a credit. If state remains pending when the deadline expires, the run is unverified and fails rather than being converted into a financial pass.
+For an eligible ₦5,000 payment, the usual expected state is:
+
+```text
+creditCount: 1
+creditedAmountMinor: 500_000
+currency: "NGN"
+```
+
+| Rule | Plain-English meaning | Example failure |
+| --- | --- | --- |
+| `INV-001` Unique Credit | One eligible payment creates at most one credit | Two copies of the same payment create two rows |
+| `INV-002` Amount Integrity | A credit has the expected total and currency | The order expects 500,000 NGN minor units but the ledger has 499,900 |
+| `INV-003` Completion | An eligible payment eventually receives its expected credit | The webhook succeeded but no credit was saved |
+| `INV-004` No Unexpected Credit | An ineligible event creates no credit | An expired or failed payment credits the wallet |
+| `INV-005` Aggregate Integrity | The total is correct when the expected credit count exists | One row exists, but the total is the wrong amount |
+
+Amounts stay as integer minor units. For NGN, `500_000` means ₦5,000. This
+avoids rounding surprises from decimal floating-point values.
+
+For asynchronous applications, return `pending: true` while a worker can still
+change the committed state. BachsProof polls for the configured, bounded time.
+For an ineligible event, it also waits through a short observation window before
+accepting zero credits. A timeout or incomplete verification is a failed,
+unverified result, not a financial pass.
+
+See the [invariant reference](/financial-invariants/index) for the exact rule
+conditions and examples.

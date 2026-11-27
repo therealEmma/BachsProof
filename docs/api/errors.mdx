@@ -1,24 +1,45 @@
 ---
-title: "Error handling"
-description: "Understand configuration, preparation, delivery, and verification failures."
+title: "Errors and failed results"
+description: "Understand setup, delivery, callback, and financial failures."
 ---
 
-BachsProof keeps errors in the report when a run has started. Common categories:
+BachsProof reports the layer that failed. Start at the first layer in the
+report because a later financial error may simply be a consequence of a request
+that never reached the application.
 
-| Error | Meaning |
-| --- | --- |
-| Missing provider/target/tests | CLI config validation failed |
-| Real application reference required | No reference, callback, or explicit synthetic opt-in |
-| Payment preparation failed | Callback threw, returned empty, or returned a reused reference |
-| Unexpected HTTP status | Delivery did not match `expectedStatus` or was non-2xx by default |
-| Financial verification timed out | Callback never returned complete state within its bound |
-| Financial verification returned wrong reference | Callback returned state for another payment |
-| Malformed callback result | Required fields or integer/currency validation failed |
-| `INV-*` message | Observed committed state violated a financial rule |
+| Message or report field | What it means | What to do |
+| --- | --- | --- |
+| Missing provider, target, or tests | The config is incomplete | Open `bachsproof.config.mjs` and add the required field |
+| Real application reference is required | No payment reference was supplied | Implement `createPayment()` or add a real isolated reference |
+| Payment preparation failed | The callback threw, returned an empty value, or reused a reference | Create a fresh record and return its non-empty reference |
+| HTTP connection, 404, or 401 | The target URL, path, process, or authentication is wrong | Start the test app and check the URL, path, and test secret |
+| Unexpected HTTP status | The response did not match `expectedStatus` | Check the route behavior or configure the documented expected status |
+| Financial verification timed out | `verify()` stayed pending or did not return complete state in time | Check the worker and database, then adjust the bounded deadline if needed |
+| Financial verification returned wrong reference | The callback read a different payment | Filter by the requested reference |
+| Malformed callback result | Required fields or integer/currency rules are invalid | Return the documented verifier shape |
+| `INV-001` through `INV-005` | The saved financial state broke a payment rule | Read `observed` and fix the application behavior |
 
-Preparation/configuration validation returns a failed result with no webhook
-delivery and a report note explaining why. Delivery failures retain the
-participant and timing record. The CLI also explains common onboarding errors
-and redacts the configured signing secret from JSON and human-readable output.
-Your callbacks and application logs must avoid credentials and personal data as
-well.
+## What a failed run contains
+
+- `errors` explains preparation, delivery, callback, or setup failures.
+- `deliveries` shows the HTTP attempts, statuses, and response details.
+- `observed` shows the state returned by `verify()`.
+- `verification.violations` lists every financial rule that failed.
+
+Preparation errors stop before webhook delivery. Delivery errors keep timing and
+response information in the report. BachsProof redacts the configured signing
+secret, but your callback and application logs must also avoid secrets and
+personal data.
+
+## Example: a duplicate credit
+
+```text
+FAIL concurrent duplicate credit
+  Financial verification completed; financial violations detected
+  INV-001: expected at most 1 credit, observed 2
+  INV-002: expected 500000 NGN, observed 1000000 NGN
+```
+
+This means the webhook reached the application, but the application committed
+two credits for one payment. Check the idempotency key, database uniqueness
+constraint, and transaction boundary.

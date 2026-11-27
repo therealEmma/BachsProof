@@ -1,45 +1,38 @@
 ---
 title: "Out-of-order events"
-description: "Check that an older non-fulfilling event cannot replace newer success."
+description: "Check that an older event cannot undo a newer successful payment."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Networks can deliver an older event after a newer one. If a successful ₦5,000
-collection is followed by an older checkout expiry, the expiry must not erase
-the completed financial state.
+This test sends a newer successful collection event first and an older checkout
+expiry event second. The network delivered the events in the opposite order to
+their event times.
 
-## What BachsProof sends
+## Why does it matter?
 
-The adapter sends a newer eligible `collection.succeeded` first, then an older
-`checkout.expired` event. They have different IDs and timestamps and normally
-receive 2xx responses. The event order is intentionally different from the
-timestamp order.
+Networks retry and reorder messages. If an old expiry changes a completed
+payment back to an unpaid state, the application may remove access or create an
+incorrect ledger state.
+
+## What BachsProof does
+
+BachsProof sends an eligible `collection.succeeded` event, then an older
+`checkout.expired` event for the same payment. The events have different IDs and
+timestamps. Run it with:
+
+```bash
+pnpm exec bachsproof test --name "out-of-order events"
+```
 
 ## What the application should do
 
-Accept the newer successful state and ignore the older non-fulfilling state when
-it would regress a completed payment. Store event time or an equivalent durable
-ordering value. Arrival order alone is not enough.
+Store the event time or another ordering value and prevent an older event from
+replacing a newer completed state. Do not use arrival order alone.
 
-## Expected outcome and failure
+## Pass and failure
 
-The application should keep one completed `500_000`-kobo NGN credit. `INV-001`
-protects uniqueness and `INV-003` protects completion. The old event must not
-create an unexpected credit or downgrade the payment.
-
-```js
-{
-  name: "older expiry cannot undo success",
-  scenario: "out-of-order-events",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
-```
-
-## Internal implementation
-
-`createBachsScenario` in `packages/bachs/src/fixtures.ts` creates the expiry at
-`now` and the success at `now + 1_000` ms, then lists the success before the
-expiry. The corrected reference wallet compares event timestamps in
-`processCorrected` and does not downgrade a completed payment.
+A pass keeps one `500_000`-kobo NGN credit and a completed payment state. A
+missing credit fails `INV-003`; duplicate or incorrect credits fail the
+corresponding uniqueness and amount rules. A payment state that regresses is a
+failure even if the final credit count looks correct.

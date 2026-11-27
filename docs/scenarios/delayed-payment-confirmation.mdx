@@ -1,24 +1,27 @@
 ---
 title: "Delayed payment confirmation"
-description: "Check that a later valid confirmation is not permanently rejected."
+description: "Check that a later valid confirmation can still fulfil a payment."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-An early lifecycle signal can arrive before a payment is confirmed. A later
-successful collection should still fulfil the ₦5,000 payment once it is valid.
-An application should not permanently mark an order unusable because it saw an
-earlier expiry-like signal.
+This test sends an expiry-like event first and a valid successful collection
+later. The successful event is delayed by a small, configurable amount.
 
-## What BachsProof sends
+## Why does it matter?
 
-It sends `checkout.expired` first, then delays an eligible
-`collection.succeeded` delivery. The delay defaults to 25 ms and can be set with
-`delayMs`:
+Payment systems are asynchronous. An early signal does not always settle the
+payment. If the application permanently rejects the order too soon, a later
+valid payment can never be fulfilled.
+
+## What BachsProof does
+
+BachsProof sends `checkout.expired`, waits for `delayMs` (25 ms by default),
+then sends an eligible `collection.succeeded` event for the same payment. For
+example:
 
 ```js
 {
-  name: "delayed ₦5,000 confirmation",
   scenario: "delayed-payment-confirmation",
   delayMs: 100,
   amountMinor: 500_000,
@@ -26,22 +29,21 @@ It sends `checkout.expired` first, then delays an eligible
 }
 ```
 
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "delayed payment confirmation"
+```
+
 ## What the application should do
 
-Record the non-fulfilling state without making a later valid success
-impossible. If a worker is involved, the verifier should return `pending: true`
-until the successful event has been committed.
+Record the early state without making a later valid success impossible. If a
+worker handles the webhook, `verify()` should return `pending: true` while that
+work can still change the saved state.
 
-## Expected outcome and failure
+## Pass and failure
 
-After the success is processed, the verifier should observe one
-`500_000`-kobo NGN credit. Missing completion fails `INV-003`; a duplicate
-fails `INV-001`. The scenario does not prove behavior beyond the configured
-delay and verification deadline.
-
-## Internal implementation
-
-`createBachsScenario` in `packages/bachs/src/fixtures.ts` creates the two-event
-ordered plan and applies `delayMs` before the successful delivery. Polling is
-implemented by `verifyWithCallback` in `packages/core/src/verification.ts`. The
-delay is a local test schedule, not a live provider settlement delay.
+After the successful event is processed, a pass has one `500_000`-kobo NGN
+credit. No credit by the verification deadline fails `INV-003`; a duplicate
+fails `INV-001`. This test covers the configured delay and observation window,
+not every possible queue delay.

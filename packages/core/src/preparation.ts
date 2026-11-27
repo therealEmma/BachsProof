@@ -27,7 +27,7 @@ async function createReference(
       paymentCount
     });
     if (!hasReference(reference)) {
-      throw new Error("createPayment must return a non-empty payment reference");
+      throw new Error("createPayment must return a non-empty payment reference from the isolated test payment it created");
     }
     return reference.trim();
   } catch (error) {

@@ -1,12 +1,20 @@
 # Reference wallet
 
-Express 5 reference application with `vulnerable` and `corrected` Bachs webhook
-handlers. Set `BACHS_WEBHOOK_SECRET` to enable the official SDK's raw-body
-signature verification. Set `DATABASE_URL` to use the Prisma/PostgreSQL store;
-omit it only for the explicit in-memory test harness.
+The reference wallet is a small Express and Prisma application used to teach
+payment correctness. It includes a deliberately unsafe webhook handler and a
+corrected handler.
 
-Run `pnpm --filter @bachsproof/reference-wallet db:migrate:deploy` against the
-dedicated `DATABASE_URL` before starting the server. BachsProof verifies the
-wallet through an application-supplied callback, so the wallet does not expose
-an inspection or reset endpoint. `BACHSPROOF_TEST_MODE=true` only enables the
-optional checkpoint controller used by deterministic race demonstrations.
+Use an isolated test database. Set `BACHS_WEBHOOK_SECRET` to test raw-body
+signature verification. Set `DATABASE_URL` for the Prisma/PostgreSQL store, or
+omit it only when using the explicit in-memory test harness.
+
+For PostgreSQL, deploy the test schema before running the application:
+
+```bash
+pnpm --filter @bachsproof/reference-wallet db:migrate:deploy
+```
+
+BachsProof reads wallet state through an application-supplied verifier. The
+wallet does not expose an inspection or reset endpoint. `BACHSPROOF_TEST_MODE=true`
+enables the optional checkpoint controller used by the deterministic race
+demonstration; do not set it in production.

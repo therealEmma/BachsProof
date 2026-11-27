@@ -3,41 +3,36 @@ title: "Underpaid payment"
 description: "Prevent fulfilment when only part of the expected amount arrives."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-The provider reports that only part of the amount due arrived. An application
-must not credit the full ₦5,000 order before the shortfall is resolved.
+This test sends a `collection.underpaid` event. The provider says that only part
+of the expected amount arrived.
 
-## What BachsProof sends
+## Why does it matter?
 
-It creates a documented-shaped `collection.underpaid` event containing
-`amount_paid`, `amount_expected`, `amount_remaining`, `currency`, and
-`status: "UNDERPAID"`. The fixture pays half of the configured amount when
-possible:
+An application must not credit the full ₦5,000 order when the customer has paid
+only part of it. `amount_paid` describes what arrived; it is not permission to
+fulfil the complete order.
 
-```js
-{
-  name: "underpayment is not fulfilled",
-  scenario: "underpaid-payment",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof creates an event with `amount_paid`, `amount_expected`,
+`amount_remaining`, the currency, and status `UNDERPAID`. The fixture pays about
+half of the configured amount and does not send a later top-up success.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "underpaid payment"
 ```
 
 ## What the application should do
 
-Record the shortfall, request or await the remaining amount according to its
-business rules, and withhold the full ₦5,000 credit. `amount_paid` describes
-what arrived; it is not permission to fulfil the complete order.
+Record the shortfall, ask for or wait for the remaining amount according to your
+business rules, and do not create the full payment credit yet.
 
-## Expected outcome and failure
+## Pass and failure
 
-Zero credits are expected, so a credit fails `INV-004`. BachsProof does not send
-a later top-up success in this scenario. Test that lifecycle separately and
-allow asynchronous work to settle before verifying.
-
-## Internal implementation
-
-`createBachsScenario` computes `paidMinor`, the expected amount, and the
-remaining amount, then constructs a `collection.underpaid` event with
-`eligible: false`. The event is built in `packages/bachs/src/fixtures.ts`.
+A financially verified pass has zero credits and normally returns 2xx. Any
+credit fails `INV-004`. Test a later successful top-up as a separate lifecycle
+case.

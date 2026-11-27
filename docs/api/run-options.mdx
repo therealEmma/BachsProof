@@ -1,27 +1,49 @@
 ---
 title: "Scenario run options"
-description: "Reference for RunOptions and expected HTTP outcomes."
+description: "Choose the scenario, payment reference, amount, and delivery behavior."
 ---
 
-| Field | Type | Required | Meaning |
+Pass these options to `BachsProof.run()` or put the equivalent values in a CLI
+test definition. The smallest real-payment run looks like this:
+
+```ts
+await runner.run({
+  scenario: "sequential-duplicate-webhook",
+  reference: "payment-created-in-your-test-database",
+  amountMinor: 500_000,
+  currency: "NGN"
+});
+```
+
+`500_000` is 500,000 kobo, or ₦5,000. Use integer minor units. Do not use a
+floating-point value such as `5000.00`.
+
+| Field | Type | Required | What it controls |
 | --- | --- | --- | --- |
-| `scenario` | `ScenarioName` | Yes | One of the 15 implemented names |
-| `amountMinor` | `number` | No | Test amount; current Bachs fixture default is `5_000_000` |
-| `currency` | `string` | No | ISO-style currency; Bachs default is `NGN` |
-| `reference` | `string` | For one-payment real runs unless prepared | Application payment reference |
-| `references` | `string[]` | For unique-payment manual runs | Distinct references, one per participant |
-| `concurrency` | `number` | No | Positive participant count; duplicate/unique default is 2 in core |
-| `syntheticReferences` | `boolean` | No | Explicitly opt into generated local references |
-| `expectedStatus` | `number`, `number[]`, `"2xx"`, `"4xx"`, `"5xx"` | No | Accepted HTTP result for scenario deliveries |
-| `delayMs` | `number` | No | Delay used by the delayed-confirmation plan |
-| `seed` | `string` | No | Replay/debug metadata; it does not seed OS scheduling |
-| `replay` | `BachsProofReport` | No | Reuse the structured event from a prior report |
+| `scenario` | `ScenarioName` | Yes | One of the 15 implemented payment situations |
+| `amountMinor` | `number` | No | Integer test amount; the Bachs fixture default is `5_000_000` |
+| `currency` | `string` | No | Three-letter currency; the Bachs default is `NGN` |
+| `reference` | `string` | For one-payment real runs unless prepared | Payment reference your webhook understands |
+| `references` | `string[]` | For manual unique-payment runs | One distinct reference per participant |
+| `concurrency` | `number` | No | Number of overlapping participants; duplicate/unique default to 2 |
+| `syntheticReferences` | `boolean` | No | Explicitly use local fixture references; not financial evidence |
+| `expectedStatus` | `number`, `number[]`, `"2xx"`, `"4xx"`, `"5xx"` | No | HTTP result the application is expected to return |
+| `delayMs` | `number` | No | Delay before the valid event in delayed confirmation |
+| `seed` | `string` | No | Replay and debugging label; it does not control OS scheduling |
+| `replay` | `BachsProofReport` | No | Reuse the structured event plan from an earlier report |
 
-`concurrent-unique-payments` accepts `references`, not `reference`. All other
-scenarios accept one `reference`, not `references`. Explicit references win over
-automatic preparation. Without a reference, callback, or explicit synthetic
-opt-in, the core returns an invalid-input result and sends no webhook.
+## References
 
-Use `500_000` for the recurring NGN ₦5,000 example. The current implementation
-default is `5_000_000`; that default is documented here so omitted values do not
-look like ₦5,000 by accident.
+`concurrent-unique-payments` uses `references`, with one distinct value per
+participant. Other one-payment scenarios use `reference`. A configured
+`createPayment()` callback can supply missing references automatically.
+
+Explicit references take priority over automatic preparation. If BachsProof has
+no reference, callback, or explicit synthetic opt-in, it returns a setup failure
+and sends no webhook.
+
+## Expected HTTP status
+
+Most eligible events expect 2xx. Signature and malformed-body scenarios usually
+expect 4xx. Use `expectedStatus` when your documented route contract uses a
+different status. HTTP status and financial state are checked separately.

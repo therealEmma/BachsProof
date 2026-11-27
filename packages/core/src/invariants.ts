@@ -13,7 +13,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-001" as const,
       name: "Unique Credit",
-      message: `Payment ${expected.reference} has ${observed.creditCount} posted credits; at most one is allowed`,
+      message: `Payment ${expected.reference} created ${observed.creditCount} credits; one credit is allowed for an eligible payment`,
       reference: expected.reference
     });
   }
@@ -21,7 +21,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-002" as const,
       name: "Amount Integrity",
-      message: `Expected ${expected.amountMinor} ${expected.currency}, observed ${observed.creditedAmountMinor} ${observed.currency}`,
+      message: `Expected ${expected.amountMinor} ${expected.currency} minor units, but observed ${observed.creditedAmountMinor} ${observed.currency} minor units`,
       reference: expected.reference
     });
   }
@@ -29,7 +29,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-003" as const,
       name: "Completion",
-      message: `Expected ${expected.expectedCreditCount} credit for ${expected.reference}, observed ${observed.creditCount}`,
+      message: `Expected ${expected.expectedCreditCount} credit for ${expected.reference}, but observed ${observed.creditCount}`,
       reference: expected.reference
     });
   }
@@ -37,7 +37,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-004" as const,
       name: "No Unexpected Credit",
-      message: `Ineligible payment ${expected.reference} created ${observed.creditCount} credit(s)`,
+      message: `Payment ${expected.reference} was not eligible, but it created ${observed.creditCount} credit(s)`,
       reference: expected.reference
     });
   }
@@ -45,7 +45,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-005" as const,
       name: "Aggregate Integrity",
-      message: `Aggregate credit for ${expected.reference} does not equal the expected amount`,
+      message: `Payment ${expected.reference} has the expected number of credits, but their total is not the expected amount`,
       reference: expected.reference
     });
   }

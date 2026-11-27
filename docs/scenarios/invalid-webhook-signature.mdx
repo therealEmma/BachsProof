@@ -1,45 +1,39 @@
 ---
 title: "Invalid webhook signature"
-description: "Check that an event with an invalid signature is rejected."
+description: "Check that an event with invalid authentication is rejected."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-The event looks valid, but its authentication proof is wrong. The handler must
-not process it as a payment or add a ₦5,000 credit.
+This test sends a valid-looking payment event with a deliberately invalid
+`X-Bachs-Signature-V2` header.
 
-## What BachsProof sends
+## Why does it matter?
 
-It sends a valid-shaped `collection.succeeded` body with a deliberately invalid
-`X-Bachs-Signature-V2` header and expects `4xx`:
+The signature lets your application check that the event came from a trusted
+sender and was not changed. Processing an unauthenticated event can create
+money from an attacker-controlled request.
 
-```js
-{
-  name: "invalid signature is rejected",
-  scenario: "invalid-webhook-signature",
-  expectedStatus: "4xx",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof sends a valid-shaped `collection.succeeded` body with an invalid
+signature and normally expects a 4xx response.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "invalid webhook signature"
 ```
-
-The valid event shape isolates signature authentication from JSON parsing and
-business validation.
 
 ## What the application should do
 
-Reject before business processing, record an appropriate security signal if
-desired, and leave the financial store unchanged. Do not use an invalid event
-as a reason to alter a payment.
+Verify the signature before business processing. Reject the request, leave the
+financial store unchanged, and record a security signal if your application
+needs one.
 
-## Expected outcome and failure
+## Pass and failure
 
-Zero credits are expected; with `verify`, `INV-004` checks the financial result.
-A 4xx alone is only an HTTP observation. This does not test secret rotation or
-a live Bachs delivery.
-
-## Internal implementation
-
-`createBachsScenario` in `packages/bachs/src/fixtures.ts` supplies a
-`t=0,v1=` header containing zeroed digest bytes and marks the delivery's
-expected status as `4xx`.
+A pass rejects the event and commits zero credits. With `verify()`, `INV-004`
+checks the financial result. A 4xx alone is only an HTTP result; it does not
+prove that no credit was saved. This test does not cover secret rotation or a
+real Bachs delivery.

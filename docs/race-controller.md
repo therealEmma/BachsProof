@@ -1,7 +1,19 @@
 # Race controller
 
-`RaceController` is a small HTTP barrier service. A session has an opaque token and an explicit participant list. Each checkpoint arrival is authenticated, recorded, and held as an open HTTP response. The orchestrator waits for the required participant count and then calls `release`, which completes all held responses.
+`RaceController` is the small local service that coordinates an optional
+checkpoint test.
 
-Timeouts reject the orchestrator wait. Aborting a session completes pending checkpoint responses with HTTP 409 so application requests do not hang indefinitely. Sessions are cleaned up in the orchestrator `finally` block and controller shutdown aborts any remaining session.
+In simple English, each webhook request announces “I reached the checkpoint.”
+The controller waits until the required number of requests has arrived, then
+releases them together. It uses a short-lived session token and a known list of
+participants so an unrelated request cannot join the test.
 
-This coordinates separate Node.js processes because the SDK communicates over HTTP. It controls only instrumented points; it cannot make arbitrary OS, network, or database scheduling deterministic.
+If the required requests do not arrive before the timeout, the controller aborts
+the session and releases waiting requests with an HTTP conflict response. This
+prevents a test request from hanging forever. Sessions are cleaned up when the
+run finishes.
+
+The controller can coordinate separate Node.js processes because requests talk
+to it over HTTP. It controls only the named checkpoint. It does not control
+every operating-system, network, or database decision, and it cannot make an
+unsafe payment write safe.

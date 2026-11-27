@@ -1,7 +1,36 @@
-# Architecture
+# How BachsProof is organized
 
-BachsProof keeps provider-specific event construction separate from the provider-neutral engine. `@bachsproof/core` creates a test session, delivers serialized events with Undici, coordinates the optional barrier, obtains persisted financial records through the application-supplied callback verifier, and evaluates financial invariants. Payment preparation and cleanup remain application-owned so BachsProof does not require a database or a target-specific reset route.
+BachsProof keeps four jobs separate:
 
-The reference wallet exposes the same webhook path in both modes. The vulnerable mode performs a check, waits at the checkpoint, and then writes an unrestricted credit. The corrected mode performs the check and credit inside a Prisma transaction and writes the payment reference as a unique idempotency key.
+1. **The CLI** loads your config and prints results.
+2. **The Bachs adapter** creates local Bachs-shaped test events.
+3. **The core runner** sends events, waits for your verifier, and checks the
+   financial rules.
+4. **Your application** verifies the webhook, writes its payment state, and
+   exposes that state to the test-side `verify()` callback.
 
-The SDK middleware reads BachsProof request headers only if the application opts into request-header activation. A normal production process therefore has no controller connection and checkpoint calls are no-ops.
+```text
+CLI → core runner → Bachs-shaped test event → your webhook → your database
+                                      ↘ verify() → financial rules → report
+```
+
+The adapter is provider-specific. The core runner is provider-independent. This
+means the runner does not need to know whether your application uses a wallet
+table, an order table, a ledger, Prisma, PostgreSQL, or another system.
+
+Payment preparation, database isolation, cleanup, signature verification,
+idempotency, and fulfilment remain application responsibilities.
+
+## Reference wallet
+
+The reference wallet includes a deliberately unsafe handler and a corrected
+handler. The unsafe version can create two credits when two requests read the
+same pending payment. The corrected version uses a database transaction and a
+unique payment key.
+
+## Checkpoints
+
+The optional SDK can let requests pause at a named test line. It is useful for
+reproducing a race, but it is not a database lock, an authorization system, or a
+production feature. Checkpoint headers are accepted only when the application
+explicitly enables test mode.

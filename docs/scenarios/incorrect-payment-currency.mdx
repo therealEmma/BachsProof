@@ -3,41 +3,36 @@ title: "Incorrect payment currency"
 description: "Prevent fulfilment when the event currency does not match the order."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-An order priced in NGN must not be fulfilled by an otherwise successful event
-priced in another currency. ₦5,000 and 5,000 USD are not the same financial
-instruction.
+This test uses an order priced in NGN and sends a successful-looking event in a
+different currency. The adapter uses USD, or EUR when the configured currency
+is already USD.
 
-## What BachsProof sends
+## Why does it matter?
 
-It creates a success-shaped event with the configured amount but a different
-currency. The fixture uses USD unless the configured currency is already USD,
-then it uses EUR:
+`500_000` NGN and `500_000` USD are different financial values. Silently
+converting or accepting the wrong currency can overpay or underpay an order.
 
-```js
-{
-  name: "wrong currency is not fulfilled",
-  scenario: "incorrect-payment-currency",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof creates a success-shaped event with the configured amount but an
+alternate currency. It does not model exchange rates or provider settlement.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "incorrect payment currency"
 ```
 
 ## What the application should do
 
-Compare currency as well as integer amount. Do not silently treat
-`500_000 USD` as `500_000 NGN` or perform an unrequested conversion during
-fulfilment.
+Compare the event currency with the currency stored for the order. Do not treat
+the numeric amount as sufficient and do not perform an unrequested conversion
+during fulfilment.
 
-## Expected outcome and failure
+## Pass and failure
 
-Zero credits are expected; a credit fails `INV-004`. The normal HTTP expectation
-is 2xx because an application may acknowledge a rejected business event. The
-fixture does not model conversion, exchange rates, or provider settlement.
-
-## Internal implementation
-
-`createBachsScenario` chooses the alternate currency and creates the event with
-`createBachsMockFixture`; `expectedNoCredit` supplies the zero-credit state.
-The mutation is built in `packages/bachs/src/fixtures.ts`.
+A pass has zero credits. Any credit fails `INV-004`; a wrong saved amount or
+currency also fails `INV-002`. The normal HTTP expectation is 2xx because an
+application may acknowledge a safely rejected business event.

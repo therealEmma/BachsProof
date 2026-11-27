@@ -7,6 +7,10 @@ This guide assumes an existing backend with a Bachs-compatible webhook route.
 BachsProof sends synthetic signed requests to an isolated copy of that backend;
 it does not call Bachs or move real money.
 
+The required path is: install, start the test application, prepare a fresh
+payment, read committed state, and run a scenario. Checkpoints, JSON reports,
+and custom timing values are optional.
+
 <Steps>
   <Step title="Install and initialize">
     ```bash
@@ -35,7 +39,8 @@ it does not call Bachs or move real money.
     In a monorepo, load the root `.env` with the environment loader already used
     by your application, for example `dotenv.config({ path: "../../.env" })`.
     The application and both callbacks must use the same dedicated test
-    database URL. Never point this at production.
+    database URL. Start the application before running the test. Never point
+    this at production.
   </Step>
 
   <Step title="Enable the generated callbacks">
@@ -73,7 +78,7 @@ it does not call Bachs or move real money.
   </Step>
 
   <Step title="Create a fresh payment">
-    `createPayment` is implemented by you. The callback receives the same five
+    `createPayment` is application test code that you implement. The callback receives the same five
     properties in every entry point:
 
     | Property | Meaning |
@@ -84,7 +89,9 @@ it does not call Bachs or move real money.
     | `paymentIndex` | Zero-based payment number within the scenario. |
     | `paymentCount` | Total payments needed by the scenario. |
 
-    Replace the generated error with your application logic:
+    Replace the generated error with your application logic. The following
+    example is complete once `applicationTestApi.createPayment` is replaced by
+    your test database or application service:
 
     ```js
     export async function createPayment({
@@ -129,8 +136,8 @@ it does not call Bachs or move real money.
     }
     ```
 
-    A real Prisma/PostgreSQL verifier looks like this (adapt field names to your
-    schema):
+    Use the shape only to understand the contract. A real Prisma/PostgreSQL
+    verifier looks like this (adapt field names to your schema):
 
     ```js
     import { prisma } from "./test-support/prisma.mjs";
@@ -187,7 +194,14 @@ it does not call Bachs or move real money.
 
     A financially verified result means the callback returned valid committed
     state and the applicable invariants passed. A delivery-only result is not
-    proof of a financial write. Use `--json` for CI:
+    proof of a financial write. A typical successful result looks like this:
+
+    ```text
+    PASS sequential duplicate webhook
+    Summary: 1/1 passed, 0 failed, 1 financially verified
+    ```
+
+    Use `--json` for CI:
 
     ```bash
     pnpm exec bachsproof test --json > bachsproof-results.json

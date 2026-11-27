@@ -1,43 +1,36 @@
 ---
 title: "Expired checkout"
-description: "Prevent fulfilment when a checkout expires without collection."
+description: "Prevent fulfilment when a checkout expires without payment."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-An open checkout can expire. Expiry is not payment success, so an expired
-checkout must not add a ₦5,000 wallet credit.
+This test sends an expired checkout with no collected charge.
 
-## What BachsProof sends
+## Why does it matter?
 
-It sends one `checkout.expired` envelope without a charge and marks it
-ineligible. The normal HTTP expectation is 2xx. This fixture is an event
-handling test, not a live provider expiry.
+An expired checkout is not a successful payment. Crediting a wallet because a
+checkout once existed gives the customer money that was never collected.
 
-```js
-{
-  name: "expired checkout does not credit",
-  scenario: "expired-checkout",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof sends one `checkout.expired` event with no charge and marks it
+ineligible. The normal expected HTTP response is 2xx because an application may
+record the expiry and acknowledge it. This is a local event test, not a live
+provider expiry.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "expired checkout"
 ```
 
 ## What the application should do
 
-Record the expiry if useful, but do not fulfil the order or credit the wallet. A
-later successful collection is a separate event and must be matched to the
-correct stored payment.
+Record the expiry if it is useful, but do not fulfil the order or credit the
+wallet. A later successful collection must be matched to the correct payment.
 
-## Expected outcome and failure
+## Pass and failure
 
-The verifier should observe zero credits; any credit fails `INV-004`. A later
-valid success may still arrive in a real lifecycle, which is why
-[delayed payment confirmation](/scenarios/delayed-payment-confirmation) is a
-separate scenario.
-
-## Internal implementation
-
-`checkoutFixture` in `packages/bachs/src/fixtures.ts` sets the checkout as
-expired, with no payment status and no charge. The scenario's expected state is
-created by `expectedNoCredit`.
+A financially verified pass has zero credits. Any credit fails `INV-004`. A
+later valid success is covered separately by [delayed payment confirmation](/scenarios/delayed-payment-confirmation).

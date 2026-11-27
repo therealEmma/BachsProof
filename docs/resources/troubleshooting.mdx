@@ -1,78 +1,110 @@
 ---
 title: "Troubleshooting"
-description: "Fix common BachsProof configuration, delivery, and verification failures."
+description: "Fix common setup, delivery, and financial verification problems."
 ---
 
-Start with the layer that failed: preparation, HTTP delivery, or financial
-verification. A green HTTP response does not override a red financial check.
+Start with the layer that failed: payment preparation, HTTP delivery, or
+financial verification. A green HTTP response cannot turn a failed financial
+check into a pass.
 
 ## “Real application reference is required”
 
-Implement `createPayment`, add a real `reference`/`references` value, or
-intentionally set `syntheticReferences: true` for a fixture-only run.
+### Why it happens
+
+BachsProof sends events to a real application payment by default. The selected
+test has no `reference`, `references`, or working `createPayment()` callback.
+
+### Fix it
+
+Implement `createPayment()` in `tests/bachsproof.setup.mjs`, or add a fresh
+reference to the selected test. Use synthetic references only for an isolated
+fixture run:
+
+```powershell
+$env:BACHSPROOF_USE_SYNTHETIC_REFERENCES = "true"
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+```
+
+Synthetic references do not prove that your application saved money.
 
 ## “Payment preparation failed”
 
-Check that the application created a fresh record, returned a non-empty string,
-and did not reuse a reference from another selected scenario. For the unique
-payments scenario, return one distinct reference per participant.
+### Why it happens
 
-## HTTP connection, 404, or 401
+The callback threw, returned an empty value, returned a value that was not a
+string, or reused a reference from another selected test.
 
-Check `baseUrl`, `webhookPath`, the running process, and whether the route is
-available in the test environment. For signed events, confirm the secret and
-that the route captures raw bytes before verification.
+### Fix it
+
+Create a fresh record on every callback call and return the exact reference your
+webhook handler reads. For `concurrent-unique-payments`, return one different
+reference per participant. BachsProof will not send an event until preparation
+has passed.
+
+## Connection refused, 404, or 401
+
+### Why it happens
+
+The application is not running, `baseUrl` or `webhookPath` is wrong, or the
+route rejects the test secret.
+
+### Fix it
+
+Check these values and test the route in the same shell that runs BachsProof:
+
+```powershell
+$env:BACHSPROOF_TARGET_URL = "http://127.0.0.1:3000"
+$env:BACHSPROOF_WEBHOOK_PATH = "/webhooks/bachs"
+$env:BACHS_WEBHOOK_SECRET = "test-only-secret"
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+```
+
+If signatures are enabled, capture the raw request bytes and verify them before
+parsing JSON. The application and BachsProof must use the same test secret.
 
 ## Expected 4xx did not occur
 
-Confirm `expectedStatus` is configured for the deliberately rejected scenario.
-For tampered, invalid-signature, and malformed-body tests, a 4xx is the normal
-generated expectation. A 2xx may mean the application accepted an event it was
-supposed to reject.
+Tampered, invalid-signature, and malformed-body scenarios normally expect a
+4xx. If your application returns 2xx, it may have accepted an event that should
+have been rejected. If your application intentionally uses a different status,
+set `expectedStatus` in `tests/bachsproof.test.mjs` to that documented value.
 
-## Financial verification status messages
+## Financial verification is missing
 
-The CLI uses the existing report fields to distinguish these cases:
+### What the labels mean
 
-- **Financial verification not configured** — no `verify` callback is enabled;
-  the result is delivery-only.
-- **Financial verification configured; did not run** — preparation or run setup
-  stopped before BachsProof could call the callback.
-- **Financial verification attempted; could not complete** — the callback timed
-  out, threw, or returned a value that failed runtime validation.
-- **Financial verification completed** — committed state was read and the
-  invariants passed.
-- **Financial verification completed; financial violations detected** — state
-  was read, but one or more invariant rules failed.
+- **Not configured:** no `verify()` callback is enabled; the result is
+  delivery-only.
+- **Configured but did not run:** setup or delivery stopped before BachsProof
+  could read state.
+- **Attempted but could not complete:** the callback timed out, threw, or
+  returned an invalid shape.
+- **Completed:** BachsProof read committed state and the financial rules passed.
+- **Completed with violations:** state was read, but one or more rules failed.
 
-Import and enable `verify`. Set `requireFinancialVerification: true` when CI
-must refuse an unverified run.
+Import and enable `verify()`. Set `requireFinancialVerification: true` when CI
+must reject a delivery-only result.
 
 ## Verifier timeout
 
-Return `pending: true` while work is in flight, inspect the same test database
-used by the worker, and increase the bounded deadline only when the application
-needs it. A callback error or malformed value is a real failure, not a pending
-state.
+Return `pending: true` only while a worker can still change the committed state.
+Make sure the verifier and worker use the same isolated database. Increase the
+bounded deadline only when the application genuinely needs more time.
 
-If the callback returns inaccurate data, check that it reads the same isolated
-database used by the webhook worker and filters by the requested reference. A
-callback that returns expected values instead of committed rows can make a bad
-test look good.
+Do not use `pending: true` to hide a callback error or a malformed result. A
+payment status of `PENDING` alone is not proof that webhook work is still
+running; read the worker or queue state your application uses.
 
-If validation reports a path such as `ledgerEntries[0].type`, add the missing
-required property. Each ledger entry needs `id`, `type`, and `amountMinor`; the
-array itself is optional.
+## Invalid verifier fields
 
-## Separate test data
-
-Use a separate test database or a clearly isolated test schema. BachsProof does
-not reset, migrate, or delete application data, and duplicate or negative
-scenarios intentionally create unusual inputs. Fresh references and scoped
-cleanup prevent one run from changing the next run.
+The required fields are `reference`, `creditCount`, `creditedAmountMinor`, and
+`currency`. If you include `ledgerEntries`, every entry needs `id`, `type`, and
+integer `amountMinor`; `currency` is optional on an entry. For PostgreSQL
+`BIGINT`, check the JavaScript safe-integer range before converting.
 
 ## Duplicate or stale results
 
-Create one fresh payment per selected test, use scoped cleanup, and make sure
-the verifier reads committed credits for the requested reference. Do not share
-a customer balance between tests unless the test explicitly needs that state.
+Use one fresh payment per selected test and read committed credits for the
+requested reference. Use scoped cleanup so one run cannot change the next run.
+Do not share a customer balance between tests unless that shared state is the
+thing you are testing.

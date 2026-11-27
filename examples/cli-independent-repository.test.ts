@@ -77,8 +77,8 @@ describe("BachsProof CLI in an independent repository", () => {
       throw new Error(`Installed CLI did not initialize the fixture. entry=${cliEntry}\nstdout=${initialized.stdout}\nstderr=${initialized.stderr}`);
     }
     expect(initialized.stdout).toContain("BachsProof initialized successfully!");
-    expect(initialized.stdout).toContain("Step 1: Open bachsproof.config.mjs");
-    expect(initialized.stdout).toContain("Step 6: Run all payment scenarios");
+    expect(initialized.stdout).toContain("Step 2: Open bachsproof.config.mjs");
+    expect(initialized.stdout).toContain("Step 7: Run all payment scenarios");
     expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("target");
     expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).toContain("sequential-duplicate-webhook");
     expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).not.toContain("BACHSPROOF_REFERENCES");

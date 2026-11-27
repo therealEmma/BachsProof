@@ -1,40 +1,81 @@
 ---
 title: "CLI configuration"
-description: "Reference for BachsProofConfig and its defaults."
+description: "Configure the target application, scenarios, callbacks, and verification."
 ---
 
-| Field | Type | Required | Default / behavior |
-| --- | --- | --- | --- |
-| `provider` | `ProviderAdapter` | Yes | No default |
-| `target.baseUrl` | `string` | Yes | Base URL for the application |
-| `target.webhookPath` | `string` | Yes | Path appended with `new URL` |
-| `target.headers` | `Record<string,string>` | No | Added to every delivery |
-| `tests` | `BachsProofCliTest[]` | Yes, non-empty | Selected sequentially by the CLI |
-| `createPayment` | `PaymentReferenceCreator` | No | Called only when a reference is missing |
-| `verify` | `FinancialVerifier` | No | No committed-state observation when absent |
-| `financialVerification` | `FinancialVerificationOptions` | No | 10,000ms completion, 25ms polling, 250ms negative window |
-| `checkpoint.name` | `string` | No | Controlled mode disabled |
-| `checkpoint.timeoutMs` | `number` | No | 10,000ms controller wait |
-| `signing.type` | `"bachs"` | No | No CLI signing wrapper |
-| `signing.secret` | `string` | With Bachs signing | Must be non-empty |
-| `signing.timestamp` | `number` | No | Current Unix timestamp when omitted |
-| `requireFinancialVerification` | `boolean` | No | `false`; fails config loading when true and `verify` is absent |
+Create `bachsproof.config.mjs` in the application repository. The smallest
+useful configuration points BachsProof at your test webhook and imports the
+scenario list:
 
 ```js
-import { defineConfig, bachsAdapter } from "@bachsproof/cli";
+import { bachsAdapter } from "@bachsproof/cli";
 import { tests } from "./tests/bachsproof.test.mjs";
+import { createPayment } from "./tests/bachsproof.setup.mjs";
+import { verify } from "./tests/bachsproof.verify.mjs";
 
-export default defineConfig({
+export default {
   provider: bachsAdapter({ mode: "mock" }),
   target: {
-    baseUrl: "http://127.0.0.1:3000",
-    webhookPath: "/webhooks/bachs"
+    baseUrl: process.env.BACHSPROOF_TARGET_URL,
+    webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH
   },
-  tests,
-  requireFinancialVerification: true
-});
+  createPayment,
+  verify,
+  requireFinancialVerification: true,
+  tests
+};
 ```
 
-`defineConfig` returns the same object; it exists to preserve TypeScript
-inference and editor feedback. Config loading is implemented in
-`packages/cli/src/runner.ts`.
+The two callbacks are application code. `createPayment()` creates the fresh
+test record. `verify()` reads the record after the webhook runs. Keep both
+connected to the same isolated test database as the application.
+
+## Configuration fields
+
+| Field | Type | Required | What it controls |
+| --- | --- | --- | --- |
+| `provider` | `ProviderAdapter` | Yes | Creates the provider-shaped test event |
+| `target.baseUrl` | `string` | Yes | Host where the test application is running |
+| `target.webhookPath` | `string` | Yes | Webhook path appended to the host |
+| `target.headers` | `Record<string,string>` | No | Extra headers sent with every request |
+| `tests` | `BachsProofCliTest[]` | Yes | Named scenarios to run |
+| `createPayment` | `PaymentReferenceCreator` | No | Creates a reference when a test does not provide one |
+| `verify` | `FinancialVerifier` | No | Reads committed financial state |
+| `requireFinancialVerification` | `boolean` | No | Fails setup if `verify` is missing when `true` |
+| `financialVerification` | object | No | Completion deadline, polling interval, and negative observation window |
+| `signing.type` | `"bachs"` | No | Adds a Bachs test signature to the request |
+| `signing.secret` | `string` | With Bachs signing | Test-only secret used by your webhook handler |
+| `signing.timestamp` | `number` | No | Unix timestamp; current time is used when omitted |
+| `checkpoint.name` | `string` | No | Enables the optional controlled-concurrency barrier |
+| `checkpoint.timeoutMs` | `number` | No | How long the controller waits for requests |
+
+## Financial verification timing
+
+Use `financialVerification` when your application saves money in a background
+worker:
+
+```js
+financialVerification: {
+  completionDeadlineMs: 10_000,
+  pollIntervalMs: 25,
+  negativeObservationWindowMs: 250
+}
+```
+
+- `completionDeadlineMs` is the maximum time BachsProof waits for an eligible
+  payment to finish.
+- `pollIntervalMs` is the time between reads while `pending: true` is returned.
+- `negativeObservationWindowMs` is the short wait for a late, unexpected credit
+  in a scenario that should create no credit.
+
+These windows are bounded. They reduce early results but cannot prove that a
+future job will never write a credit.
+
+## Important safety rules
+
+- Load secrets from environment variables. Do not commit them or put them in
+  browser code.
+- Use a separate application, database, queue, and signing secret.
+- Set `requireFinancialVerification: true` for CI when a delivery-only pass is
+  not enough.
+- Do not enable checkpoint headers in production.

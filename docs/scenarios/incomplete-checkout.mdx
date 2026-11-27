@@ -3,40 +3,35 @@ title: "Incomplete checkout"
 description: "Prevent fulfilment when checkout completed without a collected payment."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Finishing a checkout screen does not always mean money was collected. A
-`checkout.completed` event with `payment_status: "no_payment_required"` and no
-charge must not credit a wallet. For ₦5,000, the correct credit count is zero.
+This test sends a completed checkout whose payment status is
+`no_payment_required` and whose charge is `null`.
 
-## What BachsProof sends
+## Why does it matter?
 
-The plan sends one completed, payment-mode checkout with a non-paying status and
-`charge: null`. It normally expects 2xx because the application may safely
-record or acknowledge an unfulfillable event.
+Finishing a checkout screen does not always mean that money was collected. A
+wallet must not credit ₦5,000 when the provider reports no charge.
 
-```js
-{
-  name: "checkout without collection is not a deposit",
-  scenario: "incomplete-checkout",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof sends one `checkout.completed` event in payment mode, but marks it
+ineligible because there is no collected charge. The normal expected HTTP
+response is 2xx: your application may safely record or acknowledge the event.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "incomplete checkout"
 ```
 
 ## What the application should do
 
-Require a paid status and an actual charge before crediting. A checkout screen
-completing is a user-interface state, not proof that Bachs collected ₦5,000.
+Require a paid status and an actual charge before fulfilling the order. Treat a
+checkout screen state as information, not as proof that Bachs collected money.
 
-## Expected outcome and failure
+## Pass and failure
 
-The verifier should observe zero credits. A credit violates `INV-004`. For an
-asynchronous application, return `pending: true` while unfinished work remains
-and allow the negative observation window to elapse.
-
-## Internal implementation
-
-`checkoutFixture` in `packages/bachs/src/fixtures.ts` sets
-`payment_status: "no_payment_required"`, `charge: null`, and `eligible: false`.
-`expectedNoCredit` sets `expectedCreditCount` to zero.
+A financially verified pass has zero credits. Any credit fails `INV-004`. If
+work is asynchronous, return `pending: true` while unfinished work can still
+change the state.

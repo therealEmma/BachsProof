@@ -3,43 +3,37 @@ title: "Incorrect payment amount"
 description: "Prevent fulfilment when the event amount does not match the order."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Your order expects ₦5,000 (`500_000` kobo), but a successful-looking event
-reports one minor unit more. The application must not credit the order until
-the event amount matches the stored amount.
+This test uses an order expecting ₦5,000 (`500_000` kobo) and sends a
+successful-looking event with an amount that is one minor unit higher.
 
-## What BachsProof sends
+## Why does it matter?
 
-It creates a valid-shaped `collection.succeeded` event with the same reference
-and currency but `amountMinor + 1`:
+The amount in a request must not become the order price just because the request
+looks successful. Crediting the wrong amount can cause both a financial loss and
+an incorrect customer balance.
 
-```js
-{
-  name: "wrong amount is not fulfilled",
-  scenario: "incorrect-payment-amount",
-  amountMinor: 500_000,
-  currency: "NGN"
-}
+## What BachsProof does
+
+BachsProof creates a valid-shaped `collection.succeeded` event with the right
+reference and currency, but changes the amount to `amountMinor + 1`. The normal
+HTTP expectation is 2xx because the application may acknowledge a business
+rejection after safely deciding not to fulfil.
+
+Run it with:
+
+```bash
+pnpm exec bachsproof test --name "incorrect payment amount"
 ```
-
-The application may return 2xx while deciding not to fulfil a valid-shaped but
-business-invalid event.
 
 ## What the application should do
 
-Compare integer amount and scale with the amount stored for the reference. Do
-not trust the event's amount as the order price and do not create a credit for
-`500_001` minor units when the order expects `500_000`.
+Load the expected amount from the stored order and compare integer minor units
+and currency before fulfilment. Do not trust the event amount as the price and
+do not create a credit for `500_001` when the order expects `500_000`.
 
-## Expected outcome and failure
+## Pass and failure
 
-Zero credits are expected; a credit fails `INV-004`. BachsProof does not know
-your order table and cannot decide whether the mismatch is correct without your
-application's verification callback.
-
-## Internal implementation
-
-`createBachsScenario` calls `createBachsMockFixture` with `amountMinor + 1` and
-uses `expectedNoCredit` for the reference. The mutation is in
-`packages/bachs/src/fixtures.ts`.
+A pass has zero credits. Any credit fails `INV-004`. A delivery-only pass does
+not prove this: enable `verify()` so BachsProof can read the saved state.

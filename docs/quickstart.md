@@ -4,6 +4,17 @@ This guide takes you from installation to a financially verified test. BachsProo
 sends synthetic webhook requests to an isolated copy of your application. It does
 not call Bachs, move money, or change your production code.
 
+If you want to see a copy-paste runnable example before connecting your own
+database, run the [reference wallet test](first-payment-test.mdx) from this
+repository:
+
+```bash
+pnpm exec vitest run apps/reference-wallet/tests/wallet.integration.test.ts
+```
+
+The steps below show how to connect BachsProof to your own payment or order
+tables.
+
 ## 1. Install and initialize
 
 ```bash

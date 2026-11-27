@@ -5,12 +5,12 @@ import { join, resolve } from "node:path";
 const configTemplate = `/**
  * BachsProof test configuration.
  *
- * Follow the two application-specific steps:
- *   1. createPayment prepares a fresh test payment or order;
+ * Required before a financially verified run:
+ *   1. createPayment creates a fresh test payment or order;
  *   2. verify reads the committed payment and ledger state.
  *
- * Both helpers are test-only. BachsProof does not add routes or modify the
- * production application.
+ * These helpers are your test code. BachsProof does not add routes, inspect
+ * arbitrary tables, or modify the production application.
  *
  * If this is a monorepo and your .env file is not loaded by the test command,
  * load it with the environment loader already used by your application before
@@ -28,10 +28,10 @@ const target = {
 const signingSecret = process.env.BACHS_WEBHOOK_SECRET;
 const signing = signingSecret ? { type: "bachs", secret: signingSecret } : undefined;
 
-// Uncomment after implementing tests/bachsproof.setup.mjs.
+// Required for real application references. Implement it first, then uncomment.
 // import { createPayment } from "./tests/bachsproof.setup.mjs";
 
-// Uncomment after implementing tests/bachsproof.verify.mjs.
+// Required for financial proof. It must read committed state, then uncomment.
 // import { verify } from "./tests/bachsproof.verify.mjs";
 
 export default {
@@ -40,6 +40,7 @@ export default {
   ...(signing ? { signing } : {}),
   // createPayment,
   // verify,
+  // Set this to true when CI must reject delivery-only results.
   // requireFinancialVerification: true,
   // financialVerification: {
   //   completionDeadlineMs: 10_000,
@@ -53,10 +54,15 @@ export default {
 const testTemplate = `/**
  * BachsProof scenarios.
  *
+ * What each entry controls:
+ *   - scenario selects the payment situation;
+ *   - amountMinor is an integer minor-unit amount (500_000 NGN means ₦5,000);
+ *   - currency selects the test currency;
+ *   - expectedStatus is useful when the application should reject an event.
+ *
  * Real application references are the default. Implement createPayment in
- * bachsproof.setup.mjs to create fresh test records automatically, or put an
- * explicit reference on a selected test. Synthetic references are only for
- * isolated fixture tests.
+ * bachsproof.setup.mjs or add an explicit reference. Synthetic references are
+ * only for isolated fixture tests and are not financial evidence.
  *
  * Run one: pnpm exec bachsproof test --name "sequential duplicate webhook"
  * Run all: pnpm exec bachsproof test
@@ -114,14 +120,14 @@ export const tests = [
 `;
 
 const setupTemplate = `/**
- * Create isolated application payment records for BachsProof.
+ * Create an isolated application payment record for BachsProof.
  *
- * This callback is optional when tests provide real references directly. It is
- * recommended for repeatedly running the complete suite.
+ * This callback is optional only when every selected test already has a real
+ * reference. It is recommended for a suite that you will run more than once.
  *
- * BachsProof calls it only for selected scenarios that need a reference. Every
- * call must create a fresh test payment or order and return its reference.
- * It must not charge a card, call a live provider, or move real money.
+ * BachsProof calls it before a selected scenario needs a reference. Every call
+ * must create a fresh test payment or order and return its reference. It must
+ * not charge a card, call a live provider, or move real money.
  *
  * BachsProof passes five properties:
  *   - scenario: the named scenario currently running;
@@ -131,6 +137,8 @@ const setupTemplate = `/**
  *   - paymentCount: the total number of payments this scenario needs.
  *
  * Use an existing isolated test API, application service, ORM, or seed helper.
+ * The applicationTestApi name below is an example; BachsProof does not provide
+ * it. Replace it with your own code.
  */
 export async function createPayment({
   scenario,
@@ -160,11 +168,11 @@ export async function createPayment({
 `;
 
 const verifierTemplate = `/**
- * Read committed financial state for BachsProof.
+ * Read the committed financial state for BachsProof.
  *
- * HTTP 200 only proves that the webhook route acknowledged a request. This
- * callback must read the payment and actual credit or ledger records.
- * Do not return hardcoded expected values.
+ * HTTP 200 only proves that the webhook route answered. This callback must
+ * read the payment and actual credit or ledger records. Do not return hardcoded
+ * expected values from the scenario configuration.
  *
  * Return the four required fields: reference, creditCount,
  * creditedAmountMinor, and currency. You may also return status, pending, and
@@ -180,7 +188,7 @@ export async function verify(reference, context) {
   // Minimal valid response:
   // return { reference, creditCount: 0, creditedAmountMinor: 0, currency: "NGN" };
   //
-  // Complete example. Replace applicationTestApi with your own database or
+  // Complete shape. Replace applicationTestApi with your own database or
   // ledger reader. This helper is not provided by BachsProof.
   // const state = await applicationTestApi.readCommittedFinancialState(reference);
   // const toSafeMinorUnits = (value) => {

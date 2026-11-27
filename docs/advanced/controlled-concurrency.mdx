@@ -88,7 +88,7 @@ The core enables the checkpoint path only for
 participant per `concurrency`, sends the requests, waits for arrivals, calls
 `release`, records the trace, and cleans the session in `finally`.
 
-## Complete Express-style application example
+## Express-style placement example
 
 ```ts
 import express from "express";
@@ -112,6 +112,8 @@ app.use(checkpointMiddleware({
 }));
 
 app.post("/webhooks/bachs", express.json(), async (req, res) => {
+  // These two functions are your application code. They read and write the
+  // same isolated database used by the webhook in normal testing.
   const payment = await readPayment(req.body.data.reference);
   if (payment.status === "COMPLETED") return res.sendStatus(200);
 
@@ -121,6 +123,10 @@ app.post("/webhooks/bachs", express.json(), async (req, res) => {
   return res.sendStatus(200);
 });
 ```
+
+This is a placement example, not a copy-paste application. Replace
+`readPayment` and `creditPaymentAtomically` with your own functions. The rest
+of the checkpoint setup can be copied into an Express test build.
 
 Line by line:
 

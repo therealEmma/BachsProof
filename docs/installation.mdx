@@ -1,16 +1,28 @@
 ---
-title: "Installation"
-description: "Install BachsProof in an independent application repository."
+title: "Install BachsProof"
+description: "Install BachsProof in the application repository that owns your webhook."
 ---
 
-BachsProof is installed in the application repository that owns the webhook you
-want to test. It does not need to be part of the BachsProof source repository.
+BachsProof is installed in the repository that contains the webhook you want to
+test. It does not need to be added to the BachsProof source repository.
 
-The commands below use the intended package names and version `1.1.0`. They are
-the correct commands once the new namespace has been published to the registry;
-this repository does not publish packages automatically. If the registry does
-not yet contain `@bachsproof/cli@1.1.0`, use a packed tarball or a workspace
-checkout instead of assuming that `npx` can download it.
+## Before you install
+
+You need:
+
+- Node.js 22 or later;
+- npm, pnpm, or yarn;
+- an application running in a separate test environment;
+- a webhook URL that the test runner can reach;
+- a test database or other isolated payment store;
+- a test-only webhook signing secret if your handler verifies signatures.
+
+Do not point BachsProof at production. The generated events are safe test data,
+but your application may still write real-looking financial records.
+
+## 1. Install the CLI
+
+Choose the package manager used by your application:
 
 <CodeGroup>
 
@@ -28,59 +40,55 @@ yarn add --dev @bachsproof/cli@1.1.0
 
 </CodeGroup>
 
-## Which package should I install?
+If version `1.1.0` is not yet available in your registry, use the packed
+tarball or workspace instructions for your checkout. Do not assume that
+`npx` can download an unpublished package.
 
-The four BachsProof packages are released together at version `1.1.0`:
+## 2. Create the starter files
 
-| Package | Install it when | Responsibility |
-| --- | --- | --- |
-| `@bachsproof/cli` | You want the normal command-line workflow | Loads config, runs named tests, prints summaries, and returns an exit status |
-| `@bachsproof/core` | You want to call BachsProof from Vitest, Jest, or your own runner | Sends deliveries, polls verification, evaluates invariants, and builds reports |
-| `@bachsproof/bachs` | You use the built-in Bachs-shaped provider adapter | Creates fixtures, scenario plans, signatures, and exact money conversions |
-| `@bachsproof/sdk` | You need a repeatable application-level race | Adds optional test-only request checkpoints |
-
-Most developers need only `@bachsproof/cli`. The CLI depends on the core and
-Bachs packages. Install `@bachsproof/core` and `@bachsproof/bachs` directly for a
-programmatic runner. Add `@bachsproof/sdk` only when the optional checkpoint
-workflow is useful.
-
-The built-in Bachs adapter is explicitly `mode: "mock"`. It creates local,
-documented-shaped webhook bodies; it does not need a Bachs API key and does not
-call Bachs.
-
-## Runtime requirements
-
-- Node.js 22 or later.
-- An application running in an isolated test environment.
-- A reachable webhook URL.
-- Either a test-side payment preparation function or explicit application
-  references for scenarios that need payments.
-- A test-side verifier if you want committed financial correctness checks.
-
-## Initialize the files
+Run the command for your package manager from the application repository:
 
 ```bash
-npx bachsproof init
+pnpm exec bachsproof init
 ```
 
-`bachsproof init` creates four files:
+With npm use `npx bachsproof init`. With yarn use `yarn bachsproof init`.
 
-- `bachsproof.config.mjs`: imports the adapter and test list, sets the target
-  URL/path and optional signing, and connects the callbacks;
-- `tests/bachsproof.test.mjs`: exports the 15 named scenario definitions and
-  their amounts, currencies, references, and expected HTTP statuses;
-- `tests/bachsproof.setup.mjs`: contains the application-specific
-  `createPayment` function that creates an isolated record and returns its
-  reference;
-- `tests/bachsproof.verify.mjs`: contains the application-specific `verify`
-  function that reads committed credits or ledger entries.
+It creates:
 
-The last two callbacks intentionally throw until you connect them to your own
-test data. This prevents a delivery-only run from looking like a financial
-verification pass. The generated suite uses real application references by
-default. Synthetic references are an explicit fixture-only opt-in. The config
-imports the test list; the test list does not import the config, so the same
-scenarios can be selected by the CLI without circular setup.
+| File | What you do there |
+| --- | --- |
+| `bachsproof.config.mjs` | Set the test URL, webhook path, callbacks, and optional signing. |
+| `tests/bachsproof.test.mjs` | Choose the named payment scenarios. |
+| `tests/bachsproof.setup.mjs` | Create a fresh test payment and return its reference. |
+| `tests/bachsproof.verify.mjs` | Read the payment and credit records your application committed. |
 
-`bachsproof init` refuses to overwrite an existing file. Use
-`bachsproof init --force` only when replacing those files is intentional.
+The setup and verifier files intentionally throw until you implement them.
+This prevents an HTTP-only run from being mistaken for a financial pass.
+
+`init` will not overwrite an existing file. Use the following only when you
+have reviewed the files and intend to replace them:
+
+```bash
+pnpm exec bachsproof init --force
+```
+
+## Which package should I install?
+
+Most developers need only `@bachsproof/cli`.
+
+| Package | Install it when | What it does |
+| --- | --- | --- |
+| `@bachsproof/cli` | You want the normal command-line workflow | Creates starter files, runs tests, and prints results |
+| `@bachsproof/core` | You want to call BachsProof from Vitest, Jest, or your own runner | Sends events, verifies state, and applies financial rules |
+| `@bachsproof/bachs` | You use the built-in Bachs adapter directly | Creates local Bachs-shaped events and signs them |
+| `@bachsproof/sdk` | You need to repeat a specific application race | Adds optional test-only checkpoints |
+
+The built-in adapter uses `mode: "mock"`. It creates local event bodies and does
+not need a Bachs API key.
+
+## Next step
+
+Follow the [beginner quickstart](/quickstart). It shows how to load environment
+variables, create a fresh payment record, read committed state, and run a
+financially verified test.

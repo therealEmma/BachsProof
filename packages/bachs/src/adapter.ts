@@ -13,7 +13,7 @@ export interface BachsAdapterOptions {
  */
 export function bachsAdapter(options: BachsAdapterOptions): ProviderAdapter<BachsPaymentEvent> {
   if (options.mode !== "mock") {
-    throw new Error("Only Bachs mock mode is implemented in BachsProof v1.1; no undocumented sandbox contract is assumed");
+    throw new Error("BachsProof currently supports only local mock mode. Use bachsAdapter({ mode: \"mock\" }); it does not call the Bachs sandbox.");
   }
   return {
     // These values are copied into reports and help distinguish provider modes.
@@ -21,7 +21,7 @@ export function bachsAdapter(options: BachsAdapterOptions): ProviderAdapter<Bach
     mode: "mock",
     createPayment(input?: BachsFixtureOptions) {
       if (!input?.reference && !input?.syntheticReferences) {
-        throw new Error("A real application payment reference is required; set syntheticReferences: true only for fixture-only tests");
+        throw new Error("A real application payment reference is required. Add reference or createPayment, or set syntheticReferences: true only for an isolated fixture test.");
       }
       return createBachsMockFixture({ customerId: options.customerId, ...input });
     },

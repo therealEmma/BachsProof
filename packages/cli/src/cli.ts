@@ -5,46 +5,47 @@ import { financialVerificationLabel } from "./verification-status.js";
 
 function usage(): string {
   return `BachsProof payment correctness testing
+Test whether your payment webhook handles money correctly.
 
 Usage:
   bachsproof init [directory] [--force]
   bachsproof test [--config <path>] [--name <test-name>] [--json]
 
-init creates bachsproof.config.mjs, tests/bachsproof.test.mjs,
-tests/bachsproof.setup.mjs, and a hard-fail tests/bachsproof.verify.mjs template.
-test sends configured provider events to the target webhook and reports delivery
-and, when configured, committed financial verification results.
+init creates a config, the scenario list, a payment-preparation template, and a
+financial-verification template.
+test sends configured test events to the target webhook and reports HTTP
+delivery plus, when configured, the financial state your application committed.
 `;
 }
 
 function explainOnboardingError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Refusing to overwrite existing BachsProof files")) {
-    return `${message}\nOpen the listed files if you want to keep them, or run "bachsproof init --force" only when replacing them is intentional.`;
+    return `${message}\nOpen the listed files if you want to keep them. Use "bachsproof init --force" only when replacing them is intentional.`;
   }
   if (message.includes("real application reference is required") || message.includes("A real application reference is required")) {
-    return `${message}\nOpen tests/bachsproof.setup.mjs and implement createPayment, or add a real reference to the selected test. Use BACHSPROOF_USE_SYNTHETIC_REFERENCES=true only for an isolated fixture run.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs and implement createPayment, or add a fresh real reference to the selected test. Use BACHSPROOF_USE_SYNTHETIC_REFERENCES=true only for an isolated fixture run; that run is not financial proof.`;
   }
   if (message.includes("Payment preparation failed") || message.includes("createPayment must return")) {
-    return `${message}\nOpen tests/bachsproof.setup.mjs. Create an isolated test payment and return its non-empty order or payment reference. BachsProof will not send a webhook until preparation succeeds.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs. Create a fresh isolated test payment and return its non-empty reference. BachsProof will not send a webhook until preparation succeeds.`;
   }
   if (message.includes("already assigned to another selected scenario")) {
-    return `${message}\nOpen tests/bachsproof.setup.mjs or tests/bachsproof.test.mjs and make each selected scenario use a fresh payment reference.`;
+    return `${message}\nOpen tests/bachsproof.setup.mjs or tests/bachsproof.test.mjs. Each selected scenario needs its own fresh payment reference.`;
   }
   if (message.includes("Financial verification is required")) {
-    return `${message}\nOpen tests/bachsproof.verify.mjs, implement verify(reference, context) by reading committed financial records, then enable verify and requireFinancialVerification in bachsproof.config.mjs.`;
+    return `${message}\nOpen tests/bachsproof.verify.mjs and implement verify(reference, context) by reading committed payment and credit records. Then enable verify and requireFinancialVerification in bachsproof.config.mjs.`;
   }
   if (message.includes("requires target.baseUrl") || message.includes("requires a provider adapter") || message.includes("requires at least one test")) {
-    return `${message}\nOpen bachsproof.config.mjs and follow its numbered STEP sections. The provider, target URL/path, and tests are required.`;
+    return `${message}\nOpen bachsproof.config.mjs. The provider, target URL/path, and at least one test are required. Use the generated comments as a checklist.`;
   }
   if (message.includes("Financial verification returned")) {
-    return `${message}\nOpen tests/bachsproof.verify.mjs and return the requested reference plus the actual creditCount, creditedAmountMinor, and currency from committed test data.`;
+    return `${message}\nOpen tests/bachsproof.verify.mjs. Return the requested reference plus the actual creditCount, creditedAmountMinor, and currency read from committed test data.`;
   }
   if (message.includes("Webhook delivery") && message.includes("HTTP 4")) {
-    return `${message}\nOpen bachsproof.config.mjs STEP 2 and check BACHSPROOF_TARGET_URL, BACHSPROOF_WEBHOOK_PATH, and BACHS_WEBHOOK_SECRET. Your application may also be rejecting the test event as expected; set expectedStatus in tests/bachsproof.test.mjs when that rejection is part of the scenario.`;
+    return `${message}\nCheck BACHSPROOF_TARGET_URL, BACHSPROOF_WEBHOOK_PATH, and BACHS_WEBHOOK_SECRET. Your application may also be rejecting the test event on purpose; set expectedStatus in tests/bachsproof.test.mjs when that rejection is expected.`;
   }
   if (message.includes("Webhook delivery") && message.includes("HTTP 5")) {
-    return `${message}\nOpen your application's test webhook handler and logs. The application returned a server error while handling the simulated event.`;
+    return `${message}\nOpen your application's test webhook handler and logs. The application returned a server error while handling the test event.`;
   }
   if (message.includes("No BachsProof test named")) {
     return `${message}\nOpen tests/bachsproof.test.mjs and copy the exact value from the test's name property, for example "sequential duplicate webhook".`;
@@ -57,34 +58,36 @@ function printInitializationGuide(): void {
 BachsProof initialized successfully!
 
 WHAT IS BACHSPROOF?
-BachsProof sends simulated payment webhooks to your application and checks
-whether your application handles money correctly. It does not move real money.
+BachsProof sends test payment webhooks to your application and checks whether
+your application saved the right money state. It does not move real money.
 
 GET STARTED
 
-Step 1: Open bachsproof.config.mjs
-        Set your application's base URL, webhook path, and test-only signing secret.
+Step 1: Start your application with an isolated test database.
 
-Step 2: Open tests/bachsproof.setup.mjs
-        Show BachsProof how to create an isolated test payment and return its reference.
-        This is optional when you provide references manually in the test file.
+Step 2: Open bachsproof.config.mjs
+        Set the test base URL, webhook path, and test-only signing secret.
 
-Step 3: Open tests/bachsproof.verify.mjs
-        Show BachsProof how to read the actual payment and credit records from your test data.
+Step 3: Open tests/bachsproof.setup.mjs
+        Create a fresh test payment and return the reference your webhook reads.
+        This is optional only when every test already has a real reference.
 
-Step 4: Enable the two functions
-        Uncomment createPayment in bachsproof.config.mjs. If you want financial
-        correctness checks, also uncomment verify and requireFinancialVerification.
+Step 4: Open tests/bachsproof.verify.mjs
+        Read the actual payment and credit records from your test data.
 
-Step 5: Run your first test
+Step 5: Enable the callbacks
+        Uncomment createPayment. For financial proof, also uncomment verify and
+        requireFinancialVerification.
+
+Step 6: Run your first test
         pnpm exec bachsproof test --name "sequential duplicate webhook"
 
-Step 6: Run all payment scenarios
+Step 7: Run all payment scenarios
         pnpm exec bachsproof test
 
 IMPORTANT
-Only use BachsProof against an isolated test environment.
-Never send simulated payment webhooks to a production application.
+Use an isolated application, database, queue, and webhook secret.
+Never send test payment webhooks to production.
 `);
 }
 
@@ -141,7 +144,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     }
     console.log(`Summary: ${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.financiallyVerified} financially verified, ${summary.financiallyUnverified} unverified, ${summary.financialViolations} financial violations, ${summary.durationMs}ms`);
     if (!config.verify) {
-      console.log("WARNING: black-box delivery success is not deterministic race coverage and does not prove committed financial correctness.");
+      console.log("WARNING: this run checks delivery only. It does not prove committed financial correctness or deterministic race coverage.");
     }
   }
   return failed ? 1 : 0;

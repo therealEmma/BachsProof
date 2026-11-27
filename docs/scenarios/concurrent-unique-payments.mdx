@@ -1,22 +1,25 @@
 ---
 title: "Concurrent unique payments"
-description: "Check that independent payments remain independent under load."
+description: "Check that separate payments stay separate when processed together."
 ---
 
-## What problem does it test?
+## What is being tested?
 
-Two different customers pay at the same time. Processing one payment must not
-credit the other customer or make either payment disappear. For example, two
-customers can each deposit ₦5,000 and should receive one credit each.
+This test processes two different payments at the same time. For example, two
+customers each pay ₦5,000 and each should receive one credit.
 
-## What BachsProof sends
+## Why does it matter?
 
-It creates one eligible `collection.succeeded` event for every distinct
-reference and delivers them concurrently:
+Shared variables, incorrect database filters, or reused references can cause one
+customer's payment to credit another customer, or cause one payment to be lost.
+
+## What BachsProof does
+
+BachsProof creates one eligible `collection.succeeded` event for each distinct
+payment reference and delivers them concurrently:
 
 ```js
 {
-  name: "two unique ₦5,000 payments",
   scenario: "concurrent-unique-payments",
   references: ["payment-a", "payment-b"],
   concurrency: 2,
@@ -25,26 +28,22 @@ reference and delivers them concurrently:
 }
 ```
 
-The references must be non-empty, distinct, and match `concurrency`. Automatic
-preparation calls `createPayment` once per payment.
+When `createPayment()` is enabled, BachsProof calls it once per payment. Run it
+with:
+
+```bash
+pnpm exec bachsproof test --name "concurrent unique payments"
+```
 
 ## What the application should do
 
-Use each event's own reference and customer/order association. A credit for
-`payment-a` must not be linked to `payment-b`, even though both requests arrive
-in one delivery wave. Each transaction should protect only its own payment.
+Use each event's own payment reference and customer or order association. A
+credit for `payment-a` must never be attached to `payment-b`. Keep each payment
+write scoped to its own record.
 
-## Expected outcome and failure
+## Pass and failure
 
-Each reference should have exactly one `500_000`-kobo NGN credit. BachsProof
-verifies each reference independently, so an over-credit on one cannot be hidden
-by an under-credit on another. Missing credits fail `INV-003`; duplicates fail
-`INV-001`; wrong totals or currencies fail `INV-002` and possibly `INV-005`.
-
-## Internal implementation
-
-`BachsProof.run` creates one event per reference, delivers them with
-`settleConcurrentDeliveries`, then creates one verification case per event and
-stores them in `report.payments`. `preparePaymentReferences` in
-`packages/core/src/preparation.ts` handles one callback call per payment when
-references are not supplied.
+A pass has one `500_000`-kobo NGN credit for each reference. Missing credits fail
+`INV-003`; duplicate credits fail `INV-001`; wrong totals or currencies fail
+`INV-002` and possibly `INV-005`. BachsProof checks each reference separately,
+so an error for one payment cannot hide an error for another.

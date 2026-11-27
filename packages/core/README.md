@@ -1,67 +1,54 @@
-# @bachsproof/core
+# `@bachsproof/core`
 
-**Beyond webhook delivery. Verify financial correctness.**
+The provider-independent test runner used by BachsProof.
 
-The core package provides the application-side runner for BachsProof, a financial
-correctness testing framework for applications integrating Bachs. It sends
-controlled test deliveries to an existing webhook endpoint and evaluates state
-returned by the application's verification callback.
+Use this package when you want to run payment scenarios from Vitest, Jest, or a
+custom test script instead of the CLI. The runner sends a test event to your
+existing webhook, records the response, calls your `verify()` callback, and
+checks the financial rules.
 
-The core runner sends serialized provider events to an existing webhook URL,
-records every delivery, optionally coordinates an instrumented checkpoint, and
-applies financial invariants to state returned by the application's
-verify(reference, context) callback.
+```ts
+import { BachsProof } from "@bachsproof/core";
+import { bachsAdapter } from "@bachsproof/bachs";
 
-    import { BachsProof } from "@bachsproof/core";
-    import { bachsAdapter } from "@bachsproof/bachs";
+const runner = new BachsProof({
+  provider: bachsAdapter({ mode: "mock" }),
+  target: {
+    baseUrl: "http://127.0.0.1:3000",
+    webhookPath: "/webhooks/bachs"
+  },
+  verify: (reference) => readCommittedState(reference),
+  financialVerification: {
+    completionDeadlineMs: 10_000,
+    pollIntervalMs: 25,
+    negativeObservationWindowMs: 250
+  }
+});
 
-    const bachsproof = new BachsProof({
-      provider: bachsAdapter({ mode: "mock" }),
-      target: {
-        baseUrl: "http://127.0.0.1:3000",
-        webhookPath: "/webhooks/bachs"
-      },
-      verify: async (reference) => readCommittedState(reference),
-      financialVerification: {
-        completionDeadlineMs: 10_000,
-        pollIntervalMs: 25,
-        negativeObservationWindowMs: 250
-      }
-    });
+const result = await runner.run({
+  scenario: "concurrent-duplicate-credit",
+  reference: "isolated-test-payment-001",
+  amountMinor: 500_000,
+  currency: "NGN",
+  concurrency: 2
+});
 
-    const result = await bachsproof.run({
-      scenario: "concurrent-duplicate-credit",
-      reference: "isolated-test-order-001",
-      amountMinor: 500_000,
-      currency: "NGN"
-    });
+if (!result.passed) process.exitCode = 1;
+```
 
-verify(reference) remains valid. The optional second argument supplies the
-scenario, expected outcome, related event identifiers, and delivery records.
-The callback must return independently observed committed state. It must not
-return hardcoded expected values.
-
-The required callback fields are `reference`, `creditCount`,
-`creditedAmountMinor`, and `currency`. Optional `ledgerEntries` entries must
-contain `id`, `type`, and `amountMinor` (with optional `currency`). A missing
-`type` is a runtime validation error even though the array itself is optional.
-
-If the callback returns pending: true, the core polls until the configured
-bounded deadline. Missing or unsuccessful verification never becomes a
-financial pass. Omitting verify is valid for delivery-only testing, but
-financiallyVerified is false.
+`readCommittedState()` is application code. It must read the same isolated
+database used by the webhook worker. It must return `reference`, `creditCount`,
+`creditedAmountMinor`, and `currency`. Do not return the expected values from
+the test as a shortcut.
 
 Payment references are real application references by default. Use
-createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount })
-for automatic test-record preparation, explicit reference or references for
-manual preparation, or syntheticReferences: true for isolated fixture runs.
+`createPayment()` for automatic preparation, an explicit `reference` for a
+manually prepared record, or `syntheticReferences: true` only for fixture and
+HTTP tests that do not claim financial proof.
 
-The core does not reset application state or call a state-inspection endpoint.
-The target application owns preparation, isolation, cleanup, and state access.
-For optional controlled concurrency testing, install @bachsproof/sdk only in a
-test-enabled application build.
+The core does not reset your database, read arbitrary tables, or create
+production routes. Your application owns test data, cleanup, signature
+verification, idempotency, and payment fulfilment.
 
-When the target enforces Bachs webhook signatures, the Direct Core API does not
-inherit CLI configuration automatically. Wrap the adapter with
-`signBachsWebhook` from `@bachsproof/bachs` and sign the exact body supplied to
-`headersForBody`; the programmatic API guide contains the complete example.
+For the callback contract and signing details, see the
+[programmatic API guide](../../docs/advanced/programmatic-api.mdx).
