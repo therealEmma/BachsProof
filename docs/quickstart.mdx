@@ -23,6 +23,39 @@ ledger state. See [Preparing payments](/testing/preparing-payments) and
 [Verifying financial records](/testing/verifying-financial-records) for the
 complete examples.
 
+## Integrate with an AI coding agent
+
+This step is optional. You can ask Codex, Claude Code, Cursor, or another AI
+coding agent to implement the two callbacks using your application's existing
+database, payment, webhook, and ledger architecture.
+
+Copy this prompt into your preferred agent:
+
+```text
+Help me integrate BachsProof into my application using the project documentation:
+
+https://bachs-proof.mintlify.site/
+
+Read the documentation before implementing the `createPayment()` and `verify()` functions in `bachsproof.config.mjs`.
+
+Review my database schema, payment logic, webhook handler and ledger implementation.
+
+The `createPayment()` function should prepare a fresh pending test payment and return its unique reference.
+
+The `verify()` function should retrieve actual financial records from the database, including all credits associated with the payment, even duplicate or unexpected credits.
+
+Do not rely solely on payment status, a single transaction reference or hardcoded expected results.
+
+Follow the documentation, use an isolated test database and keep the implementation simple.
+```
+
+Review the generated implementation yourself. Make sure the isolated
+application is running, then run:
+
+```bash
+npx bachsproof test
+```
+
 ## 3. Run one scenario
 
 ```bash

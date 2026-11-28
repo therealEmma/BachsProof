@@ -17,6 +17,9 @@ pnpm exec bachsproof init
 
 The command creates one file: `bachsproof.config.mjs`.
 
+You can implement the two callbacks manually or use your preferred [AI coding
+agent with the Quickstart prompt](docs/quickstart.mdx#integrate-with-an-ai-coding-agent).
+
 ## Configure two callbacks
 
 Set the webhook URL, a test-only secret, amount, and currency. Then implement
