@@ -86,6 +86,41 @@ describe("Bachs provider scenarios", () => {
     });
   });
 
+  it("declares 400/422 only for the deliberately invalid amount and currency fixtures", () => {
+    const amountPlan = createBachsScenario("incorrect-payment-amount", {
+      scenario: "incorrect-payment-amount",
+      amountMinor: 5_000_000,
+      currency: "NGN",
+      reference: "INCORRECT-AMOUNT-001",
+      references: ["INCORRECT-AMOUNT-001"]
+    });
+    const currencyPlan = createBachsScenario("incorrect-payment-currency", {
+      scenario: "incorrect-payment-currency",
+      amountMinor: 5_000_000,
+      currency: "NGN",
+      reference: "INCORRECT-CURRENCY-001",
+      references: ["INCORRECT-CURRENCY-001"]
+    });
+
+    expect(amountPlan?.deliveries[0]?.expectedStatus).toEqual(["2xx", 400, 422]);
+    expect(currencyPlan?.deliveries[0]?.expectedStatus).toEqual(["2xx", 400, 422]);
+  });
+
+  it("keeps valid and stale deliveries on separate expectations", () => {
+    const plan = createBachsScenario("out-of-order-events", {
+      scenario: "out-of-order-events",
+      amountMinor: 5_000_000,
+      currency: "NGN",
+      reference: "OUT-OF-ORDER-001",
+      references: ["OUT-OF-ORDER-001"]
+    });
+
+    expect(plan?.deliveries.map((delivery) => delivery.expectedStatus)).toEqual([
+      "2xx",
+      ["2xx", 400, 409, 422]
+    ]);
+  });
+
   it.each(scenarios)("runs %s with signing and completed financial verification", async (scenario) => {
     const requests: Array<{ body: string; signature?: string }> = [];
     const server = createServer((request, response) => {
@@ -130,6 +165,7 @@ describe("Bachs provider scenarios", () => {
     expect(result.report.financiallyVerified).toBe(true);
     expect(result.report.verification?.passed).toBe(true);
     expect(result.report.errors).toEqual([]);
+    expect(result.report.deliveries.every((delivery) => delivery.expectedStatus !== undefined)).toBe(true);
     expect(requests.every((request) => request.signature?.startsWith("t=") && request.signature?.includes(",v1="))).toBe(true);
   });
 });

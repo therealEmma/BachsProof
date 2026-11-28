@@ -19,6 +19,7 @@ import type {
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_DELIVERY_TIMEOUT_MS = 10_000;
 const DEFAULT_NEGATIVE_OBSERVATION_MS = 250;
 
 function eventId(event: PaymentEvent): string | undefined {
@@ -34,7 +35,7 @@ function eventType(event: PaymentEvent): string | undefined {
 }
 
 function matchesExpectedStatus(status: number, expected: ExpectedHttpStatus): boolean {
-  if (Array.isArray(expected)) return expected.includes(status);
+  if (Array.isArray(expected)) return expected.some((candidate) => matchesExpectedStatus(status, candidate));
   if (expected === "2xx") return status >= 200 && status < 300;
   if (expected === "4xx") return status >= 400 && status < 500;
   if (expected === "5xx") return status >= 500 && status < 600;
@@ -42,7 +43,16 @@ function matchesExpectedStatus(status: number, expected: ExpectedHttpStatus): bo
 }
 
 function formatExpectedStatus(expected: ExpectedHttpStatus): string {
-  return Array.isArray(expected) ? expected.join(", ") : String(expected);
+  return Array.isArray(expected) ? expected.map(String).join(", ") : String(expected);
+}
+
+function deliveryOutcome(status: number, accepted: boolean, expectedStatus: ExpectedHttpStatus | undefined): import("./types.js").DeliveryOutcome {
+  if (status === 401 || status === 403) return "authentication-failure";
+  if (status === 429) return "rate-limit-failure";
+  if (status >= 500 && status < 600) return "infrastructure-failure";
+  if (accepted && expectedStatus !== undefined && status >= 400 && status < 500) return "expected-rejection";
+  if (accepted) return "passed";
+  return "unexpected-http-response";
 }
 
 function validateRunOptions(input: RunOptions): string | undefined {
@@ -151,6 +161,7 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
       event: primaryEvent,
       expected,
       financiallyVerified: false,
+      financialOutcome: "UNVERIFIED",
       deliveries: [],
       errors: [],
       startedAt
@@ -161,12 +172,14 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
         await this.runScenarioPlan(scenarioPlan, primaryEvent, report);
       } else if (input.scenario === "concurrent-duplicate-credit") {
         const participants = Array.from({ length: concurrency }, (_, index) => `participant-${index + 1}`);
-        await Promise.all(participants.map((participant) => this.deliver(primaryEvent, participant, report)));
+        await Promise.all(participants.map((participant) => this.deliver(primaryEvent, participant, report, {
+          expectedStatus: ["2xx", 400, 409, 422]
+        })));
       } else if (input.scenario === "sequential-duplicate-webhook") {
-        await this.deliver(primaryEvent, "sequential-1", report);
-        await this.deliver(primaryEvent, "sequential-2", report);
+        await this.deliver(primaryEvent, "sequential-1", report, { expectedStatus: "2xx" });
+        await this.deliver(primaryEvent, "sequential-2", report, { expectedStatus: ["2xx", 400, 409, 422] });
       } else if (input.scenario === "concurrent-unique-payments") {
-        await Promise.all(scenarioEvents.map((event) => this.deliver(event, `unique-${event.reference}`, report)));
+        await Promise.all(scenarioEvents.map((event) => this.deliver(event, `unique-${event.reference}`, report, { expectedStatus: "2xx" })));
       } else {
         report.errors.push(`Unsupported scenario ${input.scenario}`);
         report.failureType = "webhook-delivery";
@@ -230,11 +243,34 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
         "content-type": "application/json",
         ...(this.options.provider.headersForBody?.(event, body) ?? this.options.provider.headers?.(event) ?? {})
       };
-      const response = await fetch(this.options.webhookUrl, { method: "POST", headers, body });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), DEFAULT_DELIVERY_TIMEOUT_MS);
+      let response: Awaited<ReturnType<typeof fetch>>;
+      try {
+        response = await fetch(this.options.webhookUrl, {
+          method: "POST",
+          headers,
+          body,
+          redirect: "manual",
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       delivery.status = response.status;
       delivery.responseBody = await response.text();
       const expectedStatus = scenarioDelivery.expectedStatus;
-      const accepted = expectedStatus === undefined ? response.ok : matchesExpectedStatus(response.status, expectedStatus);
+      const expectedByScenario = expectedStatus === undefined ? response.ok : matchesExpectedStatus(response.status, expectedStatus);
+      // These statuses must remain failures even if a provider adapter uses a
+      // broad status-family expectation. Rejections are opt-in per delivery.
+      const forcedFailure = response.status < 200
+        || (response.status >= 300 && response.status < 400)
+        || response.status === 401
+        || response.status === 403
+        || response.status === 429
+        || (response.status >= 500 && response.status < 600);
+      const accepted = forcedFailure ? false : expectedByScenario;
+      delivery.deliveryOutcome = deliveryOutcome(response.status, accepted, expectedStatus);
       if (!accepted) {
         const expectedText = expectedStatus === undefined ? "a successful HTTP response" : `HTTP ${formatExpectedStatus(expectedStatus)}`;
         delivery.error = `Webhook delivery ${participantId} expected ${expectedText} but received HTTP ${response.status}`;
@@ -242,7 +278,11 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
         report.failureType ??= "unexpected-http-response";
       }
     } catch (error) {
-      delivery.error = error instanceof Error ? error.message : String(error);
+      const isTimeout = error instanceof Error && error.name === "AbortError";
+      delivery.error = isTimeout
+        ? `request timed out after ${DEFAULT_DELIVERY_TIMEOUT_MS}ms`
+        : error instanceof Error ? error.message : String(error);
+      delivery.deliveryOutcome = "network-failure";
       report.errors.push(`Webhook delivery ${participantId} failed: ${delivery.error}`);
       report.failureType ??= "webhook-delivery";
     } finally {
@@ -295,6 +335,7 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
       passed: results.every((result) => result.verification.passed),
       violations: results.flatMap((result) => result.verification.violations)
     };
+    report.financialOutcome = report.verification.passed ? "PASS" : "FAIL";
     if (results.length > 1) report.payments = results;
     if (!report.verification.passed) {
       report.failureType ??= "invariant-violation";
@@ -329,6 +370,7 @@ export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
       event,
       expected: { reference, eligible: false, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 0 },
       financiallyVerified: false,
+      financialOutcome: "UNVERIFIED",
       deliveries: [],
       errors: [message],
       failureType,

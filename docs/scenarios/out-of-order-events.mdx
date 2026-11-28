@@ -20,6 +20,12 @@ Compare the event's business timestamp or state version with the stored state.
 Keep the newer completed result and handle the older event without reversing a
 valid financial entry.
 
+The newer `collection.succeeded` delivery must receive a successful `2xx`
+acknowledgment. The older `checkout.expired` delivery may be acknowledged or
+intentionally rejected with an allowed `400`, `409`, or `422`. BachsProof treats
+these as separate delivery expectations and still verifies the final payment
+and ledger records.
+
 ## Pass and fail
 
 The test passes when the final records contain one correct credit and a

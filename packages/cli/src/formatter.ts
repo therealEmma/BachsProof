@@ -1,4 +1,4 @@
-import type { BachsProofReport, BachsProofResult, DeliveryRecord, ExpectedPaymentState, InvariantViolation, ObservedPaymentState } from "@bachsproof/core";
+import type { BachsProofReport, BachsProofResult, DeliveryOutcome, DeliveryRecord, ExpectedHttpStatus, ExpectedPaymentState, FinancialOutcome, InvariantViolation, ObservedPaymentState } from "@bachsproof/core";
 import type { BachsProofCliRun, BachsProofSummary } from "./types.js";
 
 export const BACHS_PROOF_VERSION = "2.1.0";
@@ -66,8 +66,19 @@ function observedDescription(observed: ObservedPaymentState | undefined): string
 function failureLabel(report: BachsProofReport): string | undefined {
   switch (report.failureType) {
     case "payment-preparation": return "Payment preparation failure";
-    case "webhook-delivery": return "Webhook delivery failure";
-    case "unexpected-http-response": return "Unexpected HTTP response";
+    case "webhook-delivery": {
+      const outcomes = report.deliveries.map((delivery) => recordedDeliveryOutcome(delivery));
+      if (outcomes.includes("network-failure")) return "Network failure";
+      return "Webhook delivery failure";
+    }
+    case "unexpected-http-response": {
+      const outcomes = report.deliveries.map((delivery) => recordedDeliveryOutcome(delivery));
+      if (outcomes.includes("authentication-failure")) return "Authentication or authorization failure";
+      if (outcomes.includes("rate-limit-failure")) return "Rate-limiting failure";
+      if (outcomes.includes("infrastructure-failure")) return "Server-side failure";
+      if (outcomes.includes("network-failure")) return "Network failure";
+      return "Unexpected HTTP response";
+    }
     case "financial-verification": return "Financial verification failure";
     case "financial-verification-timeout": return "Verification timeout";
     case "invariant-violation": return "Financial invariant violation";
@@ -79,13 +90,65 @@ function statusLabel(result: BachsProofResult, enabled: boolean): string {
   return color(result.passed ? "PASS" : "FAIL", result.passed ? ANSI.green : ANSI.red, enabled);
 }
 
-function deliveryStatus(delivery: DeliveryRecord, enabled: boolean): string {
-  if (delivery.status !== undefined) {
-    const outcome = delivery.error ? "FAIL" : "PASS";
-    const outcomeText = color(outcome, delivery.error ? ANSI.red : ANSI.green, enabled);
-    return `${outcomeText} HTTP ${delivery.status}`;
+function recordedDeliveryOutcome(delivery: DeliveryRecord): DeliveryOutcome {
+  if (delivery.deliveryOutcome) return delivery.deliveryOutcome;
+  if (delivery.status === undefined) return "infrastructure-failure";
+  if (delivery.error) {
+    if (delivery.status === 401 || delivery.status === 403) return "authentication-failure";
+    if (delivery.status === 429) return "rate-limit-failure";
+    if (delivery.status >= 500 && delivery.status < 600) return "infrastructure-failure";
+    return "unexpected-http-response";
   }
-  return color("FAIL", ANSI.red, enabled);
+  if (delivery.status >= 200 && delivery.status < 300) return "passed";
+  return delivery.expectedStatus !== undefined
+    && delivery.status >= 400
+    && delivery.status < 500
+    && delivery.status !== 401
+    && delivery.status !== 403
+    && delivery.status !== 429
+    ? "expected-rejection"
+    : "unexpected-http-response";
+}
+
+function deliveryOutcomeLabel(outcome: DeliveryOutcome): { text: string; color: string } {
+  switch (outcome) {
+    case "expected-rejection": return { text: "ALLOWED REJECTION", color: ANSI.yellow };
+    case "authentication-failure": return { text: "AUTHENTICATION/AUTHORIZATION FAILURE", color: ANSI.red };
+    case "rate-limit-failure": return { text: "RATE-LIMITING FAILURE", color: ANSI.red };
+    case "network-failure": return { text: "NETWORK FAILURE", color: ANSI.red };
+    case "infrastructure-failure": return { text: "SERVER-SIDE FAILURE", color: ANSI.red };
+    case "unexpected-http-response": return { text: "FAIL", color: ANSI.red };
+    default: return { text: "PASS", color: ANSI.green };
+  }
+}
+
+function deliveryStatus(delivery: DeliveryRecord, enabled: boolean): string {
+  const outcome = deliveryOutcomeLabel(recordedDeliveryOutcome(delivery));
+  const outcomeText = color(outcome.text, outcome.color, enabled);
+  return `${outcomeText}${delivery.status === undefined ? "" : ` HTTP ${delivery.status}`}`;
+}
+
+function financialOutcome(report: BachsProofReport): FinancialOutcome {
+  // A PASS or FAIL requires both the completion flag and actual verification
+  // evidence. Missing evidence is always UNVERIFIED.
+  if (!report.financiallyVerified || !report.verification) return "UNVERIFIED";
+  return report.verification.passed ? "PASS" : "FAIL";
+}
+
+function financialOutcomeText(report: BachsProofReport, enabled: boolean): string {
+  const outcome = financialOutcome(report);
+  const ansi = outcome === "PASS" ? ANSI.green : outcome === "FAIL" ? ANSI.red : ANSI.yellow;
+  return color(outcome, ansi, enabled);
+}
+
+function responseBodyText(body: string): string {
+  const compact = body.replace(/\s+/g, " ").trim();
+  return compact.length > 300 ? `${compact.slice(0, 297)}...` : compact;
+}
+
+function formatExpectedStatus(expected: ExpectedHttpStatus | undefined): string {
+  if (expected === undefined) return "2xx";
+  return Array.isArray(expected) ? expected.map(String).join(", ") : String(expected);
 }
 
 function durationMs(report: BachsProofReport): number {
@@ -155,16 +218,15 @@ function scenarioDetail(run: BachsProofCliRun, enabled: boolean, redact: (value:
       const event = delivery.eventType ? ` ${delivery.eventType}` : "";
       const id = delivery.eventId ? ` (${delivery.eventId})` : "";
       lines.push(`    ${deliveryStatus(delivery, enabled)}${event}${id}`);
+      lines.push(`      Expected: HTTP ${formatExpectedStatus(delivery.expectedStatus)}`);
       if (delivery.error) lines.push(`      ${redact(delivery.error)}`);
+      if (delivery.responseBody && recordedDeliveryOutcome(delivery) !== "passed") {
+        lines.push(`      Response body: ${redact(responseBodyText(delivery.responseBody))}`);
+      }
     }
   }
 
-  const financialStatus = !report.financiallyVerified
-    ? color("NOT VERIFIED", ANSI.yellow, enabled)
-    : report.verification?.passed === false
-      ? color("FAIL", ANSI.red, enabled)
-      : color("PASS", ANSI.green, enabled);
-  lines.push(`  Financial verification: ${financialStatus}`);
+  lines.push(`  Financial correctness: ${financialOutcomeText(report, enabled)}`);
   lines.push(...paymentEvidenceLines(report));
 
   const discrepancies = report.payments?.flatMap((payment, index) => financialDiscrepancies(payment.expected, payment.observed)
@@ -193,7 +255,14 @@ function scenarioDetail(run: BachsProofCliRun, enabled: boolean, redact: (value:
 }
 
 function compactScenarioLine(run: BachsProofCliRun, enabled: boolean): string {
-  return `${statusLabel(run.result, enabled)}  ${run.name}  ${durationMs(run.result.report)}ms`;
+  const outcomes = [...new Set(run.result.report.deliveries.map((record) => recordedDeliveryOutcome(record)))];
+  const deliveryText = outcomes.length === 0
+    ? "NONE"
+    : outcomes.map((outcome) => {
+      const label = deliveryOutcomeLabel(outcome);
+      return color(label.text, label.color, enabled);
+    }).join("/");
+  return `${statusLabel(run.result, enabled)}  ${run.name}  Delivery: ${deliveryText}  Financial: ${financialOutcomeText(run.result.report, enabled)}  ${durationMs(run.result.report)}ms`;
 }
 
 /** Render CLI results for people; JSON mode continues to use the raw result objects. */
@@ -222,7 +291,7 @@ export function formatHumanReadableReport(
     "",
     "Final summary",
     `  ${summary.total} scenario(s): ${summary.passed} passed, ${summary.failed} failed`,
-    `  Financial verification: ${summary.financiallyVerified}/${summary.total} completed`,
+    `  Financial correctness: ${results.filter((run) => financialOutcome(run.result.report) === "PASS").length} PASS, ${results.filter((run) => financialOutcome(run.result.report) === "FAIL").length} FAIL, ${results.filter((run) => financialOutcome(run.result.report) === "UNVERIFIED").length} UNVERIFIED`,
     `  Financial invariant violations: ${summary.financialViolations}`,
     `  Duration: ${summary.durationMs}ms`
   );

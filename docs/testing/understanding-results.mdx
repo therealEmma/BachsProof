@@ -6,12 +6,55 @@ description: "Read plain-language financial correctness results."
 A scenario passes only when payment preparation, webhook delivery, financial
 verification, and all applicable financial rules succeed.
 
+The following examples use representative fixture data.
+
+Successful individual scenario:
+
+```text
+BachsProof v2.1.0
+
+PASS  Sequential duplicate webhook
+  Scenario: sequential-duplicate-webhook
+  Payment reference: test-payment-123
+  Webhook deliveries:
+    PASS HTTP 200 collection.succeeded
+    ALLOWED REJECTION HTTP 409 collection.succeeded
+  Financial correctness: PASS
+  Expected: 1 credit(s), totalling NGN 5,000.00 (500000 minor units) (eligible)
+  Observed: 1 credit(s), totalling NGN 5,000.00 (500000 minor units); currency NGN; status PAID
+  Duration: 38ms
+
+Final summary
+  1 scenario(s): 1 passed, 0 failed
+  Financial correctness: 1 PASS, 0 FAIL, 0 UNVERIFIED
+```
+
+Financial invariant violation:
+
+```text
+BachsProof v2.1.0
+
+FAIL  Concurrent duplicate credit
+  Scenario: concurrent-duplicate-credit
+  Webhook deliveries:
+    PASS HTTP 200 collection.succeeded
+    PASS HTTP 200 collection.succeeded
+  Financial correctness: FAIL
+  Financial discrepancies:
+    - credit count: expected 1, observed 2
+  Financial invariant violations:
+    - INV-001 Unique Credit: Payment test-payment-123 created 2 credits
+  Failure type: Financial invariant violation
+```
+
+Full-suite execution:
+
 ```text
 BachsProof v2.1.0
 
 Scenario summary
-  PASS  Sequential duplicate webhook  38ms
-  FAIL  Concurrent duplicate credit  42ms
+  PASS  Sequential duplicate webhook  Delivery: PASS  Financial: PASS  38ms
+  FAIL  Concurrent duplicate credit  Delivery: PASS  Financial: FAIL  42ms
 
 Failure details
 
@@ -21,7 +64,7 @@ FAIL  Concurrent duplicate credit
   Webhook deliveries:
     PASS HTTP 200 collection.succeeded
     PASS HTTP 200 collection.succeeded
-  Financial verification: FAIL
+  Financial correctness: FAIL
   Expected: 1 credit(s), totalling NGN 5,000.00 (500000 minor units) (eligible)
   Observed: 2 credit(s), totalling NGN 10,000.00 (1000000 minor units); currency NGN; status PAID
   Financial invariant violations:
@@ -29,21 +72,56 @@ FAIL  Concurrent duplicate credit
 
 Final summary
   2 scenario(s): 1 passed, 1 failed
-  Financial verification: 2/2 completed
+  Financial correctness: 1 PASS, 1 FAIL, 0 UNVERIFIED
   Financial invariant violations: 1
   Duration: 80ms
 ```
 
-The example uses representative fixture data; the identifiers and timings are
-not from a real payment. For an ineligible scenario, the expected line is
+These identifiers and timings are not from a real payment. For an ineligible
+scenario, the expected line is
 `0 credit(s), totalling NGN 0.00`, not a successful-payment expectation.
 
-Webhook delivery and financial correctness are separate checks. An HTTP `400`,
-`503`, or other unexpected response remains a delivery failure; it is never
-silently treated as success. BachsProof still verifies financial state when it
-can do so safely, so the report may show both a delivery failure and separate
-financial evidence. A timeout or missing evidence is reported as unverified,
-not as zero credits.
+## Delivery and financial outcomes
+
+Webhook delivery and financial correctness are separate checks. Each delivery
+has its own expected response; BachsProof does not apply one response rule to
+every delivery in a scenario.
+
+| Response | Meaning in BachsProof |
+| --- | --- |
+| `200`, `201`, `202`, or `204` | Successful delivery acknowledgment when the delivery expects `2xx` |
+| `400`, `409`, or `422` | Allowed rejection only when that individual delivery explicitly allows it |
+| `401` or `403` | Authentication or authorization failure |
+| `429` | Rate-limiting failure |
+| `5xx` | Server-side delivery failure |
+| `3xx`, other unexpected `4xx`, or an unrecognized response | Unexpected response |
+| Connection failure or request timeout | Network failure |
+
+BachsProof follows no redirect during a test, so the original `3xx` status and
+response body remain visible. It does not infer the business reason for a
+`400`, `409`, or `422`; an allowed rejection means only that the response was
+permitted for that specific delivery. The `verify()` callback must still read
+the application's committed records and establish the expected financial
+state.
+
+The report therefore has an independent financial outcome:
+
+- `PASS`: verification completed and all financial invariants passed.
+- `FAIL`: verification completed and the observed records violated an
+  invariant or expected financial state.
+- `UNVERIFIED`: verification did not produce sufficient evidence, commonly
+  because asynchronous processing did not finish before the observation
+  window or the callback timed out.
+
+An unexpected delivery response can appear beside financial `PASS` when the
+application already committed the correct state, but the overall scenario
+still fails because delivery was not acceptable. An allowed rejection beside
+financial `UNVERIFIED` also fails. Missing evidence is never displayed as
+zero credits.
+
+The CLI captures actual response bodies and redacts the configured test secret
+when it prints them. JSON mode keeps the raw machine-readable delivery and
+financial evidence without decorative terminal output.
 
 JSON output keeps the invariant identifiers (`INV-001` through `INV-005`) and
 the delivery and observed financial evidence for CI diagnostics.

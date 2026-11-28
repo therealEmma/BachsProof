@@ -79,9 +79,11 @@ pnpm exec bachsproof test --json
 
 Without a `--name`, BachsProof runs the five default scenarios. Optional
 scenarios can be selected through the `scenarios` config property or `--name`.
-Every scenario must
-complete financial verification before it can pass. A successful HTTP response
-alone is never enough.
+Each webhook delivery has its own expected response. A 400, 409, or 422 is
+only an allowed rejection when that individual delivery declares it; a valid
+payment delivery still requires a 2xx response. Every scenario must complete
+financial verification before it can pass. An HTTP response alone is never
+enough.
 
 A failed result explains the expected and observed financial state, for example:
 
@@ -89,6 +91,10 @@ A failed result explains the expected and observed financial state, for example:
 BachsProof v2.1.0
 
 FAIL  Concurrent duplicate credit
+  Webhook deliveries:
+    PASS HTTP 200 collection.succeeded
+    PASS HTTP 200 collection.succeeded
+  Financial correctness: FAIL
   Expected: 1 credit(s), totalling NGN 5,000.00 (500000 minor units) (eligible)
   Observed: 2 credit(s), totalling NGN 10,000.00 (1000000 minor units)
   Financial invariant violations:

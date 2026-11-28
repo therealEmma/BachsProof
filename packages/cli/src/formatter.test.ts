@@ -89,6 +89,33 @@ describe("CLI human-readable formatter", () => {
     expect(output).toContain("Observed: unavailable (financial verification did not complete)");
     expect(output).toContain("Failure type: Verification timeout");
     expect(output).not.toContain("Observed: 0 credit(s)");
+    expect(output).toContain("Financial correctness: UNVERIFIED");
+  });
+
+  it("separates an expected negative-scenario rejection from financial correctness", () => {
+    const run = fixtureRun({
+      deliveries: [{
+        ...fixtureRun().result.report.deliveries[0]!,
+        status: 422,
+        expectedStatus: [200, 400, 422],
+        deliveryOutcome: "expected-rejection",
+        responseBody: "{\"error\":\"amount rejected\"}"
+      }]
+    });
+    const output = formatHumanReadableReport([run], {
+      total: 1,
+      passed: 1,
+      failed: 0,
+      financiallyVerified: 1,
+      financiallyUnverified: 0,
+      financialViolations: 0,
+      durationMs: 42
+    }, { useColor: false });
+
+    expect(output).toContain("ALLOWED REJECTION HTTP 422");
+    expect(output).toContain("Expected: HTTP 200, 400, 422");
+    expect(output).toContain("Response body: {\"error\":\"amount rejected\"}");
+    expect(output).toContain("Financial correctness: PASS");
   });
 
   it("shows fixture-based invariant evidence and compact full-suite failures", () => {

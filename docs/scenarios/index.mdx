@@ -39,6 +39,43 @@ part of your integration.
 | `underpaid-payment` | An underpaid collection creates no credit |
 | `failed-payment` | A failed collection creates no credit |
 
+### Webhook events and delivery expectations
+
+The provider adapter declares expectations for each delivery, not one rule for
+the whole scenario. A normal payment event must receive a successful `2xx`
+acknowledgment. A duplicate, stale, ineligible, underpaid, or failed event may
+allow `400`, `409`, or `422` when that particular delivery declares those
+responses. Financial verification is still required in every case.
+
+| Scenario | Synthetic event types | Delivery expectation |
+| --- | --- | --- |
+| `sequential-duplicate-webhook` | `collection.succeeded` twice | First delivery `2xx`; duplicate delivery `2xx`, `400`, `409`, or `422` |
+| `concurrent-duplicate-credit` | `collection.succeeded` twice | Each delivery may acknowledge or reject; financial state must contain one credit |
+| `concurrent-unique-payments` | `collection.succeeded` | Every delivery requires `2xx` |
+| `incorrect-payment-amount` | `collection.succeeded` with a changed amount | `2xx`, `400`, or `422`; expected financial state is zero credits |
+| `incorrect-payment-currency` | `collection.succeeded` with a changed currency | `2xx`, `400`, or `422`; expected financial state is zero credits |
+| `cross-event-duplicate-payment` | `checkout.completed`, `collection.succeeded` | Each delivery may acknowledge or reject; financial state must contain one credit |
+| `out-of-order-events` | Newer `collection.succeeded`, older `checkout.expired` | Newer event requires `2xx`; older event may acknowledge or reject |
+| `incomplete-checkout` | `checkout.completed` with no payment | Acknowledge or reject; financial state must contain zero credits |
+| `expired-checkout` | `checkout.expired` | Acknowledge or reject; financial state must contain zero credits |
+| `underpaid-payment` | `collection.underpaid` | Acknowledge or reject; financial state must contain zero credits |
+| `failed-payment` | `collection.failed` | Acknowledge or reject; financial state must contain zero credits |
+
+The event names and their provider meanings come from the official [Bachs
+webhook contract](https://docs.bachs.io/guides/webhooks/overview), including
+[`checkout.expired`](https://docs.bachs.io/guides/webhooks/events/checkout-expired),
+[`collection.succeeded`](https://docs.bachs.io/guides/webhooks/events/collection-succeeded),
+[`collection.underpaid`](https://docs.bachs.io/guides/webhooks/events/collection-underpaid),
+and [`collection.failed`](https://docs.bachs.io/guides/webhooks/events/collection-failed).
+Only select an optional scenario when the corresponding event is part of your
+integration. If your application intentionally ignores an event such as
+`checkout.expired`, `collection.underpaid`, or `collection.failed`, an HTTP
+`400`, `409`, or `422` may be a legitimate application choice for that
+delivery. Other client errors, including `404` and `405`, remain unexpected.
+Do not change that behavior just to make BachsProof pass; select scenarios that
+match your integration and use the financial report to verify the records that
+matter.
+
 The concurrent scenario uses ordinary request concurrency. Operating-system,
 network, and database scheduling can differ between runs, so this test can
 expose a race without proving that every possible interleaving was exercised.

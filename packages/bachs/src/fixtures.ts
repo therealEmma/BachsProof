@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ExpectedPaymentState, PaymentEvent, ProviderScenario, ProviderScenarioInput, ScenarioName } from "@bachsproof/core";
+import type { ExpectedHttpStatus, ExpectedPaymentState, PaymentEvent, ProviderScenario, ProviderScenarioInput, ScenarioName } from "@bachsproof/core";
 import { formatBachsMoney, parseBachsMoney, safeNumberMoney, toBachsMinorUnits } from "./money.js";
 
 const customerSchema = z.object({
@@ -130,6 +130,10 @@ export interface BachsFixtureOptions {
   customerId?: string;
 }
 
+const successfulDelivery: ExpectedHttpStatus = "2xx";
+const allowedRejection: ExpectedHttpStatus = ["2xx", 400, 409, 422];
+const invalidPaymentRejection: ExpectedHttpStatus = ["2xx", 400, 422];
+
 function isoAt(baseMs: number, offsetMs = 0): string {
   return new Date(baseMs + offsetMs).toISOString();
 }
@@ -231,7 +235,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
   const base = createBachsMockFixture({ reference, amountMinor, currency, customerId });
   const now = Date.now();
   const successful = () => ({
-    deliveries: [delivery(base, input)],
+    deliveries: [delivery(base, input, { expectedStatus: successfulDelivery })],
     verification: [{ event: base, expected: expectedBachsState(base) }]
   });
 
@@ -245,7 +249,10 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
     });
     return {
       concurrent: true,
-      deliveries: [delivery(completed, input, { participantId: "checkout-completed" }), delivery(base, input, { participantId: "collection-succeeded" })],
+      deliveries: [
+        delivery(completed, input, { participantId: "checkout-completed", expectedStatus: allowedRejection }),
+        delivery(base, input, { participantId: "collection-succeeded", expectedStatus: allowedRejection })
+      ],
       verification: [{ event: base, expected: expectedBachsState(base) }]
     };
   }
@@ -260,7 +267,10 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
     });
     const newerSuccess = { ...base, created_at: isoAt(now + 1_000) };
     return {
-      deliveries: [delivery(newerSuccess, input, { participantId: "newer-success" }), delivery(expired, input, { participantId: "older-expired" })],
+      deliveries: [
+        delivery(newerSuccess, input, { participantId: "newer-success", expectedStatus: successfulDelivery }),
+        delivery(expired, input, { participantId: "older-expired", expectedStatus: allowedRejection })
+      ],
       verification: [{ event: newerSuccess, expected: expectedBachsState(newerSuccess) }]
     };
   }
@@ -274,7 +284,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       status: "completed",
       amountMinor: 0
     });
-    return { deliveries: [delivery(incomplete, input)], verification: [{ event: incomplete, expected: expectedNoCredit(incomplete, currency) }] };
+    return { deliveries: [delivery(incomplete, input, { expectedStatus: allowedRejection })], verification: [{ event: incomplete, expected: expectedNoCredit(incomplete, currency) }] };
   }
 
   if (scenario === "expired-checkout") {
@@ -285,7 +295,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       eligible: false,
       status: "expired"
     });
-    return { deliveries: [delivery(expired, input)], verification: [{ event: expired, expected: expectedNoCredit(expired, currency) }] };
+    return { deliveries: [delivery(expired, input, { expectedStatus: allowedRejection })], verification: [{ event: expired, expected: expectedNoCredit(expired, currency) }] };
   }
 
   if (scenario === "incorrect-payment-amount") {
@@ -293,7 +303,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
     // event shape used to test application-side amount validation, not a claim
     // that Bachs emits a successful event for an unknown amount.
     const incorrect = createBachsMockFixture({ reference, amountMinor: amountMinor + 1, currency, customerId });
-    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
+    return { deliveries: [delivery(incorrect, input, { expectedStatus: invalidPaymentRejection })], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
   }
 
   if (scenario === "incorrect-payment-currency") {
@@ -301,7 +311,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
     // application's currency check rather than a documented Bachs lifecycle.
     const incorrectCurrency = currency === "USD" ? "EUR" : "USD";
     const incorrect = createBachsMockFixture({ reference, amountMinor, currency: incorrectCurrency, customerId });
-    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
+    return { deliveries: [delivery(incorrect, input, { expectedStatus: invalidPaymentRejection })], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
   }
 
   if (scenario === "underpaid-payment") {
@@ -328,7 +338,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       status: "UNDERPAID",
       eligible: false
     };
-    return { deliveries: [delivery(underpaid, input)], verification: [{ event: underpaid, expected: expectedNoCredit(underpaid, currency) }] };
+    return { deliveries: [delivery(underpaid, input, { expectedStatus: allowedRejection })], verification: [{ event: underpaid, expected: expectedNoCredit(underpaid, currency) }] };
   }
 
   if (scenario === "failed-payment") {
@@ -357,7 +367,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       status: "FAILED",
       eligible: false
     };
-    return { deliveries: [delivery(failed, input)], verification: [{ event: failed, expected: expectedNoCredit(failed, currency) }] };
+    return { deliveries: [delivery(failed, input, { expectedStatus: allowedRejection })], verification: [{ event: failed, expected: expectedNoCredit(failed, currency) }] };
   }
 
   return successful();

@@ -62,7 +62,10 @@ export interface ExpectedPaymentState {
   expectedCreditCount: number;
 }
 
-export type ExpectedHttpStatus = number | number[] | "2xx" | "4xx" | "5xx";
+export type ExpectedHttpStatusClass = "2xx" | "4xx" | "5xx";
+
+/** One status, status family, or small per-delivery allow-list. */
+export type ExpectedHttpStatus = number | number[] | ExpectedHttpStatusClass | Array<number | ExpectedHttpStatusClass>;
 
 /** One raw webhook delivery in a provider-defined scenario. */
 export interface ProviderScenarioDelivery<TEvent extends PaymentEvent = PaymentEvent> {
@@ -148,6 +151,19 @@ export interface VerificationResult {
   violations: InvariantViolation[];
 }
 
+/** High-level classification of one webhook delivery attempt. */
+export type DeliveryOutcome =
+  | "passed"
+  | "expected-rejection"
+  | "unexpected-http-response"
+  | "authentication-failure"
+  | "rate-limit-failure"
+  | "network-failure"
+  | "infrastructure-failure";
+
+/** Financial correctness is independent from webhook transport. */
+export type FinancialOutcome = "PASS" | "FAIL" | "UNVERIFIED";
+
 /** One attempted webhook delivery, including its HTTP outcome and timing. */
 export interface DeliveryRecord {
   deliveryId: string;
@@ -160,6 +176,8 @@ export interface DeliveryRecord {
   status?: number;
   responseBody?: string;
   expectedStatus?: ProviderScenarioDelivery["expectedStatus"];
+  /** Additive field; older reports can derive this from status and error. */
+  deliveryOutcome?: DeliveryOutcome;
   error?: string;
 }
 
@@ -183,6 +201,8 @@ export interface BachsProofReport {
   verification?: VerificationResult;
   /** True only when the verifier returned independently observed state. */
   financiallyVerified: boolean;
+  /** Explicit financial result; UNVERIFIED never implies a zero balance. */
+  financialOutcome?: FinancialOutcome;
   payments?: Array<{
     event: PaymentEvent;
     expected: ExpectedPaymentState;

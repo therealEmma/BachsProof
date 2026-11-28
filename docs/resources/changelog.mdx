@@ -27,6 +27,14 @@ focused and the Bachs-shaped fixtures more accurate.
 - Human-readable reports now show delivery results, financial verification,
   exact expected and observed counts and amounts, discrepancies, invariant
   identifiers, explanations, and duration.
+- Delivery expectations are evaluated per webhook delivery. Valid payment
+  deliveries require `2xx`; duplicate, stale, ineligible, underpaid, and failed
+  deliveries may declare limited `400`, `409`, or `422` rejections. HTTP 3xx,
+  authentication failures, rate limiting, network failures, and 5xx responses
+  remain delivery failures.
+- Redirects are not followed during tests, so the original HTTP status and
+  response body remain available. Financial outcomes are reported separately
+  as `PASS`, `FAIL`, or `UNVERIFIED` and never bypass verification.
 - Ineligible outcomes are reported as zero expected credits totaling zero in the
   configured currency. Missing evidence is never displayed as zero.
 - JSON result objects, secret redaction, exit codes, callbacks, signing, and the

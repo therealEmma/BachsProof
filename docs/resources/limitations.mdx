@@ -9,3 +9,15 @@ It cannot prove that an incorrect credit will never appear after that window.
 Ordinary concurrent delivery cannot guarantee every possible database race.
 Provider settlement, live Bachs behavior, network retries outside the test
 requests, and production infrastructure are outside the tool's claim.
+
+An allowed HTTP rejection is not proof of the application's exact business
+reason. A `400` may mean a wrong amount, an unsupported event, a malformed
+payload, or another validation failure. BachsProof does not depend on an
+application-specific error body or code. It reports that the response was
+allowed for that delivery and relies on `verify()` plus the financial
+invariants to decide whether the saved state is correct.
+
+HTTP success is also not financial proof. A worker may acknowledge an event
+with `202` before it finishes, and an application may return a server error
+after committing its state. BachsProof reports delivery and financial outcomes
+separately, and a timeout or missing evidence remains `UNVERIFIED`.
