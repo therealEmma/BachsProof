@@ -1,0 +1,44 @@
+---
+title: "Changelog: v1.1.0 to v2.0.0"
+description: "A concise record of the breaking BachsProof v2 transition."
+---
+
+## v2.0.0
+
+BachsProof became a focused application-side financial correctness tool.
+
+### Simplified integration
+
+- Install `@bachsproof/cli` as the normal entry point.
+- Run `bachsproof init` to create one `bachsproof.config.mjs` file.
+- Configure a complete `webhookUrl`, test `secret`, amount, and currency.
+- Implement only `createPayment()` and `verify()`.
+- Signing, the Bachs adapter, the default scenario suite, polling, and reports
+  are handled by the CLI.
+- All eleven scenarios run by default; `scenarios` or `--name` selects a subset.
+
+### Removed functionality
+
+The active v2 workspace no longer includes the BachsProof SDK, checkpoints,
+controlled race release, replay configuration, synthetic references,
+delivery-only mode, or the four removed security/delayed-payment scenarios.
+Ordinary concurrent delivery, webhook signing utilities, asynchronous
+verification, and structured reports remain.
+
+### Breaking migration steps
+
+1. Replace the old generated files with one `bachsproof.config.mjs`.
+2. Replace separate target URL/path settings with `webhookUrl`.
+3. Remove provider, signing-object, replay, checkpoint, race-controller,
+   synthetic-reference, and custom-test configuration.
+4. Add `createPayment()` to create a fresh application payment reference.
+5. Add `verify(reference)` to read committed payment and ledger state.
+6. Remove `requireFinancialVerification`; financial verification is mandatory.
+7. Update report consumers from version 1.1 to 2.0 and remove fields that only
+   described checkpoints, replay, delivery-only runs, or synthetic references.
+8. Replace references to the four removed standalone scenarios with the eleven
+   current scenarios.
+
+The five financial invariants keep their existing identifiers and meanings.
+The v1.1.0 release history remains available; v2 is a breaking release and is
+not published by this repository automatically.

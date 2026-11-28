@@ -1,0 +1,45 @@
+---
+title: "Application-side payment processing"
+description: "What your application must do after Bachs reports a payment event."
+---
+
+The official [Bachs checkout guide](https://docs.bachs.io/guides/checkout/checkout-sessions)
+explains how to create a checkout, collect payment, and receive the result.
+BachsProof tests the next part: how your application turns that result into a
+safe business record.
+
+## The application-side flow
+
+For each test payment, your application should have a clear path:
+
+1. Create a pending payment row.
+2. Return its unique reference from `createPayment()`.
+3. Receive and authenticate the webhook.
+4. Find the payment by its reference or provider payment identity.
+5. Check that the event is eligible for fulfilment.
+6. Write the payment status and ledger entry safely.
+7. Let `verify()` read the committed result.
+
+BachsProof creates the simulated event and sends it to your route. It does not
+create the payment row for you. This is why `createPayment()` is required: the
+event must point to a real, isolated record in your application.
+
+## Provider facts and application decisions
+
+Bachs already documents checkout sessions, event fields, payment statuses, and
+webhook authentication. Read the official [payment model](https://docs.bachs.io/concepts/overview)
+and [webhook event reference](https://docs.bachs.io/guides/webhooks/events/collection-succeeded)
+for those provider details.
+
+Your application still decides what to do with the event. For example, it must
+decide whether an expired, failed, underpaid, or wrong-currency event can grant
+access or create a credit. BachsProof sends those cases and checks the records
+your application saved.
+
+## Money at the boundary
+
+Bachs represents API money as decimal strings paired with a currency. BachsProof
+configuration uses an integer number of minor units, such as `500000` for
+NGN 5,000. Convert deliberately at your application boundary and store the
+currency with every financial entry. Never compare an amount without also
+checking its currency.

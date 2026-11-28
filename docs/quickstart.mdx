@@ -16,49 +16,14 @@ pnpm add -D @bachsproof/cli
 pnpm exec bachsproof init
 ```
 
-Open `bachsproof.config.mjs`. Set `webhookUrl`, `secret`, `amountMinor`, and
-`currency`. Then replace the two generated errors with your application code.
+Open `bachsproof.config.mjs`. Set the four values and replace the two generated
+errors with your application code. `createPayment()` must insert a fresh test
+payment and return its reference. `verify()` must read the saved payment and
+ledger state. See [Preparing payments](/testing/preparing-payments) and
+[Verifying financial records](/testing/verifying-financial-records) for the
+complete examples.
 
-## 3. Use the reference wallet shape
-
-The repository's reference wallet exposes the same two operations. The first
-creates a pending record and the second reads committed records:
-
-```js
-import { defineConfig } from "@bachsproof/cli";
-import { createReferenceWallet } from "@bachsproof/reference-wallet";
-
-const wallet = await createReferenceWallet({ mode: "corrected", databaseUrl: process.env.DATABASE_URL });
-
-export default defineConfig({
-  webhookUrl: "http://127.0.0.1:3000/webhooks/bachs",
-  secret: process.env.BACHS_WEBHOOK_SECRET,
-  amountMinor: 500000,
-  currency: "NGN",
-  async createPayment({ amountMinor, currency }) {
-    const payment = await wallet.createPayment({ amountMinor, currency });
-    return payment.reference;
-  },
-  async verify(reference) {
-    const state = await wallet.store.inspect(reference);
-    return {
-      reference,
-      creditCount: state.creditCount,
-      creditedAmountMinor: state.creditedAmountMinor,
-      currency: state.currency,
-      status: state.status,
-      ledgerEntries: state.ledgerEntries
-    };
-  }
-});
-```
-
-For another database or ORM, make `createPayment()` insert a pending test
-payment and make `verify()` query the payment and its ledger rows. The callback
-contract is explained in [Preparing payments](/testing/preparing-payments) and
-[Verifying financial records](/testing/verifying-financial-records).
-
-## 4. Run one scenario
+## 3. Run one scenario
 
 ```bash
 pnpm exec bachsproof test --name "sequential duplicate webhook"
@@ -67,7 +32,7 @@ pnpm exec bachsproof test --name "sequential duplicate webhook"
 This creates one payment, sends the same signed webhook twice, reads the saved
 records, and checks that one credit exists.
 
-## 5. Run all eleven scenarios
+## 4. Run all eleven scenarios
 
 ```bash
 pnpm exec bachsproof test

@@ -6,6 +6,11 @@ description: "The eleven local scenarios that test financial correctness."
 Every run creates fresh application payment records, sends signed simulated
 events, and verifies the saved financial state.
 
+These scenarios are about your application, not about learning the Bachs
+checkout API. The official [Bachs payment events](https://docs.bachs.io/guides/webhooks/events/collection-succeeded)
+define what the provider event means; BachsProof checks whether your handler
+made the correct ledger decision.
+
 | Scenario | What it checks |
 | --- | --- |
 | `sequential-duplicate-webhook` | Repeated delivery does not create two credits |

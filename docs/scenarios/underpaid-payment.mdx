@@ -3,5 +3,23 @@ title: "Underpaid payment"
 description: "Check that an underpaid collection creates no credit."
 ---
 
-BachsProof sends an underpaid collection with the amount paid and amount still
-due. The application should not grant the full payment credit.
+## What it tests
+
+BachsProof sends an underpaid collection with the amount paid and the amount
+still due. The official [collection.underpaid event](https://docs.bachs.io/guides/webhooks/events/collection-underpaid)
+describes this provider-side payment state.
+
+## Why it matters
+
+Granting the full order value after receiving only part of the money creates a
+financial loss for the application.
+
+## What the application should do
+
+Record the partial state if useful, but do not create the full successful
+credit. Your business may later handle a completed payment separately.
+
+## Pass and fail
+
+The test passes when no incorrect successful credit exists. Any credit for the
+underpaid event fails `INV-004` or the amount rules.

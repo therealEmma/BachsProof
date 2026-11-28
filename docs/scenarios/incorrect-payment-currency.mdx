@@ -3,6 +3,22 @@ title: "Incorrect payment currency"
 description: "Check that a wrong currency creates no credit."
 ---
 
+## What it tests
+
 BachsProof prepares a payment in the configured currency, then sends a
-successful-looking event in another currency. The application should reject or
-ignore the mismatch and commit no credit.
+successful-looking event in another currency.
+
+## Why it matters
+
+An amount is not meaningful without its currency. Treating NGN 5,000 and USD
+5,000 as the same value can corrupt balances and customer entitlements.
+
+## What the application should do
+
+Compare the event currency with the stored payment currency. Reject or ignore
+the mismatch and create no successful credit.
+
+## Pass and fail
+
+The test passes when no mismatched credit is committed. A credit in the wrong
+currency fails `INV-002` or `INV-004`.

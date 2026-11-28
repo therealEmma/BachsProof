@@ -3,6 +3,25 @@ title: "Cross-event duplicate payment"
 description: "Check that two event types for one payment create one credit."
 ---
 
-BachsProof sends a successful checkout event and a successful collection event
-for the same payment. The application should use the payment reference and
-durable idempotency to commit one correct credit.
+## What it tests
+
+BachsProof sends two successful event types for the same payment reference.
+This mirrors the provider flow where checkout and collection events can both
+refer to one payment. See the official [Bachs payment flow](https://docs.bachs.io/concepts/overview)
+for the provider-side event relationship.
+
+## Why it matters
+
+Deduplicating only by event ID is not enough when two different events describe
+the same business payment. The application must protect the financial effect at
+the payment or charge level too.
+
+## What the application should do
+
+Validate both events, resolve them to the same payment, and create one ledger
+credit. The second event should be recorded or ignored without adding money.
+
+## Pass and fail
+
+The test passes with one correct credit. A second credit fails `INV-001`; a
+wrong total fails the aggregate and amount checks.

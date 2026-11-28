@@ -14,6 +14,18 @@
         "pages": ["index", "installation", "quickstart"]
       },
       {
+        "group": "Application-side correctness",
+        "icon": "landmark",
+        "pages": [
+          "concepts/application-payment-processing",
+          "concepts/financial-ledgers",
+          "concepts/application-idempotency",
+          "concepts/concurrency-and-races",
+          "concepts/database-transactions",
+          "concepts/financial-correctness"
+        ]
+      },
+      {
         "group": "Testing",
         "icon": "flask-conical",
         "pages": [
@@ -26,12 +38,12 @@
       {
         "group": "Integration",
         "icon": "plug",
-        "pages": ["integration/cli", "integration/programmatic-api", "testing/ci-cd", "case-studies/reference-wallet"]
+        "pages": ["integration/cli", "integration/programmatic-api", "case-studies/reference-wallet"]
       },
       {
         "group": "Reference",
         "icon": "book-open",
-        "pages": ["reference/configuration", "resources/troubleshooting", "reference/migrating-from-v1", "financial-invariants/index"]
+        "pages": ["reference/configuration", "reference/bachs-boundary", "resources/troubleshooting", "resources/changelog", "financial-invariants/index"]
       },
       {
         "group": "Safety and limits",

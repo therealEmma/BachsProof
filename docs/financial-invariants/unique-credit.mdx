@@ -6,31 +6,22 @@ description: "At most one posted credit may exist for one eligible payment."
 ## What it means
 
 One customer paid once, so the application's ledger should contain at most one
-credit for that payment reference. For a ₦5,000 deposit, one `500_000`-kobo
-credit passes.
+credit for that payment reference. For a NGN 5,000 deposit, one `500000`
+minor-unit credit passes.
 
 ```text
 Passing: payment pay-123 -> one credit of NGN 5,000
 Failing: payment pay-123 -> two credits of NGN 5,000
 ```
 
-In minor units, the same examples are `creditCount: 1,
-creditedAmountMinor: 500_000` and `creditCount: 2,
-creditedAmountMinor: 1_000_000`.
+## Why it matters in BachsProof
 
-## How BachsProof evaluates it
-
-`verifyPaymentState` records `INV-001` when `observed.creditCount > 1`.
-It does not require a particular event ID column or ORM; it checks the count
-your callback returned. A missing credit is not this violation; it is
+BachsProof sends duplicate deliveries and duplicate event types because an
+application must protect the financial effect, not only the provider event ID.
+It does not require a particular ORM; it checks the credit count returned by
+your `verify()` callback. A missing credit is not this violation; it is
 `INV-003`.
 
 Common causes are duplicate deliveries, non-atomic check-then-insert logic, or
-an idempotency key that is not durable or unique. Inspect delivery IDs, event
-IDs, the database uniqueness constraint, and the transaction boundary.
-
-`sequential-duplicate-webhook`, `concurrent-duplicate-credit`, and
-`cross-event-duplicate-payment` are the clearest scenario sources. A missing
-credit is not this violation; it is `INV-003`.
-
-The reference wallet's vulnerable mode deliberately produces this violation.
+an application idempotency key that is not durable or unique. Inspect delivery
+IDs, event IDs, the database uniqueness constraint, and the transaction boundary.

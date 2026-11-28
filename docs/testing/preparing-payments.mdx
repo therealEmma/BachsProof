@@ -6,6 +6,12 @@ description: "Create the isolated payment record that each simulated event refer
 Before BachsProof sends a webhook, your application needs a payment record.
 `createPayment()` creates that record and returns its unique reference.
 
+This is application preparation, not Bachs checkout creation. If you need to
+build the provider-side checkout first, follow the official [Bachs checkout
+guide](https://docs.bachs.io/guides/checkout/checkout-sessions). BachsProof
+needs a real isolated application record so the simulated event can exercise
+your own lookup and financial logic.
+
 ```js
 async createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount }) {
   const payment = await testDb.payment.create({

@@ -5,29 +5,22 @@ description: "A posted credit must match the expected amount and currency."
 
 ## What it means
 
-If the test expects an NGN ₦5,000 payment, the observed aggregate should be
-`500_000` minor units and currency `NGN`. NGN ₦4,999, ₦5,001, or a different
-currency is not the same payment result.
+If the test expects NGN 5,000, the observed aggregate should be `500000` minor
+units and currency `NGN`. NGN 4,999, NGN 5,001, or a different currency is not
+the same payment result.
 
 ```text
 Passing: expected 500000 NGN; observed 500000 NGN; creditCount 1
 Failing: expected 500000 NGN; observed 499900 NGN; creditCount 1
 ```
 
-That is one ₦5,000 credit passing and one ₦4,999 credit failing. An observed
-`500_000 USD` also fails because currency is part of the financial value.
-
-## How BachsProof evaluates it
+## Why it matters in BachsProof
 
 When at least one credit exists, BachsProof compares
 `observed.creditedAmountMinor` and `observed.currency` with the expected state.
 Values are integers so a floating-point rounding error cannot hide a mismatch.
-The rule checks the normalized aggregate returned by the callback; it does not
-sum arbitrary database rows itself.
+The rule checks the aggregate returned by `verify()`; it does not guess an
+observed amount or currency from configuration.
 
-Investigate order amount matching, currency checks, decimal-to-minor
-conversion, and whether fees were incorrectly included in the customer credit.
-
-This rule is most useful with `incorrect-payment-amount`,
-`incorrect-payment-currency`, and the duplicate scenarios. A zero-credit
-ineligible event does not enter this comparison; it is covered by `INV-004`.
+Investigate order amount matching, currency checks, minor-unit conversion,
+rounding, and whether fees were incorrectly included in the customer credit.

@@ -1,0 +1,42 @@
+---
+title: "Database transactions and financial integrity"
+description: "Make payment checks and ledger writes succeed or fail together."
+---
+
+A database transaction groups related writes into one unit. For payment
+processing, the usual unit is: confirm that this event is eligible, update the
+payment state, and create the ledger entry. The application should not commit
+only half of that work.
+
+## A safe transaction shape
+
+```text
+begin transaction
+  lock or uniquely claim the payment
+  re-check its status and amount
+  if already credited: do nothing
+  otherwise write the credit and mark the payment completed
+commit
+```
+
+The exact SQL, ORM, and lock depend on your application. BachsProof does not
+choose them for you. It sends duplicates, wrong values, ineligible events, and
+concurrent requests, then reads the committed result through `verify()`.
+
+## Constraints are part of the design
+
+Use a database uniqueness rule where one is needed, such as a unique key on an
+eligible payment's credit identity. A code-only check can still fail when two
+workers run together. A constraint turns the second attempt into a safe
+duplicate path that your handler can handle deliberately.
+
+## Why this matters to BachsProof
+
+`INV-001` checks that one payment is not credited more than once. `INV-003`
+checks that an eligible payment eventually receives its credit. `INV-004` and
+`INV-005` check that rejection and totals are correct. Those rules are only as
+strong as the committed records returned by your verifier.
+
+See the [reference wallet](/case-studies/reference-wallet) for a small
+corrected handler and the [financial invariant reference](/financial-invariants/index)
+for the exact checks.

@@ -3,6 +3,25 @@ title: "Out-of-order events"
 description: "Check that an older event cannot undo a newer outcome."
 ---
 
+## What it tests
+
 BachsProof sends a newer successful event and then an older non-fulfilling
-event. The application should keep the completed payment and one correct
-credit. An older event must not move a completed payment backwards.
+event. Bachs notes in its [webhook guide](https://docs.bachs.io/guides/webhooks/overview)
+that webhook events are not guaranteed to arrive in the order they happened.
+
+## Why it matters
+
+An older status must not undo a completed payment, remove a valid credit, or
+move a payment back to a state that can be processed incorrectly.
+
+## What the application should do
+
+Compare the event's business timestamp or state version with the stored state.
+Keep the newer completed result and handle the older event without reversing a
+valid financial entry.
+
+## Pass and fail
+
+The test passes when the final records contain one correct credit and a
+completed payment. A reversed status, missing credit, duplicate credit, or
+incorrect total fails the financial checks.

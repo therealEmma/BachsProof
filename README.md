@@ -20,7 +20,9 @@ The command creates one file: `bachsproof.config.mjs`.
 ## Configure two callbacks
 
 Set the webhook URL, a test-only secret, amount, and currency. Then implement
-the two callbacks in the generated file:
+the two callbacks in the generated file. In the example, `testApplication` is
+your own test-only database helper: `createPayment` inserts a pending payment
+and `readFinancialState` reads that payment and its ledger entries.
 
 ```js
 import { defineConfig } from "@bachsproof/cli";
@@ -93,8 +95,8 @@ secret. Create fresh test payment records for every scenario. Never point
 BachsProof at production. BachsProof does not delete your application data.
 
 Read the [documentation](docs/index.mdx) for the complete Prisma example,
-scenario explanations, programmatic API, CI setup, troubleshooting, and the
-[v1 migration guide](docs/reference/migrating-from-v1.mdx).
+application-side payment concepts, scenario explanations, programmatic API,
+troubleshooting, and the [v1 to v2 changelog](docs/resources/changelog.mdx).
 
 ## License and disclaimer
 

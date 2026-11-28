@@ -1,7 +1,18 @@
 ---
-title: "Completion"
+title: "INV-003: Completion"
 description: "An eligible payment must produce the required credit."
 ---
 
+## What it means
+
 `INV-003` fails when a successful eligible event is delivered but the saved
 records contain fewer credits than required.
+
+## Why it matters in BachsProof
+
+An HTTP success response is not financial completion. BachsProof polls when
+your application reports pending work, then checks whether the required credit
+was actually committed. A timeout is a failed, unverified result.
+
+Investigate the worker, transaction commit, payment lookup, and the query used
+by `verify()` when this rule fails.

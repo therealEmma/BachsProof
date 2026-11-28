@@ -3,5 +3,22 @@ title: "Failed payment"
 description: "Check that a failed collection creates no credit."
 ---
 
-BachsProof sends a failed collection event. The application may record the
-failure, but it must not create a successful payment credit.
+## What it tests
+
+BachsProof sends a failed collection event. The official [collection.failed
+event](https://docs.bachs.io/guides/webhooks/events/collection-failed) describes
+a payment attempt that did not succeed.
+
+## Why it matters
+
+A failed attempt must not grant the customer a paid entitlement or add money to
+the application ledger.
+
+## What the application should do
+
+Record the failure and keep the payment unpaid. If the customer tries again,
+that later eligible payment should have its own carefully checked outcome.
+
+## Pass and fail
+
+The test passes when no successful credit is saved. Any credit fails `INV-004`.

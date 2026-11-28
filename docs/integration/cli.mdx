@@ -12,3 +12,16 @@ pnpm exec bachsproof test --json
 
 `--name` accepts a plain-language scenario name or its identifier. Unknown
 names fail clearly. The default command runs all eleven supported scenarios.
+
+## Automated runs
+
+Use the JSON form in an automated job. The command returns a non-zero exit code
+when a scenario fails, so a failing financial check stops the job:
+
+```bash
+pnpm exec bachsproof test --json > bachsproof-results.json
+```
+
+This is application verification, not provider setup. If you still need to
+create a Bachs sandbox checkout or inspect a real signed delivery, use the
+official [Bachs CLI and local webhook testing guide](https://docs.bachs.io/developer-portal/local-testing).

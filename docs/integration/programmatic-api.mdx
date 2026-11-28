@@ -15,5 +15,23 @@ if (results.some(({ result }) => !result.passed)) process.exitCode = 1;
 ```
 
 You can also pass a configuration object directly to `runConfig(config)`. This
-is useful for Vitest and Jest. There is no separate Direct Core API onboarding
+is useful for an automated test. There is no separate Direct Core API onboarding
 workflow in v2.
+
+For example, a Vitest test can run one focused scenario while the regular CLI
+command still runs all eleven:
+
+```ts
+import { expect, test } from "vitest";
+import { runConfig } from "@bachsproof/cli";
+import config from "../bachsproof.config.mjs";
+
+test("the application does not double-credit a payment", async () => {
+  const [run] = await runConfig(config, { testName: "sequential-duplicate-webhook" });
+  expect(run?.result.passed).toBe(true);
+  expect(run?.result.report.financiallyVerified).toBe(true);
+});
+```
+
+The same `runConfig` call works in Jest or a custom Node script. Keep the
+application server, test database, and webhook secret isolated from production.

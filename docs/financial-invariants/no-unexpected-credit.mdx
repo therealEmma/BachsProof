@@ -1,7 +1,20 @@
 ---
-title: "No unexpected credit"
+title: "INV-004: No Unexpected Credit"
 description: "An ineligible payment must not create money."
 ---
 
+## What it means
+
 `INV-004` fails when an incomplete, expired, underpaid, failed, or mismatched
 payment has any credit in the saved ledger.
+
+## Why it matters in BachsProof
+
+The negative scenarios protect against granting money or access before the
+application has evidence of an eligible payment. BachsProof waits through its
+bounded observation window; it does not treat an unfinished background job as
+a successful negative result.
+
+Investigate eligibility checks, event status handling, amount and currency
+validation, and whether a background worker writes after the handler should
+have rejected the event.

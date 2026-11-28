@@ -5,6 +5,11 @@ description: "The five rules BachsProof checks against committed records."
 
 BachsProof checks saved financial state, not only HTTP status.
 
+An invariant is a financial rule that should still be true after your webhook
+handler finishes. BachsProof reads the state returned by `verify(reference)`
+and evaluates these five rules. They are the bridge between your application's
+database and a useful test result.
+
 1. `INV-001` — one payment must not create multiple credits.
 2. `INV-002` — a credit must have the expected amount and currency.
 3. `INV-003` — an eligible successful payment must create the required credit.
@@ -13,3 +18,6 @@ BachsProof checks saved financial state, not only HTTP status.
 
 The report includes the invariant identifier, a plain-language reason, and the
 observed financial evidence.
+
+Start with [financial correctness](/concepts/financial-correctness) if ledgers,
+idempotency, and transactions are new concepts.

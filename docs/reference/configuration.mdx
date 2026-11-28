@@ -16,4 +16,10 @@ description: "Reference for the small BachsProof v2 configuration object."
 
 Provider adapters, signing objects, scenario definitions, replay settings,
 checkpoints, race controllers, and synthetic-reference switches are not part of
-the v2 configuration.
+the v2 configuration. BachsProof signs generated test events automatically.
+
+The `secret` is for the test endpoint only. Your application should continue to
+verify Bachs webhook signatures as described in the official
+[webhook guide](https://docs.bachs.io/guides/webhooks/overview). The Bachs API
+key and the API's [Idempotency-Key](https://docs.bachs.io/guides/idempotency)
+are separate provider-side concerns.

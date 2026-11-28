@@ -3,6 +3,25 @@ title: "Concurrent unique payments"
 description: "Check that different payments remain independent."
 ---
 
-BachsProof calls `createPayment()` once for each payment, then sends successful
-webhooks concurrently. Every distinct reference should receive one correct
-credit. A missing, mixed, or duplicated record fails the financial checks.
+## What it tests
+
+BachsProof calls `createPayment()` for more than one payment and sends their
+successful events concurrently. Each event has a different application
+reference.
+
+## Why it matters
+
+Concurrency should not make one customer's payment update another customer's
+record. This catches shared mutable state, broad queries, and test helpers that
+accidentally reuse a reference.
+
+## What the application should do
+
+Look up each payment by its own reference and commit one correct ledger entry
+for each. Do not use a global "last payment" value or a wallet-wide total as the
+identity of the payment being processed.
+
+## Pass and fail
+
+The test passes when every reference has exactly its own correct credit. Missing,
+mixed, or duplicated records fail the financial invariants.

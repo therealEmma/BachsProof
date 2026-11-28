@@ -1,0 +1,41 @@
+---
+title: "Financial correctness"
+description: "Test whether your application handled a payment correctly, not only whether it returned 200."
+---
+
+Financial correctness means that the application's saved money state matches
+the payment that should have happened.
+
+If a customer pays NGN 5,000 and the same event arrives twice, a correct
+application saves one NGN 5,000 credit. If the event is expired, failed,
+underpaid, or has the wrong amount or currency, a correct application saves no
+successful credit.
+
+## The BachsProof check
+
+```text
+prepare a real test payment
+        ↓
+send a signed simulated event
+        ↓
+let the application process it
+        ↓
+read committed payment and ledger records
+        ↓
+check five financial invariants
+```
+
+This complements the official Bachs documentation. Bachs explains checkout
+sessions, payment events, webhook signatures, and the provider API. BachsProof
+checks your application's own idempotency, eligibility decisions, ledger
+writes, transaction boundaries, and final financial state.
+
+## A passing HTTP response is not enough
+
+Your route can return `200` while the database contains two credits, no credit,
+the wrong currency, or a credit for a failed payment. BachsProof therefore
+requires both callbacks and does not mark a scenario as passed until financial
+verification completes.
+
+Read the [five financial invariants](/financial-invariants/index) and the
+[eleven scenarios](/scenarios/index) to see the exact evidence checked.

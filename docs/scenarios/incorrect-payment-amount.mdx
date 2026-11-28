@@ -3,6 +3,22 @@ title: "Incorrect payment amount"
 description: "Check that a successful-looking event with the wrong amount creates no credit."
 ---
 
-BachsProof prepares a payment for the configured amount, then sends an event
-with the same reference and a different amount. The application should reject
-or ignore the mismatch and commit no credit.
+## What it tests
+
+BachsProof prepares a payment for the configured amount, then sends a successful
+event with the same reference and a different amount.
+
+## Why it matters
+
+Crediting the requested order amount without checking the amount in the event
+can give a customer more value than they paid for.
+
+## What the application should do
+
+Compare the event amount with the application payment before creating the
+ledger entry. Reject or ignore the mismatch and keep the payment uncredited.
+
+## Pass and fail
+
+The test passes when no incorrect credit is committed. A credit for the wrong
+amount fails `INV-002`, `INV-004`, or the aggregate financial checks.

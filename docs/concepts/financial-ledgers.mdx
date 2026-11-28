@@ -1,0 +1,50 @@
+---
+title: "Financial ledgers"
+description: "Use durable financial entries to make payment results explainable."
+---
+
+A ledger is the durable record of money that your application granted, reserved,
+refunded, or moved. It can be a `walletCredit` table, an accounting journal, or
+another design. BachsProof does not require a particular schema. It requires
+that `verify()` can read enough committed evidence to answer: what happened to
+this payment?
+
+## Why a ledger matters
+
+An HTTP `200` only says that your route answered. It does not prove that:
+
+- the payment was found;
+- the amount and currency were correct;
+- the payment was credited once;
+- the credit was committed before the response; or
+- a failed or expired payment was rejected.
+
+A ledger makes those answers inspectable. For an eligible NGN 5,000 payment,
+the verifier should be able to see one credit for `500000` minor units in NGN.
+
+## What BachsProof reads
+
+Your `verify(reference)` callback can return a small summary plus ledger rows:
+
+```js
+{
+  creditCount: 1,
+  creditedAmountMinor: 500000,
+  currency: "NGN",
+  status: "COMPLETED",
+  pending: false,
+  ledgerEntries: [{ id: "credit-1", type: "CREDIT", amountMinor: 500000, currency: "NGN" }]
+}
+```
+
+BachsProof compares this observed state with the scenario's expected result.
+It does not infer an amount or currency from the configuration when your
+records are missing. See [Verifying financial records](/testing/verifying-financial-records)
+for a complete database example.
+
+## Keep the evidence tied to the payment
+
+Every ledger entry should be traceable to one application payment reference.
+Do not calculate a balance for the whole test wallet and assume it belongs to
+the event under test. Fresh references and payment-scoped queries let
+BachsProof distinguish one payment from another.

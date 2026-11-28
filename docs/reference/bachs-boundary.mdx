@@ -1,0 +1,38 @@
+---
+title: "Bachs and BachsProof"
+description: "Know which payment questions belong in the official Bachs docs and which belong in BachsProof."
+---
+
+BachsProof is not a replacement for the official Bachs documentation. Use the
+official docs to build the provider side of your integration:
+
+- [How Bachs works](https://docs.bachs.io/concepts/overview) explains the
+  checkout-to-payment-to-balance flow.
+- [Checkout sessions](https://docs.bachs.io/guides/checkout/checkout-sessions)
+  explains how to start a payment.
+- [API authentication](https://docs.bachs.io/authentication) explains sandbox
+  keys and provider requests.
+- [Webhook setup](https://docs.bachs.io/guides/webhooks/overview) explains
+  endpoints, signatures, event subscriptions, and delivery behavior.
+- [API idempotency](https://docs.bachs.io/guides/idempotency) explains how to
+  safely retry writes sent to Bachs.
+- [Local webhook testing](https://docs.bachs.io/developer-portal/local-testing)
+  helps you inspect real sandbox deliveries during provider integration work.
+
+## What BachsProof adds
+
+BachsProof tests the application side after an event reaches your route:
+
+- Does the handler find the intended application payment?
+- Does it reject an ineligible, wrong-amount, or wrong-currency event?
+- Does it process duplicate events only once?
+- Does concurrency leave one correct financial result?
+- Does the database commit the payment and ledger together?
+- Can the application prove the result from its own records?
+
+The Bachs adapter creates local Bachs-shaped events and signs them for the test
+route. It does not create a real Bachs checkout, call the Bachs API, or move
+money. Your application should still verify incoming signatures in the normal
+way. The official [Node SDK webhook guide](https://docs.bachs.io/sdks/node)
+shows that signature verification uses the raw request body and the webhook
+secret, not the API key.

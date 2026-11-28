@@ -3,9 +3,28 @@ title: "Concurrent duplicate credit"
 description: "Check duplicate-credit handling with ordinary concurrent requests."
 ---
 
+## What it tests
+
 BachsProof creates one payment and sends overlapping successful webhooks for
-the same reference. The application should commit one credit. Two credits fail
-`INV-001` and show the actual duplicate amount in the report.
+the same reference.
+
+## Why it matters
+
+Two workers can read the same pending payment before either worker commits. A
+check-then-insert handler can therefore create two credits even though each
+request looked valid by itself.
+
+## What the application should do
+
+Use a transaction, a database uniqueness rule, or another durable application
+guard so that one request creates the credit and the other becomes a safe
+duplicate path.
+
+## Pass and fail
+
+The test passes when the reference has one correct credit. Two credits fail
+`INV-001` and expose the duplicate amount in the report. A passing run does not
+prove that every possible database interleaving is safe.
 
 This is ordinary concurrency. It can expose a race, but it cannot guarantee
 that every operating-system and database interleaving is reproduced.

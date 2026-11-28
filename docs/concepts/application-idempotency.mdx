@@ -1,0 +1,39 @@
+---
+title: "Application-level idempotency"
+description: "Prevent repeated payment events from repeating their financial effect."
+---
+
+Idempotency means that repeating the same business operation does not repeat
+its financial effect. If a customer should receive NGN 5,000, two deliveries
+must not create two NGN 5,000 credits.
+
+## Two different protections
+
+Bachs documents an [API idempotency key](https://docs.bachs.io/guides/idempotency)
+for safely retrying a request that your server sends to Bachs. That protects
+payment creation or another API write.
+
+BachsProof tests a different boundary: the code in your application that
+processes an incoming event. Your handler needs its own durable protection,
+usually a combination of:
+
+- a unique stored event ID, so one delivery is not handled twice;
+- a unique payment or charge identity, so different events cannot credit the
+  same payment twice; and
+- a database constraint or transaction that makes the check and the credit
+  one safe operation.
+
+The official [webhook guide](https://docs.bachs.io/guides/webhooks/overview)
+explains that delivery is at least once and recommends recording event IDs.
+BachsProof adds the application financial check: an event ID may differ while
+the payment reference is still the same.
+
+## What the scenarios show
+
+- Sequential duplicate delivery checks the simplest repeated request.
+- Concurrent duplicate credit checks two overlapping requests.
+- Cross-event duplicate payment checks different event types for one payment.
+
+All three should leave one correct ledger credit. If your application returns
+success but writes two rows, BachsProof reports the saved duplicate rather than
+accepting the HTTP response.

@@ -1,0 +1,40 @@
+---
+title: "Concurrency and race conditions"
+description: "Understand why two correct-looking requests can still create two credits."
+---
+
+A race condition happens when two requests read the same old state and both
+decide that they are allowed to write. A common payment example is:
+
+1. Request A reads `credited = false`.
+2. Request B reads `credited = false` before A commits.
+3. Both requests insert a credit.
+
+The result is financially wrong even though each request looked correct by
+itself.
+
+## How BachsProof tests this
+
+The concurrent duplicate scenario sends overlapping signed webhooks for one
+payment reference. The concurrent unique scenario sends different references
+at the same time and checks that their records do not get mixed together.
+
+BachsProof uses ordinary request concurrency. It does not pause requests at a
+private checkpoint or claim that one run covers every operating-system,
+database, or network interleaving. A passing run means that this execution did
+not expose a violation; database constraints and transactions are still the
+real protection.
+
+## What to inspect after a failure
+
+Look at the payment reference, event IDs, ledger rows, and transaction logs.
+Then ask:
+
+- Can two workers both pass the same eligibility check?
+- Is the uniqueness rule enforced by the database?
+- Does the handler treat a duplicate as a safe no-op?
+- Are different payment references kept separate?
+
+The [concurrent duplicate credit scenario](/scenarios/concurrent-duplicate-credit)
+and [database transaction guide](/concepts/database-transactions) connect the
+failure to a practical fix.

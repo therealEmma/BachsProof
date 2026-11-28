@@ -10,6 +10,12 @@ checks the financial records the application actually committed. If a customer
 pays NGN 5,000 and the same webhook arrives twice, the customer should still
 receive one NGN 5,000 credit. BachsProof checks that result in your records.
 
+The official [Bachs documentation](https://docs.bachs.io/) explains how to
+create checkout sessions, authenticate API requests, receive signed webhooks,
+and understand Bachs event types. BachsProof focuses on what happens after
+your application receives an event: whether your own payment records and
+ledger stay correct.
+
 It is an independent, unofficial test tool. It does not call Bachs, move
 money, delete data, or certify production readiness.
 
@@ -29,5 +35,8 @@ passing test includes completed financial verification.
   </Card>
   <Card title="See the reference wallet" icon="wallet" href="/case-studies/reference-wallet">
     Follow a complete database-backed example.
+  </Card>
+  <Card title="Learn the application side" icon="landmark" href="/concepts/financial-correctness">
+    Understand ledgers, idempotency, transactions, and concurrency.
   </Card>
 </CardGroup>

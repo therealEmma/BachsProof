@@ -1,5 +1,9 @@
 # Railway PostgreSQL
 
+This guide is for running the reference wallet with real test-database evidence
+behind BachsProof's `verify()` callback. It is optional; the normal quickstart
+can use an in-memory or local test database.
+
 The reference wallet accepts a standard PostgreSQL `DATABASE_URL`, so Railway's externally reachable connection string works without Docker Desktop or a local PostgreSQL installation. Keep the URL in an environment variable; `.env.example` contains only a placeholder.
 
 Create a dedicated Railway database for tests, then run:

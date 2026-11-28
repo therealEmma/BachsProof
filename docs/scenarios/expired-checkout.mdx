@@ -3,5 +3,22 @@ title: "Expired checkout"
 description: "Check that an expired checkout creates no credit."
 ---
 
-BachsProof sends an expired checkout with no charge. The application should
-record the event if useful but must not create a wallet credit.
+## What it tests
+
+BachsProof sends a checkout-expired event without a successful collection. The
+official [checkout.expired event](https://docs.bachs.io/guides/webhooks/events/checkout-expired)
+describes an open checkout that expired before completion.
+
+## Why it matters
+
+An expired checkout should not create money in your ledger. Recording a status
+is useful; treating expiry as payment is not.
+
+## What the application should do
+
+Record the expiry if your application needs it, but do not create a successful
+credit for the reference.
+
+## Pass and fail
+
+The test passes when the ledger has no credit. Any credit fails `INV-004`.

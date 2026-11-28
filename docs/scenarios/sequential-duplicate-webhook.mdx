@@ -3,6 +3,26 @@ title: "Sequential duplicate webhook"
 description: "Check that repeated delivery creates one credit."
 ---
 
-BachsProof creates one payment, sends the same successful webhook twice in
-sequence, and reads the ledger. The application should commit one credit for
-the expected amount and currency. Two credits fail `INV-001` and `INV-005`.
+## What it tests
+
+BachsProof sends the same successful payment event twice, one after the other.
+This represents a retry or duplicate delivery. Bachs documents webhook delivery
+as at-least-once in its [webhook guide](https://docs.bachs.io/guides/webhooks/overview),
+so your application must make repeated delivery safe.
+
+## Why it matters
+
+The customer paid once. A second delivery must not give the customer a second
+credit or grant access twice.
+
+## What the application should do
+
+Find the prepared payment, process the first event, and treat the second event
+as a safe no-op. A durable event record, a payment-level uniqueness rule, or
+both can support this behavior.
+
+## Pass and fail
+
+The test passes when the ledger has exactly one credit for the expected amount
+and currency. Two credits fail `INV-001` and the aggregate amount check. A
+missing credit fails the completion rule.
