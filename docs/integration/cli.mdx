@@ -1,0 +1,14 @@
+---
+title: "CLI"
+description: "Run the eleven scenarios from the command line."
+---
+
+```bash
+pnpm exec bachsproof init
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+pnpm exec bachsproof test
+pnpm exec bachsproof test --json
+```
+
+`--name` accepts a plain-language scenario name or its identifier. Unknown
+names fail clearly. The default command runs all eleven supported scenarios.

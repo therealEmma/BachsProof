@@ -1,11 +1,11 @@
+import { randomUUID } from "node:crypto";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { BachsWebhookError, webhooks } from "@bachs/sdk";
-import { normalizeBachsWebhookEvent, parseBachsWebhookEvent, type NormalizedBachsPayment } from "@bachsproof/bachs";
-import { checkpoint, checkpointMiddleware, configureCheckpoint } from "@bachsproof/sdk";
+import { createBachsMockFixture, normalizeBachsWebhookEvent, parseBachsWebhookEvent, type NormalizedBachsPayment } from "@bachsproof/bachs";
 import { ZodError } from "zod";
 import { InMemoryWalletStore } from "./memory-store.js";
 import { PrismaWalletStore } from "./prisma-store.js";
-import type { IncomingPayment, WalletStore } from "./types.js";
+import type { IncomingPayment, PaymentSnapshot, WalletStore } from "./types.js";
 
 export interface ReferenceWalletOptions {
   mode: "vulnerable" | "corrected";
@@ -18,9 +18,18 @@ export interface ReferenceWalletOptions {
   requireBachsSignature?: boolean;
 }
 
+export interface ReferenceWalletPaymentInput {
+  reference?: string;
+  amountMinor: number;
+  currency: string;
+  customerId?: string;
+}
+
 export interface ReferenceWallet {
   app: Express;
   store: WalletStore;
+  /** Create a fresh pending payment for BachsProof's preparation callback. */
+  createPayment(input: ReferenceWalletPaymentInput): Promise<PaymentSnapshot>;
   close(): Promise<void>;
 }
 
@@ -56,7 +65,6 @@ export async function createReferenceWallet(options: ReferenceWalletOptions): Pr
   }
 
   const store = options.store ?? (options.databaseUrl ? new PrismaWalletStore(options.databaseUrl) : new InMemoryWalletStore());
-  configureCheckpoint({ enabled: false, allowRequestHeaders: options.testEnvironment === true });
   const app = express();
   app.disable("x-powered-by");
 
@@ -64,7 +72,7 @@ export async function createReferenceWallet(options: ReferenceWalletOptions): Pr
 
   // This parser is deliberately route-local. The Bachs SDK must see the exact
   // bytes that arrived on the wire before any JSON parser or reserialization.
-  app.post("/webhooks/bachs", express.raw({ type: ["application/json", "application/*+json"], limit: "64kb" }), checkpointMiddleware({ enabled: options.testEnvironment === true, timeoutMs: 10_000 }) as express.RequestHandler, async (req, res, next) => {
+  app.post("/webhooks/bachs", express.raw({ type: ["application/json", "application/*+json"], limit: "64kb" }), async (req, res, next) => {
     try {
       const rawBody = rawWebhookBody(req);
       let verifiedEvent: unknown;
@@ -92,7 +100,7 @@ export async function createReferenceWallet(options: ReferenceWalletOptions): Pr
       }
 
       await store.ensurePendingPayment(payment);
-      const afterCheck = () => checkpoint("after-idempotency-check", { key: payment.reference });
+      const afterCheck = async () => undefined;
       const credited = options.mode === "vulnerable"
         ? await store.processVulnerable(payment, afterCheck)
         : await store.processCorrected(payment, afterCheck);
@@ -122,6 +130,18 @@ export async function createReferenceWallet(options: ReferenceWalletOptions): Pr
   return {
     app,
     store,
+    async createPayment(input) {
+      if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor < 0) throw new Error("Reference wallet amountMinor must be a non-negative safe integer");
+      if (!/^[A-Z]{3}$/.test(input.currency)) throw new Error("Reference wallet currency must be a three-letter ISO currency code");
+      const reference = input.reference ?? `PAY-TEST-${randomUUID().replaceAll("-", "").slice(0, 16)}`;
+      const event = createBachsMockFixture({ reference, amountMinor: input.amountMinor, currency: input.currency, customerId: input.customerId });
+      const payment = toIncomingPayment(normalizeBachsWebhookEvent(event));
+      if (!payment) throw new Error(`Could not prepare reference wallet payment ${reference}`);
+      // Provider transaction identifiers are created by the simulated event,
+      // not by this local preparation helper. Leave them empty so the first
+      // authentic-looking webhook can attach its own identifiers.
+      return store.ensurePendingPayment({ ...payment, providerPaymentId: undefined, checkoutId: undefined });
+    },
     async close() {
       await store.close?.();
     }

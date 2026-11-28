@@ -1,22 +1,12 @@
 # `@bachsproof/bachs`
 
-The Bachs adapter for BachsProof.
+The Bachs adapter supplies local Bachs-shaped payment events, exact money
+helpers, and automatic-signing utilities used by `@bachsproof/cli`.
 
-It creates local test events shaped like the documented Bachs webhook payloads,
-serializes amounts using integer minor units, and creates test signatures when
-the runner is configured to sign them. The default `mode: "mock"` does not call
-Bachs and does not create a real payment.
+The adapter is test-only. It does not call Bachs or create provider-side
+payments. The CLI creates it automatically; developers normally do not need
+to import it.
 
-```ts
-import { bachsAdapter } from "@bachsproof/bachs";
-
-const provider = bachsAdapter({ mode: "mock" });
-```
-
-Your application still needs to verify real Bachs webhooks with the official
-Bachs SDK. Verify the original raw request body before parsing it. BachsProof
-fixtures are useful for testing your handler; they are not proof of provider
-settlement and they do not replace a sandbox payment.
-
-For event eligibility, money values, signing, and the supported scenarios, see
-the [Bachs integration guide](../../docs/bachs/index.mdx).
+All tested payment references come from the application's `createPayment()`
+callback. Simulated events remain local fixtures and are never a substitute
+for an application payment record.

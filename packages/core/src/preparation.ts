@@ -1,6 +1,6 @@
 import type { PaymentReferenceCreator, RunOptions } from "./types.js";
 
-const DEFAULT_AMOUNT_MINOR = 5_000_000;
+const DEFAULT_AMOUNT_MINOR = 500_000;
 const DEFAULT_CURRENCY = "NGN";
 
 function hasReference(value: unknown): value is string {
@@ -27,7 +27,7 @@ async function createReference(
       paymentCount
     });
     if (!hasReference(reference)) {
-      throw new Error("createPayment must return a non-empty payment reference from the isolated test payment it created");
+      throw new Error("createPayment must return a non-empty reference from the isolated test payment it created");
     }
     return reference.trim();
   } catch (error) {
@@ -35,31 +35,21 @@ async function createReference(
   }
 }
 
-/**
- * Resolve missing application payment references before event creation. Manual
- * references take precedence, followed by the explicit synthetic fixture mode;
- * the application callback is used only when neither is supplied.
- */
+/** Prepare one fresh application payment for every logical payment in a run. */
 export async function preparePaymentReferences(
   input: RunOptions,
-  createPayment?: PaymentReferenceCreator
-): Promise<RunOptions> {
-  if (input.syntheticReferences) return input;
-
-  if (input.scenario === "concurrent-unique-payments") {
-    if (input.references) return input;
-    if (!createPayment) return input;
-    const paymentCount = input.concurrency ?? 2;
-    const references: string[] = [];
-    for (let paymentIndex = 0; paymentIndex < paymentCount; paymentIndex += 1) {
-      references.push(await createReference(input, createPayment, paymentIndex, paymentCount));
-    }
-    return { ...input, references, concurrency: paymentCount };
+  createPayment: PaymentReferenceCreator
+): Promise<string[]> {
+  const paymentCount = input.scenario === "concurrent-unique-payments" ? input.concurrency ?? 2 : 1;
+  if (!Number.isInteger(paymentCount) || paymentCount < 1) {
+    throw new Error("Payment preparation requires a positive payment count");
   }
-
-  if (hasReference(input.reference) || !createPayment) return input;
-  return {
-    ...input,
-    reference: await createReference(input, createPayment, 0, 1)
-  };
+  const references: string[] = [];
+  for (let paymentIndex = 0; paymentIndex < paymentCount; paymentIndex += 1) {
+    references.push(await createReference(input, createPayment, paymentIndex, paymentCount));
+  }
+  if (new Set(references).size !== references.length) {
+    throw new Error(`Payment preparation failed for ${input.scenario}: createPayment returned duplicate payment references`);
+  }
+  return references;
 }

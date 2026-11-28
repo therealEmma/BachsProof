@@ -2,12 +2,9 @@ import type { ExpectedPaymentState, ObservedPaymentState, VerificationResult } f
 
 /**
  * Evaluate persisted financial state, not merely webhook HTTP responses.
- * Every comparison uses integer minor units so a floating-point rounding error
- * cannot hide a duplicate or incorrect credit.
+ * These are the five v1 invariants carried forward unchanged in meaning.
  */
 export function verifyPaymentState(expected: ExpectedPaymentState, observed: ObservedPaymentState): VerificationResult {
-  // A single run can violate more than one invariant; retaining all failures
-  // makes the report useful for debugging instead of stopping at the first one.
   const violations = [];
   if (observed.creditCount > 1) {
     violations.push({
@@ -21,7 +18,7 @@ export function verifyPaymentState(expected: ExpectedPaymentState, observed: Obs
     violations.push({
       id: "INV-002" as const,
       name: "Amount Integrity",
-      message: `Expected ${expected.amountMinor} ${expected.currency} minor units, but observed ${observed.creditedAmountMinor} ${observed.currency} minor units`,
+      message: `Expected one credit of ${expected.amountMinor} ${expected.currency} minor units, but observed ${observed.creditedAmountMinor} ${observed.currency} minor units`,
       reference: expected.reference
     });
   }

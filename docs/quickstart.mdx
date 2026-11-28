@@ -1,215 +1,76 @@
 ---
 title: "Quickstart"
-description: "Run your first financially verified BachsProof test."
+description: "Configure two callbacks and run a real financial correctness test."
 ---
 
-This guide assumes an existing backend with a Bachs-compatible webhook route.
-BachsProof sends synthetic signed requests to an isolated copy of that backend;
-it does not call Bachs or move real money.
+## 1. Prepare an isolated application
 
-The required path is: install, start the test application, prepare a fresh
-payment, read committed state, and run a scenario. Checkpoints, JSON reports,
-and custom timing values are optional.
+Use a test server, test database, test queue, and test-only webhook secret.
+BachsProof never creates a payment in your application. Your callback creates
+the record first.
 
-<Steps>
-  <Step title="Install and initialize">
-    ```bash
-    pnpm add -D @bachsproof/cli@1.1.0
-    pnpm exec bachsproof init
-    ```
+## 2. Create the config file
 
-    The command creates `bachsproof.config.mjs`,
-    `tests/bachsproof.test.mjs`, `tests/bachsproof.setup.mjs`, and
-    `tests/bachsproof.verify.mjs`. The last two are your application test code;
-    their generated errors are intentional until you connect them to your test
-    database or test service.
-  </Step>
+```bash
+pnpm add -D @bachsproof/cli
+pnpm exec bachsproof init
+```
 
-  <Step title="Load one isolated test environment">
-    Load these values into both the application process and the BachsProof
-    process:
+Open `bachsproof.config.mjs`. Set `webhookUrl`, `secret`, `amountMinor`, and
+`currency`. Then replace the two generated errors with your application code.
 
-    ```powershell
-    $env:BACHSPROOF_TARGET_URL = "http://127.0.0.1:3000"
-    $env:BACHSPROOF_WEBHOOK_PATH = "/webhooks/bachs"
-    $env:BACHS_WEBHOOK_SECRET = "your-test-only-secret"
-    $env:BACHSPROOF_TEST_DATABASE_URL = "postgresql://user:password@localhost:5432/bachsproof_test"
-    ```
+## 3. Use the reference wallet shape
 
-    In a monorepo, load the root `.env` with the environment loader already used
-    by your application, for example `dotenv.config({ path: "../../.env" })`.
-    The application and both callbacks must use the same dedicated test
-    database URL. Start the application before running the test. Never point
-    this at production.
-  </Step>
+The repository's reference wallet exposes the same two operations. The first
+creates a pending record and the second reads committed records:
 
-  <Step title="Enable the generated callbacks">
-    Edit `bachsproof.config.mjs`:
+```js
+import { defineConfig } from "@bachsproof/cli";
+import { createReferenceWallet } from "@bachsproof/reference-wallet";
 
-    ```js
-    import { bachsAdapter } from "@bachsproof/cli";
-    import { tests } from "./tests/bachsproof.test.mjs";
-    import { createPayment } from "./tests/bachsproof.setup.mjs";
-    import { verify } from "./tests/bachsproof.verify.mjs";
+const wallet = await createReferenceWallet({ mode: "corrected", databaseUrl: process.env.DATABASE_URL });
 
-    const signingSecret = process.env.BACHS_WEBHOOK_SECRET;
-
-    export default {
-      provider: bachsAdapter({ mode: "mock" }),
-      target: {
-        baseUrl: process.env.BACHSPROOF_TARGET_URL ?? "http://127.0.0.1:3000",
-        webhookPath: process.env.BACHSPROOF_WEBHOOK_PATH ?? "/webhooks/bachs"
-      },
-      ...(signingSecret ? { signing: { type: "bachs", secret: signingSecret } } : {}),
-      createPayment,
-      verify,
-      requireFinancialVerification: true,
-      financialVerification: {
-        completionDeadlineMs: 10_000,
-        pollIntervalMs: 25,
-        negativeObservationWindowMs: 250
-      },
-      tests
+export default defineConfig({
+  webhookUrl: "http://127.0.0.1:3000/webhooks/bachs",
+  secret: process.env.BACHS_WEBHOOK_SECRET,
+  amountMinor: 500000,
+  currency: "NGN",
+  async createPayment({ amountMinor, currency }) {
+    const payment = await wallet.createPayment({ amountMinor, currency });
+    return payment.reference;
+  },
+  async verify(reference) {
+    const state = await wallet.store.inspect(reference);
+    return {
+      reference,
+      creditCount: state.creditCount,
+      creditedAmountMinor: state.creditedAmountMinor,
+      currency: state.currency,
+      status: state.status,
+      ledgerEntries: state.ledgerEntries
     };
-    ```
+  }
+});
+```
 
-    Signing uses the raw request body and the test-only secret. Your webhook
-    handler must verify that same body before parsing it.
-  </Step>
+For another database or ORM, make `createPayment()` insert a pending test
+payment and make `verify()` query the payment and its ledger rows. The callback
+contract is explained in [Preparing payments](/testing/preparing-payments) and
+[Verifying financial records](/testing/verifying-financial-records).
 
-  <Step title="Create a fresh payment">
-    `createPayment` is application test code that you implement. The callback receives the same five
-    properties in every entry point:
+## 4. Run one scenario
 
-    | Property | Meaning |
-    | --- | --- |
-    | `scenario` | The scenario currently running. |
-    | `amountMinor` | Integer minor units expected by the scenario. `500_000` NGN is ₦5,000. |
-    | `currency` | Three-letter currency code. |
-    | `paymentIndex` | Zero-based payment number within the scenario. |
-    | `paymentCount` | Total payments needed by the scenario. |
+```bash
+pnpm exec bachsproof test --name "sequential duplicate webhook"
+```
 
-    Replace the generated error with your application logic. The following
-    example is complete once `applicationTestApi.createPayment` is replaced by
-    your test database or application service:
+This creates one payment, sends the same signed webhook twice, reads the saved
+records, and checks that one credit exists.
 
-    ```js
-    export async function createPayment({
-      scenario,
-      amountMinor,
-      currency,
-      paymentIndex,
-      paymentCount
-    }) {
-      const payment = await applicationTestApi.createPayment({
-        scenario,
-        amountMinor,
-        currency,
-        paymentIndex,
-        paymentCount
-      });
-      if (!payment?.reference) throw new Error("payment API returned no reference");
-      return payment.reference;
-    }
-    ```
+## 5. Run all eleven scenarios
 
-    `applicationTestApi` is illustrative application code, not a BachsProof
-    API. It can be an ORM, order service, wallet fixture, invoice factory, or
-    test-only endpoint. Every call must create a fresh unique reference and
-    must not move real money.
-  </Step>
+```bash
+pnpm exec bachsproof test
+```
 
-  <Step title="Read committed financial state">
-    A response from the webhook route is not financial proof. `verify` must read
-    the payment and actual credit or ledger rows from the same test database.
-
-    The smallest valid shape is:
-
-    ```js
-    export async function verify(reference) {
-      return {
-        reference,
-        creditCount: 0,
-        creditedAmountMinor: 0,
-        currency: "NGN"
-      };
-    }
-    ```
-
-    Use the shape only to understand the contract. A real Prisma/PostgreSQL
-    verifier looks like this (adapt field names to your schema):
-
-    ```js
-    import { prisma } from "./test-support/prisma.mjs";
-
-    function toSafeMinorUnits(value) {
-      const number = typeof value === "bigint" ? Number(value) : Number(value);
-      if (!Number.isSafeInteger(number)) {
-        throw new Error("Financial amount exceeds JavaScript safe integer range");
-      }
-      return number;
-    }
-
-    export async function verify(reference, context) {
-      const payment = await prisma.payment.findUnique({ where: { reference } });
-      const credits = await prisma.walletCredit.findMany({ where: { reference } });
-      const unfinishedWorkerStates = new Set([
-        "QUEUED", "WAITING", "PROCESSING", "RETRY_SCHEDULED", "RETRYING"
-      ]);
-
-      return {
-        reference,
-        creditCount: credits.length,
-        creditedAmountMinor: credits.reduce(
-          (total, credit) => total + toSafeMinorUnits(credit.amountMinor),
-          0
-        ),
-        currency: payment?.currency ?? "NGN",
-        status: payment?.status ?? "NOT_FOUND",
-        pending: !payment || unfinishedWorkerStates.has(payment.workerStatus),
-        ledgerEntries: credits.map((credit) => ({
-          id: String(credit.id),
-          type: String(credit.type),
-          amountMinor: toSafeMinorUnits(credit.amountMinor),
-          currency: credit.currency
-        }))
-      };
-    }
-    ```
-
-    `ledgerEntries` is optional, but each supplied entry requires `id`, `type`,
-    and integer `amountMinor`; `currency` is optional. PostgreSQL `BIGINT`
-    values are JavaScript `bigint`, so convert them only after the safe-integer
-    check. `pending: true` is for work that can still change committed state;
-    a `PENDING` payment status alone does not prove that a webhook worker is
-    still running. BachsProof uses a bounded deadline and negative observation
-    window, so it cannot guarantee that a future job will never write a credit.
-  </Step>
-
-  <Step title="Run one test, then the suite">
-    ```bash
-    pnpm exec bachsproof test --name "sequential duplicate webhook"
-    pnpm exec bachsproof test
-    ```
-
-    A financially verified result means the callback returned valid committed
-    state and the applicable invariants passed. A delivery-only result is not
-    proof of a financial write. A typical successful result looks like this:
-
-    ```text
-    PASS sequential duplicate webhook
-    Summary: 1/1 passed, 0 failed, 1 financially verified
-    ```
-
-    Use `--json` for CI:
-
-    ```bash
-    pnpm exec bachsproof test --json > bachsproof-results.json
-    ```
-  </Step>
-</Steps>
-
-<Warning>
-Use only an isolated application, database, queue, and test secret. BachsProof
-synthetic events must never be sent to production.
-</Warning>
+Use `--json` in CI or when saving a report for debugging.

@@ -4,35 +4,31 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { signBachsWebhook } from "@bachsproof/bachs";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-let temporaryDirectories: string[] = [];
-let servers: Server[] = [];
+const temporaryDirectories: string[] = [];
+const servers: Server[] = [];
 
 async function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}) {
   return execFileAsync(command, args, {
     cwd,
     env: { ...process.env, ...env },
     maxBuffer: 2 * 1024 * 1024,
-    // Windows resolves pnpm through its .cmd shim. Node should be executed
-    // directly so absolute paths and argument boundaries remain intact.
     shell: process.platform === "win32" && command === pnpm
   });
 }
 
 describe("BachsProof CLI in an independent repository", () => {
   afterEach(async () => {
-    for (const server of servers.splice(0)) {
-      await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
-    }
+    for (const server of servers.splice(0)) await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
     for (const directory of temporaryDirectories.splice(0)) await rm(directory, { recursive: true, force: true });
   });
 
-  it("installs the CLI archive, initializes a project, and runs signed black-box tests", async () => {
+  it("installs the CLI archive, initializes one file, and runs all eleven scenarios", async () => {
     const fixture = await mkdtemp(join(process.env.TEMP ?? process.env.TMP ?? ".", "bachsproof-cli-independent-"));
     temporaryDirectories.push(fixture);
     const archives = join(fixture, "archives");
@@ -53,125 +49,98 @@ describe("BachsProof CLI in an independent repository", () => {
       name: "bachsproof-external-fixture",
       private: true,
       type: "module",
-      dependencies: {
-        "@bachsproof/cli": cliArchive,
-        "@bachsproof/core": coreArchive,
-        "@bachsproof/bachs": bachsArchive
-      },
-      pnpm: {
-        overrides: {
-          "@bachsproof/core": coreArchive,
-          "@bachsproof/bachs": bachsArchive
-        }
-      }
+      dependencies: { "@bachsproof/cli": cliArchive, "@bachsproof/core": coreArchive, "@bachsproof/bachs": bachsArchive },
+      pnpm: { overrides: { "@bachsproof/core": coreArchive, "@bachsproof/bachs": bachsArchive } }
     }, null, 2), "utf8");
     await run(pnpm, ["install", "--offline", "--ignore-scripts"], fixture);
 
-    const cliEntry = join(fixture, "node_modules", "@bachsproof", "cli", "dist", "cli.js");
-    const help = await run(pnpm, ["exec", "bachsproof", "--help"], fixture);
-    expect(help.stdout).toContain("BachsProof payment correctness testing");
     const initialized = await run(pnpm, ["exec", "bachsproof", "init"], fixture);
-    try {
-      await access(join(fixture, "bachsproof.config.mjs"));
-    } catch {
-      throw new Error(`Installed CLI did not initialize the fixture. entry=${cliEntry}\nstdout=${initialized.stdout}\nstderr=${initialized.stderr}`);
-    }
-    expect(initialized.stdout).toContain("BachsProof initialized successfully!");
-    expect(initialized.stdout).toContain("Step 2: Open bachsproof.config.mjs");
-    expect(initialized.stdout).toContain("Step 7: Run all payment scenarios");
-    expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("target");
-    expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).toContain("sequential-duplicate-webhook");
-    expect(await readFile(join(fixture, "tests", "bachsproof.test.mjs"), "utf8")).not.toContain("BACHSPROOF_REFERENCES");
-    expect(await readFile(join(fixture, "tests", "bachsproof.setup.mjs"), "utf8")).toContain("Implement createPayment in tests/bachsproof.setup.mjs");
-    expect(await readFile(join(fixture, "tests", "bachsproof.verify.mjs"), "utf8")).toContain("HTTP 200 only proves");
-    expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("@bachsproof/cli");
+    expect(initialized.stdout).toContain("BachsProof initialized successfully.");
+    expect(await readFile(join(fixture, "bachsproof.config.mjs"), "utf8")).toContain("createPayment");
+    await expectAccess(join(fixture, "bachsproof.config.mjs"));
+    await expectMissing(join(fixture, "tests"));
 
-    let defaultRunOutput = "";
-    try {
-      await run(pnpm, ["exec", "bachsproof", "test"], fixture);
-    } catch (error) {
-      const failure = error as { stdout?: string; stderr?: string };
-      defaultRunOutput = `${failure.stdout ?? ""}\n${failure.stderr ?? ""}`;
-    }
-    expect(defaultRunOutput).toContain("Open tests/bachsproof.setup.mjs");
+    const config = `import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { defineConfig } from "@bachsproof/cli";
 
-    await writeFile(join(fixture, "tests", "bachsproof.setup.mjs"), `import { randomUUID } from "node:crypto";
+const stateUrl = process.env.BACHSPROOF_STATE_URL;
+export default defineConfig({
+  webhookUrl: process.env.BACHSPROOF_WEBHOOK_URL,
+  secret: process.env.BACHS_WEBHOOK_SECRET,
+  amountMinor: 500000,
+  currency: "NGN",
+  createPayment: ({ scenario, paymentIndex }) => "AUTO-" + scenario + "-" + paymentIndex + "-" + randomUUID(),
+  verify: async (reference) => {
+    const response = await fetch(stateUrl + "?reference=" + encodeURIComponent(reference));
+    const observed = await response.json();
+    if (!response.ok) throw new Error("No committed state for " + reference);
+    return { reference, creditCount: observed.creditCount, creditedAmountMinor: observed.amountMinor, currency: observed.currency };
+  }
+});
+`;
+    await writeFile(join(fixture, "bachsproof.config.mjs"), config, "utf8");
 
-export async function createPayment(context) {
-  return \`AUTO-\${context.scenario}-\${context.paymentIndex}-\${randomUUID()}\`;
-}
-`, "utf8");
-    const configPath = join(fixture, "bachsproof.config.mjs");
-    const generatedConfig = await readFile(configPath, "utf8");
-    await writeFile(configPath, generatedConfig
-      .replace("// import { createPayment } from \"./tests/bachsproof.setup.mjs\";", "import { createPayment } from \"./tests/bachsproof.setup.mjs\";")
-      .replace("  // createPayment,", "  createPayment,"), "utf8");
-
-    const requests: Array<{ body: string; signature?: string }> = [];
+    const state = new Map<string, { creditCount: number; amountMinor: number; currency: string }>();
     const server = createServer((request, response) => {
+      if (request.method === "GET" && request.url?.startsWith("/state")) {
+        const reference = new URL(request.url, "http://127.0.0.1").searchParams.get("reference");
+        const observed = reference ? state.get(reference) : undefined;
+        response.statusCode = observed ? 200 : 404;
+        response.setHeader("content-type", "application/json");
+        response.end(JSON.stringify(observed ?? { error: "not-found" }));
+        return;
+      }
       const chunks: Buffer[] = [];
       request.on("data", (chunk: Buffer) => chunks.push(chunk));
-      request.on("end", () => {
+      request.on("end", async () => {
         const body = Buffer.concat(chunks).toString("utf8");
-        requests.push({ body, signature: request.headers["x-bachs-signature-v2"] as string | undefined });
-        const receivedSignature = request.headers["x-bachs-signature-v2"] as string | undefined;
-        const timestamp = Number(receivedSignature?.match(/^t=(\d+),/)?.[1]);
-        const expectedSignature = Number.isInteger(timestamp)
-          ? signBachsWebhook(body, "external-fixture-secret", timestamp)["x-bachs-signature-v2"]
-          : undefined;
-        const rejected = body.startsWith("{\"invalid\":") || receivedSignature !== expectedSignature;
-        response.statusCode = rejected ? 400 : 200;
-        response.setHeader("content-type", "application/json");
-        response.end(JSON.stringify({ accepted: true }));
+        const signature = String(request.headers["x-bachs-signature-v2"] ?? "");
+        const timestamp = Number(signature.match(/^t=(\d+),/)?.[1]);
+        const expected = Number.isInteger(timestamp)
+          ? `t=${timestamp},v1=${createHmac("sha256", "external-fixture-secret").update(`${timestamp}.${body}`).digest("hex")}`
+          : "";
+        if (signature !== expected) {
+          response.statusCode = 400;
+          response.end("invalid signature");
+          return;
+        }
+        const event = JSON.parse(body) as { type: string; data: Record<string, string> };
+        const reference = event.data.reference;
+        if (reference) {
+          const eligible = event.type === "collection.succeeded" && event.data.status === "SUCCEEDED" && event.data.currency === "NGN" && event.data.amount === "5000.00";
+          const previous = state.get(reference) ?? { creditCount: 0, amountMinor: 0, currency: "NGN" };
+          if (eligible && previous.creditCount === 0) state.set(reference, { creditCount: 1, amountMinor: 500000, currency: "NGN" });
+          else if (!state.has(reference)) state.set(reference, previous);
+        }
+        response.statusCode = 200;
+        response.end("accepted");
       });
     });
     servers.push(server);
     await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("independent fixture server did not start");
-
-    let tested: { stdout: string; stderr: string };
-    try {
-      tested = await run(pnpm, ["exec", "bachsproof", "test", "--json"], fixture, {
-        BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-        BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
-        BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-        BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
-      });
-    } catch (error) {
-      const failure = error as { stdout?: string; stderr?: string; message?: string };
-      throw new Error(`${failure.message ?? "installed CLI failed"}\nstdout=${failure.stdout ?? ""}\nstderr=${failure.stderr ?? ""}`);
-    }
-    const runAgain = await run(pnpm, ["exec", "bachsproof", "test", "--json"], fixture, {
-      BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-      BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
-      BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-      BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
-    });
-    const individualRun = await run(pnpm, ["exec", "bachsproof", "test", "--name=\"underpaid payment\"", "--json"], fixture, {
-      BACHSPROOF_TARGET_URL: `http://127.0.0.1:${address.port}`,
-      BACHSPROOF_WEBHOOK_PATH: "/webhooks/bachs",
-      BACHS_WEBHOOK_SECRET: "external-fixture-secret",
-      BACHSPROOF_USE_SYNTHETIC_REFERENCES: ""
-    });
+    const env = {
+      BACHSPROOF_WEBHOOK_URL: `http://127.0.0.1:${address.port}/webhooks/bachs`,
+      BACHSPROOF_STATE_URL: `http://127.0.0.1:${address.port}/state`,
+      BACHS_WEBHOOK_SECRET: "external-fixture-secret"
+    };
+    const tested = await run(pnpm, ["exec", "bachsproof", "test", "--json"], fixture, env);
+    const individual = await run(pnpm, ["exec", "bachsproof", "test", "--name", "underpaid-payment", "--json"], fixture, env);
     const result = JSON.parse(tested.stdout) as Array<{ result: { passed: boolean; report: { financiallyVerified: boolean } } }>;
-    const repeatedResult = JSON.parse(runAgain.stdout) as Array<{ result: { passed: boolean; report: { financiallyVerified: boolean } } }>;
-    const individualResult = JSON.parse(individualRun.stdout) as Array<{ name: string; result: { passed: boolean; report: { financiallyVerified: boolean } } }>;
-    expect(result).toHaveLength(15);
-    expect(repeatedResult).toHaveLength(15);
-    expect(individualResult).toHaveLength(1);
-    expect(individualResult[0]?.name).toBe("underpaid payment");
-    expect(result.every((entry) => entry.result.passed)).toBe(true);
-    expect(repeatedResult.every((entry) => entry.result.passed)).toBe(true);
-    expect(individualResult[0]?.result.passed).toBe(true);
-    expect(result.every((entry) => entry.result.report.financiallyVerified === false)).toBe(true);
-    expect(repeatedResult.every((entry) => entry.result.report.financiallyVerified === false)).toBe(true);
-    expect(requests).toHaveLength(45);
-    expect(requests.every((request) => request.signature?.startsWith("t=") && request.signature?.includes(",v1=") )).toBe(true);
-    const references = requests.flatMap(({ body }) => [...body.matchAll(/"reference":"([^"]+)"/g)].map((match) => match[1]));
-    // The malformed-body scenario intentionally has no parseable reference;
-    // the other 14 single-payment scenarios plus two unique participants
-    // produce 15 observable references per suite run.
-    expect(new Set(references).size).toBe(31);
+    const one = JSON.parse(individual.stdout) as Array<{ result: { passed: boolean } }>;
+    expect(result).toHaveLength(11);
+    expect(result.every((entry) => entry.result.passed && entry.result.report.financiallyVerified)).toBe(true);
+    expect(one).toHaveLength(1);
+    expect(one[0]?.result.passed).toBe(true);
   }, 120_000);
 });
+
+async function expectAccess(path: string): Promise<void> {
+  await access(path);
+}
+
+async function expectMissing(path: string): Promise<void> {
+  await expect(access(path)).rejects.toThrow();
+}

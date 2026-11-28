@@ -1,38 +1,7 @@
 ---
 title: "Underpaid payment"
-description: "Prevent fulfilment when only part of the expected amount arrives."
+description: "Check that an underpaid collection creates no credit."
 ---
 
-## What is being tested?
-
-This test sends a `collection.underpaid` event. The provider says that only part
-of the expected amount arrived.
-
-## Why does it matter?
-
-An application must not credit the full ₦5,000 order when the customer has paid
-only part of it. `amount_paid` describes what arrived; it is not permission to
-fulfil the complete order.
-
-## What BachsProof does
-
-BachsProof creates an event with `amount_paid`, `amount_expected`,
-`amount_remaining`, the currency, and status `UNDERPAID`. The fixture pays about
-half of the configured amount and does not send a later top-up success.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "underpaid payment"
-```
-
-## What the application should do
-
-Record the shortfall, ask for or wait for the remaining amount according to your
-business rules, and do not create the full payment credit yet.
-
-## Pass and failure
-
-A financially verified pass has zero credits and normally returns 2xx. Any
-credit fails `INV-004`. Test a later successful top-up as a separate lifecycle
-case.
+BachsProof sends an underpaid collection with the amount paid and amount still
+due. The application should not grant the full payment credit.

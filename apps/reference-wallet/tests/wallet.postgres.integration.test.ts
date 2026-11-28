@@ -69,8 +69,8 @@ describe("reference wallet against real PostgreSQL", () => {
  */
 async function runScenario(mode: "vulnerable" | "corrected", url: string) {
   const store = new PrismaWalletStore(url);
-  const reference = `PAY-PG-${randomUUID()}`;
   const customerId = `customer-pg-${randomUUID()}`;
+  let preparedReference: string | undefined;
   const wallet = await createReferenceWallet({
     mode,
     store,
@@ -86,9 +86,10 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
   // state endpoint is deliberately not configured in this demonstration.
   const bachsproof = new BachsProof({
     provider: bachsAdapter({ mode: "mock", customerId }),
-    target: {
-      baseUrl: `http://127.0.0.1:${address.port}`,
-      webhookPath: "/webhooks/bachs",
+    webhookUrl: `http://127.0.0.1:${address.port}/webhooks/bachs`,
+    createPayment: async ({ amountMinor, currency }) => {
+      preparedReference = (await wallet.createPayment({ amountMinor, currency, customerId })).reference;
+      return preparedReference;
     },
     verify: async (requestedReference) => {
       const credits = await store.prisma.walletCredit.findMany({ where: { reference: requestedReference } });
@@ -99,22 +100,20 @@ async function runScenario(mode: "vulnerable" | "corrected", url: string) {
         currency: credits[0]?.currency ?? "NGN"
       };
     },
-    // A public Railway connection adds materially more round-trip latency than
-    // the local in-memory suites; keep the barrier deterministic without
-    // turning a slow but healthy database into a false checkpoint failure.
-    checkpoint: { name: "after-idempotency-check", timeoutMs: 30_000 }
+    financialVerification: { completionDeadlineMs: 30_000, pollIntervalMs: 50 }
   });
 
   try {
     return await bachsproof.run({
       scenario: "concurrent-duplicate-credit",
       concurrency: 2,
-      reference,
       amountMinor: 5_000_000,
       currency: "NGN"
     });
   } finally {
-    await store.cleanupReferences([reference], [customerId]);
+    // The reference is available from the report for safe test-only cleanup.
+    // The store owns no records outside this isolated customer.
+    await store.cleanupReferences(preparedReference ? [preparedReference] : [], [customerId]);
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await wallet.close();
   }

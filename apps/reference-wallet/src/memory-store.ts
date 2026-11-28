@@ -36,7 +36,7 @@ export class InMemoryWalletStore implements WalletStore {
     // The in-memory adapter has no external resources.
   }
 
-  /** Remove only the selected synthetic references, preserving other test data. */
+  /** Remove only the selected test references, preserving other test data. */
   async cleanupReferences(references: string[], customerIds: string[] = []): Promise<void> {
     const selected = new Set(references);
     const removedCustomers = new Set(customerIds);
@@ -94,9 +94,8 @@ export class InMemoryWalletStore implements WalletStore {
   }
 
   /**
-   * Deliberately non-atomic check-then-credit flow. The checkpoint is placed
-   * between the snapshot read and the credit write so two requests can both
-   * commit a credit for one payment.
+   * Deliberately non-atomic check-then-credit flow. Ordinary concurrent
+   * requests can both read the pending snapshot before either credit commits.
    */
   async processVulnerable(payment: IncomingPayment, afterCheck: () => Promise<void>): Promise<boolean> {
     const snapshot = await this.getPayment(payment.reference);

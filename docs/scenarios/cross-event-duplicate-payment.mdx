@@ -1,40 +1,8 @@
 ---
 title: "Cross-event duplicate payment"
-description: "Check that two lifecycle events for one payment create one credit."
+description: "Check that two event types for one payment create one credit."
 ---
 
-## What is being tested?
-
-One payment can produce more than one useful event. This test sends a completed
-checkout event and a successful collection event for the same payment.
-
-## Why does it matter?
-
-If the handler treats each event type as a new payment, one ₦5,000 payment can
-create two wallet credits. Event IDs are different, but the business payment is
-the same.
-
-## What BachsProof does
-
-BachsProof sends `checkout.completed` and `collection.succeeded` with the same
-payment reference, checkout ID, and provider payment ID. The checkout is marked
-as paid and includes a charge, so it is eligible. Both deliveries normally
-expect a 2xx response.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "cross-event duplicate payment"
-```
-
-## What the application should do
-
-Match both events to the same stored payment. Use a business idempotency key or
-a unique database constraint that represents the payment, not only the event
-type. Keep the provider and event records needed for later reconciliation.
-
-## Pass and failure
-
-A pass has exactly one `500_000`-kobo NGN credit. Two credits fail `INV-001` and
-the doubled total fails `INV-002`. No credit fails `INV-003`. Enable `verify()`
-to prove the saved one-credit result.
+BachsProof sends a successful checkout event and a successful collection event
+for the same payment. The application should use the payment reference and
+durable idempotency to commit one correct credit.

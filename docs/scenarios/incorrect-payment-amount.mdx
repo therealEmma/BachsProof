@@ -1,39 +1,8 @@
 ---
 title: "Incorrect payment amount"
-description: "Prevent fulfilment when the event amount does not match the order."
+description: "Check that a successful-looking event with the wrong amount creates no credit."
 ---
 
-## What is being tested?
-
-This test uses an order expecting ₦5,000 (`500_000` kobo) and sends a
-successful-looking event with an amount that is one minor unit higher.
-
-## Why does it matter?
-
-The amount in a request must not become the order price just because the request
-looks successful. Crediting the wrong amount can cause both a financial loss and
-an incorrect customer balance.
-
-## What BachsProof does
-
-BachsProof creates a valid-shaped `collection.succeeded` event with the right
-reference and currency, but changes the amount to `amountMinor + 1`. The normal
-HTTP expectation is 2xx because the application may acknowledge a business
-rejection after safely deciding not to fulfil.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "incorrect payment amount"
-```
-
-## What the application should do
-
-Load the expected amount from the stored order and compare integer minor units
-and currency before fulfilment. Do not trust the event amount as the price and
-do not create a credit for `500_001` when the order expects `500_000`.
-
-## Pass and failure
-
-A pass has zero credits. Any credit fails `INV-004`. A delivery-only pass does
-not prove this: enable `verify()` so BachsProof can read the saved state.
+BachsProof prepares a payment for the configured amount, then sends an event
+with the same reference and a different amount. The application should reject
+or ignore the mismatch and commit no credit.

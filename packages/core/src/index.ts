@@ -1,32 +1,32 @@
 export { BachsProof } from "./orchestrator.js";
-export { preparePaymentReferences } from "./preparation.js";
-export { RaceController } from "./race-controller.js";
 export { verifyPaymentState } from "./invariants.js";
-export { financialVerificationSchema, normalizeCallbackState, verifyWithCallback } from "./verification.js";
+export { normalizeCallbackState, verifyWithCallback } from "./verification.js";
 export { writeReport, redactSecrets } from "./reporting.js";
 export type {
-  CheckpointTraceEvent,
+  BachsProofOptions,
+  BachsProofReport,
+  BachsProofResult,
   DeliveryRecord,
-  ExpectedPaymentState,
   ExpectedHttpStatus,
+  ExpectedPaymentState,
+  FailureType,
   FinancialVerificationContext,
   FinancialVerificationInput,
   FinancialVerificationOptions,
   FinancialVerifier,
-  PaymentPreparationContext,
-  PaymentReferenceCreator,
   InvariantId,
   InvariantViolation,
+  MinorUnitValue,
   ObservedPaymentState,
-  BachsProofOptions,
-  BachsProofReport,
-  BachsProofResult,
-  BachsProofTarget,
   PaymentEvent,
+  PaymentPreparationContext,
+  PaymentReferenceCreator,
   ProviderAdapter,
   ProviderScenario,
   ProviderScenarioDelivery,
+  ProviderScenarioInput,
   RunOptions,
   ScenarioName,
   VerificationResult
 } from "./types.js";
+export { SUPPORTED_SCENARIOS } from "./types.js";

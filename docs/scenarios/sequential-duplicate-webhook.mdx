@@ -1,48 +1,8 @@
 ---
 title: "Sequential duplicate webhook"
-description: "Check that a repeated successful webhook creates one credit."
+description: "Check that repeated delivery creates one credit."
 ---
 
-## What is being tested?
-
-This test sends the same successful payment notification twice, one after the
-other. Imagine a customer paying ₦5,000 and the provider retrying the same
-notification because the first response was delayed.
-
-## Why does it matter?
-
-Retries are normal. If the second notification creates another credit, the
-customer receives money twice and your ledger no longer matches the payment.
-
-## What BachsProof does
-
-BachsProof creates one eligible `collection.succeeded` event and sends the same
-event, with the same event ID and payment reference, two times in order:
-
-```text
-send event E1 → wait for the response → send event E1 again
-```
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "sequential duplicate webhook"
-```
-
-## What the application should do
-
-Use the event ID, payment reference, or another durable idempotency key to
-recognize the second delivery. It may acknowledge the retry, but it must not
-create another credit.
-
-## Pass and failure
-
-For an expected ₦5,000 payment, a financially verified pass has exactly one
-`500_000`-kobo NGN credit. These results fail:
-
-- two credits: `INV-001` (duplicate credit);
-- the wrong total or currency: `INV-002` and possibly `INV-005`;
-- no credit after processing: `INV-003`.
-
-Without `verify()`, a passing HTTP response is delivery-only and does not prove
-that money was saved correctly.
+BachsProof creates one payment, sends the same successful webhook twice in
+sequence, and reads the ledger. The application should commit one credit for
+the expected amount and currency. Two credits fail `INV-001` and `INV-005`.

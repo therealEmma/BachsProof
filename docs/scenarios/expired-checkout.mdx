@@ -1,36 +1,7 @@
 ---
 title: "Expired checkout"
-description: "Prevent fulfilment when a checkout expires without payment."
+description: "Check that an expired checkout creates no credit."
 ---
 
-## What is being tested?
-
-This test sends an expired checkout with no collected charge.
-
-## Why does it matter?
-
-An expired checkout is not a successful payment. Crediting a wallet because a
-checkout once existed gives the customer money that was never collected.
-
-## What BachsProof does
-
-BachsProof sends one `checkout.expired` event with no charge and marks it
-ineligible. The normal expected HTTP response is 2xx because an application may
-record the expiry and acknowledge it. This is a local event test, not a live
-provider expiry.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "expired checkout"
-```
-
-## What the application should do
-
-Record the expiry if it is useful, but do not fulfil the order or credit the
-wallet. A later successful collection must be matched to the correct payment.
-
-## Pass and failure
-
-A financially verified pass has zero credits. Any credit fails `INV-004`. A
-later valid success is covered separately by [delayed payment confirmation](/scenarios/delayed-payment-confirmation).
+BachsProof sends an expired checkout with no charge. The application should
+record the event if useful but must not create a wallet credit.

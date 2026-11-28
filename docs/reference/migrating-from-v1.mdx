@@ -1,0 +1,26 @@
+---
+title: "Migrating from v1"
+description: "Move a BachsProof 1.1 configuration to the breaking v2 API."
+---
+
+BachsProof v2 is a breaking major release. v1.1.0 packages and releases remain
+available; v2 is not published automatically by this repository.
+
+Change your workflow as follows:
+
+- Install only `@bachsproof/cli` for normal use.
+- Replace the four generated files with one `bachsproof.config.mjs`.
+- Use `webhookUrl` instead of separate base URL and webhook path properties.
+- Set `secret`; signing is automatic.
+- Implement required `createPayment()` and `verify()` callbacks.
+- Remove `requireFinancialVerification`; financial verification is mandatory.
+- Remove synthetic references, replay settings, checkpoints, race-controller
+  settings, provider configuration, and custom test definitions.
+- Run the eleven supported scenarios. Delayed confirmation, tampered webhook,
+  invalid signature, and malformed webhook are no longer standalone scenarios.
+- Update report consumers from version `1.1` to `2.0`; checkpoint, replay,
+  delivery-only, and synthetic-reference fields are gone.
+
+The five financial invariant identifiers and their meanings remain unchanged.
+Ordinary concurrent delivery remains available, but it cannot guarantee that
+every possible database race will be reproduced.

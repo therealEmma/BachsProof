@@ -1,41 +1,11 @@
 ---
 title: "Concurrent duplicate credit"
-description: "Check that overlapping copies of one webhook create one credit."
+description: "Check duplicate-credit handling with ordinary concurrent requests."
 ---
 
-## What is being tested?
+BachsProof creates one payment and sends overlapping successful webhooks for
+the same reference. The application should commit one credit. Two credits fail
+`INV-001` and show the actual duplicate amount in the report.
 
-This test sends the same successful payment notification to your webhook at the
-same time. Both requests refer to one payment, such as a ₦5,000 deposit.
-
-## Why does it matter?
-
-Two requests can both read `PENDING` before either one writes. A simple
-“check, then insert” handler may then create two credits. This is a common
-concurrency bug: concurrency means overlapping work.
-
-## What BachsProof does
-
-BachsProof creates one eligible `collection.succeeded` event and sends the same
-body in a concurrent delivery wave. The default test uses two participants.
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "concurrent duplicate credit"
-```
-
-Normal HTTP concurrency is realistic but not guaranteed to hit the same timing
-on every run. Add the optional [checkpoint SDK](/advanced/checkpoint-sdk) when
-you need both requests to pause after the same database read.
-
-## What the application should do
-
-Authenticate both requests, find the payment by its reference, and make the
-credit write atomic and idempotent. One request can create the credit. The
-other must not create another one.
-
-## Pass and failure
-
-A financially verified pass has one `500_000`-kobo NGN credit. Two credits fail
-`INV-001`; the doubled amount also fails `INV-002`. No credit fails `INV-003`.
-A delivery error or unexpected HTTP status fails before the financial check.
+This is ordinary concurrency. It can expose a race, but it cannot guarantee
+that every operating-system and database interleaving is reproduced.

@@ -1,38 +1,8 @@
 ---
 title: "Incorrect payment currency"
-description: "Prevent fulfilment when the event currency does not match the order."
+description: "Check that a wrong currency creates no credit."
 ---
 
-## What is being tested?
-
-This test uses an order priced in NGN and sends a successful-looking event in a
-different currency. The adapter uses USD, or EUR when the configured currency
-is already USD.
-
-## Why does it matter?
-
-`500_000` NGN and `500_000` USD are different financial values. Silently
-converting or accepting the wrong currency can overpay or underpay an order.
-
-## What BachsProof does
-
-BachsProof creates a success-shaped event with the configured amount but an
-alternate currency. It does not model exchange rates or provider settlement.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "incorrect payment currency"
-```
-
-## What the application should do
-
-Compare the event currency with the currency stored for the order. Do not treat
-the numeric amount as sufficient and do not perform an unrequested conversion
-during fulfilment.
-
-## Pass and failure
-
-A pass has zero credits. Any credit fails `INV-004`; a wrong saved amount or
-currency also fails `INV-002`. The normal HTTP expectation is 2xx because an
-application may acknowledge a safely rejected business event.
+BachsProof prepares a payment in the configured currency, then sends a
+successful-looking event in another currency. The application should reject or
+ignore the mismatch and commit no credit.

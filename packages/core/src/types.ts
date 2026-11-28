@@ -1,20 +1,19 @@
-/** Scenarios implemented by the provider-neutral runner and provider adapters. */
-export type ScenarioName =
-  | "concurrent-duplicate-credit"
-  | "sequential-duplicate-webhook"
-  | "concurrent-unique-payments"
-  | "cross-event-duplicate-payment"
-  | "out-of-order-events"
-  | "delayed-payment-confirmation"
-  | "incomplete-checkout"
-  | "expired-checkout"
-  | "tampered-webhook"
-  | "invalid-webhook-signature"
-  | "malformed-webhook"
-  | "incorrect-payment-amount"
-  | "incorrect-payment-currency"
-  | "underpaid-payment"
-  | "failed-payment";
+/** The eleven financial correctness scenarios supported by BachsProof v2. */
+export const SUPPORTED_SCENARIOS = [
+  "sequential-duplicate-webhook",
+  "concurrent-duplicate-credit",
+  "concurrent-unique-payments",
+  "cross-event-duplicate-payment",
+  "out-of-order-events",
+  "incomplete-checkout",
+  "expired-checkout",
+  "incorrect-payment-amount",
+  "incorrect-payment-currency",
+  "underpaid-payment",
+  "failed-payment"
+] as const;
+
+export type ScenarioName = typeof SUPPORTED_SCENARIOS[number];
 
 /** Minimal shape every provider adapter event must expose to the core engine. */
 export interface PaymentEvent {
@@ -32,7 +31,6 @@ export interface FinancialVerificationContext {
   expected: ExpectedPaymentState;
   expectedOutcome: {
     eligible: boolean;
-    
     expectedCreditCount: number;
     amountMinor: number;
     currency: string;
@@ -42,7 +40,7 @@ export interface FinancialVerificationContext {
   deliveries: DeliveryRecord[];
 }
 
-/** Test-only input supplied to the application's payment preparation callback. */
+/** Information needed to create one fresh application payment. */
 export interface PaymentPreparationContext {
   scenario: ScenarioName;
   amountMinor: number;
@@ -64,18 +62,11 @@ export interface ExpectedPaymentState {
   expectedCreditCount: number;
 }
 
-/** HTTP outcome accepted for one deliberately rejected delivery. */
 export type ExpectedHttpStatus = number | number[] | "2xx" | "4xx" | "5xx";
 
 /** One raw webhook delivery in a provider-defined scenario. */
 export interface ProviderScenarioDelivery<TEvent extends PaymentEvent = PaymentEvent> {
   event?: TEvent;
-  /** Override the provider serialization for malformed/tampered-body tests. */
-  body?: string | Uint8Array;
-  /** Sign this body while sending `body`, used for tampered-body tests. */
-  signingBody?: string | Uint8Array;
-  /** Explicit headers win over adapter-generated headers. */
-  headers?: Record<string, string>;
   participantId?: string;
   delayMs?: number;
   expectedStatus?: ExpectedHttpStatus;
@@ -93,6 +84,12 @@ export interface ProviderScenario<TEvent extends PaymentEvent = PaymentEvent> {
   }>;
 }
 
+/** Internal input available to an adapter after application payment preparation. */
+export interface ProviderScenarioInput extends RunOptions {
+  reference: string;
+  references: string[];
+}
+
 /**
  * Provider plug-in contract. The core never knows how a Bachs event (or a
  * future provider event) is shaped on the wire; it only uses this contract.
@@ -100,34 +97,33 @@ export interface ProviderScenario<TEvent extends PaymentEvent = PaymentEvent> {
 export interface ProviderAdapter<TEvent extends PaymentEvent = PaymentEvent> {
   readonly name: string;
   readonly mode: string;
-  createPayment(input?: {
-    reference?: string;
-    amountMinor?: number;
-    currency?: string;
+  createPayment(input: {
+    reference: string;
+    amountMinor: number;
+    currency: string;
     eligible?: boolean;
     customerId?: string;
-    syntheticReferences?: boolean;
   }): TEvent;
   serialize(event: TEvent): string;
   expectedState(event: TEvent): ExpectedPaymentState;
   headers?(event: TEvent): Record<string, string>;
   /** Optional signing hook that receives the exact bytes used for the request. */
   headersForBody?(event: TEvent, body: string | Uint8Array): Record<string, string>;
-  /** Provider adapters may expose documented event-lifecycle scenarios. */
-  createScenario?(scenario: ScenarioName, input: RunOptions): ProviderScenario<TEvent> | undefined;
+  /** Provider adapters expose only the supported financial scenarios. */
+  createScenario?(scenario: ScenarioName, input: ProviderScenarioInput): ProviderScenario<TEvent> | undefined;
 }
 
-/**
- * Normalized persisted financial state returned by a developer-supplied
- * verification callback.
- */
+/** Minor-unit values accepted from database adapters without unsafe conversion. */
+export type MinorUnitValue = number | bigint | string;
+
+/** Normalized persisted financial state returned by a developer verifier. */
 export interface ObservedPaymentState {
   reference: string;
   status: string;
   currency: string;
   creditedAmountMinor: number;
   creditCount: number;
-  /** Optional application signal that asynchronous processing is incomplete. */
+  /** True while relevant application work is still incomplete. */
   pending?: boolean;
   ledgerEntries: Array<{
     id: string;
@@ -146,7 +142,7 @@ export interface InvariantViolation {
   reference: string;
 }
 
-/** Result of evaluating all configured financial invariants for one reference. */
+/** Result of evaluating all five financial invariants for one reference. */
 export interface VerificationResult {
   passed: boolean;
   violations: InvariantViolation[];
@@ -157,42 +153,35 @@ export interface DeliveryRecord {
   deliveryId: string;
   participantId: string;
   reference: string;
-  eventId?: string | undefined;
-  eventType?: string | undefined;
+  eventId?: string;
+  eventType?: string;
   startedAt: string;
-  completedAt?: string | undefined;
-  status?: number | undefined;
-  responseBody?: string | undefined;
-  expectedStatus?: ExpectedHttpStatus | undefined;
-  error?: string | undefined;
+  completedAt?: string;
+  status?: number;
+  responseBody?: string;
+  expectedStatus?: ProviderScenarioDelivery["expectedStatus"];
+  error?: string;
 }
 
-/** An append-only event emitted by the race controller for replay/debugging. */
-export interface CheckpointTraceEvent {
-  type: "arrival" | "release" | "abort";
-  at: string;
-  sessionId: string;
-  checkpoint: string;
-  participantId?: string | undefined;
-  key?: string | undefined;
-  metadata?: Record<string, unknown> | undefined;
-  reason?: string | undefined;
-}
+export type FailureType =
+  | "payment-preparation"
+  | "webhook-delivery"
+  | "unexpected-http-response"
+  | "financial-verification"
+  | "financial-verification-timeout"
+  | "invariant-violation";
 
-/** Structured report persisted by callers when they need a durable failure trace. */
+/** Structured report for automation and debugging. */
 export interface BachsProofReport {
-  reportVersion: "1.1";
+  reportVersion: "2.0";
   scenario: ScenarioName;
   provider: string;
-  mode: string;
   paymentReference: string;
   event: PaymentEvent;
   expected: ExpectedPaymentState;
   observed?: ObservedPaymentState;
   verification?: VerificationResult;
-  /** Which financial verification integration was used for this run. */
-  verificationMode: "callback" | "none";
-  /** False means HTTP delivery ran, but financial correctness was not established. */
+  /** True only when the verifier returned independently observed state. */
   financiallyVerified: boolean;
   payments?: Array<{
     event: PaymentEvent;
@@ -201,15 +190,8 @@ export interface BachsProofReport {
     verification: VerificationResult;
   }>;
   deliveries: DeliveryRecord[];
-  checkpoints: CheckpointTraceEvent[];
   errors: string[];
-  replay: {
-    seed: string;
-    concurrency: number;
-    checkpoint?: string;
-    controlled: boolean;
-    note: string;
-  };
+  failureType?: FailureType;
   startedAt: string;
   completedAt?: string;
 }
@@ -219,14 +201,7 @@ export interface BachsProofResult {
   report: BachsProofReport;
 }
 
-/** Network details for the application under test. */
-export interface BachsProofTarget {
-  baseUrl: string;
-  webhookPath: string;
-  headers?: Record<string, string>;
-}
-
-/** Callback polling and observation settings. */
+/** Callback polling and observation settings used internally by the CLI. */
 export interface FinancialVerificationOptions {
   completionDeadlineMs?: number;
   pollIntervalMs?: number;
@@ -234,21 +209,18 @@ export interface FinancialVerificationOptions {
   negativeObservationWindowMs?: number;
 }
 
-/**
- * The intentionally small callback contract recommended for TypeScript users.
- * Callers can use Prisma, SQL, an in-memory ledger, or any other test store.
- */
+/** Public shape returned by the developer's financial verification callback. */
 export interface FinancialVerificationInput {
   reference: string;
   creditCount: number;
-  creditedAmountMinor: number;
+  creditedAmountMinor: MinorUnitValue;
   currency: string;
   status?: string;
   pending?: boolean;
   ledgerEntries?: Array<{
     id: string;
     type: string;
-    amountMinor: number;
+    amountMinor: MinorUnitValue;
     currency?: string;
   }>;
 }
@@ -256,36 +228,19 @@ export interface FinancialVerificationInput {
 /** One-argument callbacks remain valid; the second argument is optional. */
 export type FinancialVerifier = (reference: string, context?: FinancialVerificationContext) => Promise<FinancialVerificationInput> | FinancialVerificationInput;
 
+/** Internal runner options. The CLI is the supported public entry point. */
 export interface BachsProofOptions<TEvent extends PaymentEvent = PaymentEvent> {
   provider: ProviderAdapter<TEvent>;
-  target: BachsProofTarget;
-  /** Optional test-only application payment/order preparation callback. */
-  createPayment?: PaymentReferenceCreator;
-  /** Optional test-only callback that reads committed financial state. */
-  verify?: FinancialVerifier;
-  /** Optional polling settings for asynchronous callback verification. */
+  webhookUrl: string;
+  createPayment: PaymentReferenceCreator;
+  verify: FinancialVerifier;
   financialVerification?: FinancialVerificationOptions;
-  checkpoint?: {
-    name: string;
-    timeoutMs?: number;
-  };
 }
 
-/** Per-run scenario settings, including replay overrides. */
+/** Per-run settings created by the simplified CLI configuration. */
 export interface RunOptions {
   scenario: ScenarioName;
   concurrency?: number;
   amountMinor?: number;
   currency?: string;
-  reference?: string;
-  /** Explicit references for concurrent-unique-payments. */
-  references?: string[];
-  /** Synthetic references are opt-in; real application references are default. */
-  syntheticReferences?: boolean;
-  /** Optional expected HTTP status/outcome for scenario deliveries. */
-  expectedStatus?: ExpectedHttpStatus;
-  /** Optional bounded delay used by delayed provider scenarios. */
-  delayMs?: number;
-  seed?: string;
-  replay?: BachsProofReport;
 }

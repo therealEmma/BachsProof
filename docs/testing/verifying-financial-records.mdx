@@ -1,0 +1,45 @@
+---
+title: "Verifying financial records"
+description: "Read committed payment and ledger state after webhook delivery."
+---
+
+HTTP 200 only says that the route answered. `verify(reference)` must read the
+actual saved payment and credit rows.
+
+```js
+async verify(reference) {
+  const payment = await prisma.payment.findUnique({ where: { reference } });
+  if (!payment) throw new Error(`Payment ${reference} was not found in the test database`);
+  const credits = await prisma.walletCredit.findMany({ where: { reference } });
+  const toMinorUnits = (value) => {
+    const number = typeof value === "bigint" ? Number(value) : value;
+    if (!Number.isSafeInteger(number)) throw new Error("financial amount exceeds the safe integer range");
+    return number;
+  };
+  return {
+    reference,
+    creditCount: credits.length,
+    creditedAmountMinor: credits.reduce((sum, credit) => sum + toMinorUnits(credit.amountMinor), 0),
+    currency: payment.currency,
+    status: payment.status,
+    pending: false,
+    ledgerEntries: credits.map((credit) => ({
+      id: String(credit.id),
+      type: String(credit.type),
+      amountMinor: toMinorUnits(credit.amountMinor),
+      currency: credit.currency
+    }))
+  };
+}
+```
+
+The reference wallet includes this same shape in its Prisma and in-memory
+stores. A missing record must cause an error or an explicit pending result; do
+not replace missing data with the expected amount or currency.
+
+For asynchronous applications, return `pending: true` while the relevant
+background work is still running. BachsProof polls for up to ten seconds by
+default. Increase `verificationTimeoutMs` only when your isolated application
+needs more time. A negative scenario is observed for a short bounded window;
+that finite window cannot prove that an incorrect credit will never appear
+later.

@@ -1,24 +1,11 @@
 ---
-title: "Known limitations"
-description: "What BachsProof deliberately does not guarantee."
+title: "Limitations"
+description: "What BachsProof can and cannot prove."
 ---
 
-BachsProof is useful evidence about the test you ran. It is not a promise about
-every future request, every provider behavior, or every production schedule.
+BachsProof verifies the financial state visible during its observation window.
+It cannot prove that an incorrect credit will never appear after that window.
 
-- The current Bachs adapter is mock-only; it does not create or retrieve live
-  Bachs payments.
-- Synthetic events do not prove checkout, settlement, provider retries, or
-  reconciliation.
-- Black-box concurrent delivery is not deterministic race coverage.
-- Checkpoints coordinate named application barriers but cannot control every
-  OS, network, or database scheduling decision.
-- Bounded polling cannot prove that an erroneous credit will never appear after
-  the observation window closes.
-- BachsProof does not reset, migrate, or clean up your application database.
-- The verifier trusts the state your callback reads; it cannot independently
-  audit a database it cannot access.
-- The current scenario set focuses on one-time payment webhook correctness, not
-  subscriptions, payouts, refunds, disputes, or Connect workflows.
-
-These limitations are part of the product boundary, not hidden behavior.
+Ordinary concurrent delivery cannot guarantee every possible database race.
+Provider settlement, live Bachs behavior, network retries outside the test
+requests, and production infrastructure are outside the tool's claim.

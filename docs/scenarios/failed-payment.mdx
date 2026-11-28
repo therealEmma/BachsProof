@@ -1,36 +1,7 @@
 ---
 title: "Failed payment"
-description: "Prevent fulfilment when a collection attempt failed."
+description: "Check that a failed collection creates no credit."
 ---
 
-## What is being tested?
-
-This test sends a `collection.failed` event for a payment that was not
-collected.
-
-## Why does it matter?
-
-A failed attempt is not proof of payment. The customer must not receive a
-₦5,000 credit just because a checkout or payment reference exists.
-
-## What BachsProof does
-
-BachsProof sends a Bachs-shaped `collection.failed` event with status `FAILED`,
-the configured amount, and the configured currency. The normal expected HTTP
-response is 2xx so the application can record the failure without fulfilling.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "failed payment"
-```
-
-## What the application should do
-
-Save the failed state and do not create a credit. A later successful attempt
-must provide its own valid event and must still match the correct order.
-
-## Pass and failure
-
-A pass has zero credits. Any credit fails `INV-004`. This scenario does not
-send a later retry success; test that lifecycle separately.
+BachsProof sends a failed collection event. The application may record the
+failure, but it must not create a successful payment credit.

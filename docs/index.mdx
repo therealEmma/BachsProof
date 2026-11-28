@@ -5,112 +5,29 @@ description: "Beyond webhook delivery. Verify financial correctness."
 
 # Beyond webhook delivery. Verify financial correctness.
 
-BachsProof is a financial correctness testing framework for applications that
-use Bachs. In simple English: it sends safe test payment notifications to your
-application and checks whether your application saved the right money state.
-It complements Bachs' developer tools and normal test frameworks; it does not
-replace them.
+BachsProof sends simulated payment webhooks to an isolated application and
+checks the financial records the application actually committed. If a customer
+pays NGN 5,000 and the same webhook arrives twice, the customer should still
+receive one NGN 5,000 credit. BachsProof checks that result in your records.
 
-BachsProof is an independent, unofficial project for testing Bachs integrations. It sends controlled, synthetic payment events to your isolated application and checks the financial state your application actually commits. It does not process real payments, verify provider settlement, or certify production readiness.
+It is an independent, unofficial test tool. It does not call Bachs, move
+money, delete data, or certify production readiness.
 
-## What you can test
+## The v2 workflow
 
-<CardGroup cols={2}>
-  <Card title="Financial correctness" icon="wallet">
-    Check committed credits, ledger entries, amounts, currencies, and payment
-    eligibility instead of treating an HTTP success response as proof of a
-    correct financial result.
-  </Card>
-  <Card title="Concurrency safety" icon="shuffle">
-    Deliver duplicate or independent payment events concurrently and expose
-    race conditions that sequential tests may never create.
-  </Card>
-  <Card title="Payment reliability" icon="rotate-ccw">
-    Exercise retries, duplicate event identities, ordering changes, incomplete
-    checkouts, failed collections, malformed payloads, and invalid signatures.
-  </Card>
-  <Card title="Developer-first testing" icon="code">
-    Run from the `bachsproof` CLI or call the runner from Vitest, Jest, or
-    another test suite using your existing application setup.
-  </Card>
-</CardGroup>
+1. Install `@bachsproof/cli`.
+2. Run `bachsproof init` to create one config file.
+3. Implement `createPayment()` and `verify()`.
+4. Run one scenario or all eleven scenarios.
 
-## A ₦5,000 payment can still be wrong
-
-Imagine a customer deposits **₦5,000**. In NGN, the application expects one
-credit of `500_000` kobo. Two identical webhook deliveries arrive together:
-
-```text
-Delivery A reads payment status: PENDING
-Delivery B reads payment status: PENDING
-
-Delivery A credits ₦5,000
-Delivery B credits ₦5,000
-
-Expected wallet credit: ₦5,000
-Actual wallet credit:   ₦10,000
-```
-
-Both deliveries can receive successful HTTP responses. The request was accepted,
-but the money is wrong. BachsProof sends the test events and uses your
-application-specific `verify` callback to inspect the state that was actually
-saved.
-
-## Three levels of testing
-
-Start with the smallest level that answers your question:
-
-| Level | What it checks | What you must provide |
-| --- | --- | --- |
-| Delivery only | The endpoint receives the event and returns the expected HTTP status | `provider`, `target`, and `tests` |
-| Financially verified | The saved credit count, amount, currency, and payment state | The first level plus real test references and `verify` |
-| Controlled concurrency | A chosen application execution point is coordinated across requests | The second level plus optional `@bachsproof/sdk` instrumentation and `checkpoint` settings |
-
-Delivery-only is useful for checking the webhook boundary, but it cannot prove
-that money was saved correctly. Most teams should make financially verified
-tests their normal CI level. Add controlled concurrency only when you need to
-reproduce a particular race.
-
-## Start here
+The CLI configures Bachs event generation and signing automatically. Every
+passing test includes completed financial verification.
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Install BachsProof, initialize a project, prepare a test payment, and run a
-    financially verified webhook test.
+  <Card title="Start here" icon="rocket" href="/installation">
+    Install BachsProof and run your first financially verified test.
   </Card>
-  <Card title="Why BachsProof?" icon="circle-help" href="/why-bachsproof">
-    See how conventional tests, Bachs tools, and BachsProof complement one
-    another.
-  </Card>
-  <Card title="Payment lifecycle" icon="route" href="/concepts/payment-lifecycle">
-    Follow a payment from initiation through application-side verification.
-  </Card>
-  <Card title="Vitest and Jest" icon="test-tube" href="/advanced/vitest-and-jest">
-    Add payment-specific correctness checks to an existing test suite.
-  </Card>
-  <Card title="Glossary" icon="book-marked" href="/resources/glossary">
-    Read plain-English explanations of the words used in payment testing.
+  <Card title="See the reference wallet" icon="wallet" href="/case-studies/reference-wallet">
+    Follow a complete database-backed example.
   </Card>
 </CardGroup>
-
-## A simple reading path
-
-If payment testing is new to you, read [Why BachsProof exists](/why-bachsproof),
-then [Quickstart](/quickstart), and then [Financial verification](/testing/financial-verification).
-After that, choose the scenarios and invariants that match your application.
-
-If you already build payment systems, read [Architecture](/how-bachsproof-works/architecture),
-[Execution lifecycle](/how-bachsproof-works/execution-lifecycle), and the
-[Reference wallet case study](/case-studies/reference-wallet). Use the API
-reference only when you need exact types and defaults.
-
-<Note>
-Financial verification requires callbacks that know your application's payment,
-ledger, and wallet schema. BachsProof does not automatically understand every
-database or guarantee that untested production behaviour is correct.
-</Note>
-
-<Warning>
-Use only isolated test applications, test databases, and test-only webhook
-secrets. Synthetic events must never be delivered to production.
-</Warning>

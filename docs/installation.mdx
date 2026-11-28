@@ -1,94 +1,24 @@
 ---
-title: "Install BachsProof"
-description: "Install BachsProof in the application repository that owns your webhook."
+title: "Installation"
+description: "Install the single supported BachsProof package."
 ---
 
-BachsProof is installed in the repository that contains the webhook you want to
-test. It does not need to be added to the BachsProof source repository.
+Install the CLI as a development dependency:
 
-## Before you install
-
-You need:
-
-- Node.js 22 or later;
-- npm, pnpm, or yarn;
-- an application running in a separate test environment;
-- a webhook URL that the test runner can reach;
-- a test database or other isolated payment store;
-- a test-only webhook signing secret if your handler verifies signatures.
-
-Do not point BachsProof at production. The generated events are safe test data,
-but your application may still write real-looking financial records.
-
-## 1. Install the CLI
-
-Choose the package manager used by your application:
-
-<CodeGroup>
-
-```bash npm
-npm install --save-dev @bachsproof/cli@1.1.0
+```bash
+pnpm add -D @bachsproof/cli
 ```
 
-```bash pnpm
-pnpm add -D @bachsproof/cli@1.1.0
-```
+The CLI installs the core runner and Bachs adapter automatically. You do not
+need to install another BachsProof package or modify your application to use an
+SDK.
 
-```bash yarn
-yarn add --dev @bachsproof/cli@1.1.0
-```
-
-</CodeGroup>
-
-If version `1.1.0` is not yet available in your registry, use the packed
-tarball or workspace instructions for your checkout. Do not assume that
-`npx` can download an unpublished package.
-
-## 2. Create the starter files
-
-Run the command for your package manager from the application repository:
+Use Node.js 22 or later. Run the initializer from the root of the isolated
+application:
 
 ```bash
 pnpm exec bachsproof init
 ```
 
-With npm use `npx bachsproof init`. With yarn use `yarn bachsproof init`.
-
-It creates:
-
-| File | What you do there |
-| --- | --- |
-| `bachsproof.config.mjs` | Set the test URL, webhook path, callbacks, and optional signing. |
-| `tests/bachsproof.test.mjs` | Choose the named payment scenarios. |
-| `tests/bachsproof.setup.mjs` | Create a fresh test payment and return its reference. |
-| `tests/bachsproof.verify.mjs` | Read the payment and credit records your application committed. |
-
-The setup and verifier files intentionally throw until you implement them.
-This prevents an HTTP-only run from being mistaken for a financial pass.
-
-`init` will not overwrite an existing file. Use the following only when you
-have reviewed the files and intend to replace them:
-
-```bash
-pnpm exec bachsproof init --force
-```
-
-## Which package should I install?
-
-Most developers need only `@bachsproof/cli`.
-
-| Package | Install it when | What it does |
-| --- | --- | --- |
-| `@bachsproof/cli` | You want the normal command-line workflow | Creates starter files, runs tests, and prints results |
-| `@bachsproof/core` | You want to call BachsProof from Vitest, Jest, or your own runner | Sends events, verifies state, and applies financial rules |
-| `@bachsproof/bachs` | You use the built-in Bachs adapter directly | Creates local Bachs-shaped events and signs them |
-| `@bachsproof/sdk` | You need to repeat a specific application race | Adds optional test-only checkpoints |
-
-The built-in adapter uses `mode: "mock"`. It creates local event bodies and does
-not need a Bachs API key.
-
-## Next step
-
-Follow the [beginner quickstart](/quickstart). It shows how to load environment
-variables, create a fresh payment record, read committed state, and run a
-financially verified test.
+This creates only `bachsproof.config.mjs`. It refuses to overwrite an existing
+file unless you pass `--force`.

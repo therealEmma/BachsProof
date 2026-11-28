@@ -1,46 +1,13 @@
 ---
 title: "Glossary"
-description: "Plain-English definitions for the payment testing terms used in BachsProof."
+description: "Plain-English terms used in BachsProof."
 ---
 
-Use this page when a word in the documentation is new to you.
-
-| Term | Plain-English meaning |
-| --- | --- |
-| **Application under test** | The backend you are checking. BachsProof sends test webhooks to it. |
-| **Bachs adapter** | The package that creates local Bachs-shaped events and the 15 BachsProof scenario plans. |
-| **Committed state** | Data the application has actually saved successfully in its test database or ledger. |
-| **Completion deadline** | The maximum time BachsProof waits for an eligible payment to reach its expected state. The default is 10 seconds. |
-| **Concurrency** | Work that overlaps in time, such as two webhook requests being handled together. |
-| **Checkpoint** | A named line in application code where a request can pause and tell the test controller it has arrived. |
-| **Event ID** | The identifier for one provider event delivery. It helps detect a repeated delivery. |
-| **Eventual consistency** | A design where a request finishes first and a worker saves the final financial state later. |
-| **Expected state** | The result the scenario says should exist, such as one ₦5,000 credit. |
-| **Financial invariant** | A rule about money that should stay true, such as “one payment creates at most one credit.” |
-| **HMAC** | A checksum made with a shared secret. It helps prove that a request was not changed and that the sender knew the secret. It does not hide the body. |
-| **Idempotency** | Making a repeated operation safe, so the same payment does not create a second credit. |
-| **Inversion of control** | BachsProof asks your callback for application-specific data instead of knowing your database or choosing your ORM. |
-| **Minor unit** | The integer form BachsProof uses internally for exact money comparisons. For NGN with two decimal places, `500_000` means ₦5,000. Bachs sends decimal strings on the wire. |
-| **Natural concurrency** | Ordinary overlapping HTTP requests. The exact order is left to the operating system, server, connection pool, and database. |
-| **Negative observation window** | The short time BachsProof watches an ineligible payment for an unexpected credit. The default is 250 ms; it cannot rule out a later credit. |
-| **Observed state** | The result returned by your `verify` callback after it reads committed application data. |
-| **Payment reference** | The application-facing ID that links a webhook to an order, payment, or wallet deposit. |
-| **Polling** | Calling `verify` again after a short wait to see whether background work has finished. |
-| **Provider event** | A message about something that happened in the payment provider's system, such as a successful collection. |
-| **Race condition** | A bug where the result changes depending on which overlapping request reaches a step first. |
-| **Synthetic event / fixture** | A local test object made by BachsProof. It looks like a provider event but does not come from Bachs and does not move money. |
-| **Verification callback** | Your test-side function that reads the application's committed payment, credit, or ledger state. |
-
-## One example
-
-For a synthetic ₦5,000 event:
-
-- the **scenario** sends the event twice;
-- the **checkpoint** can pause both requests after they read `PENDING`;
-- the **verification callback** reads the saved credits;
-- the **observed state** might say `creditCount: 2` and `creditedAmountMinor:
-  1_000_000`; and
-- `INV-001` reports that one payment created two credits.
-
-The words describe different jobs. Keeping them separate makes a test report
-easier to understand.
+- **Credit:** A saved financial entry that gives the customer money.
+- **Idempotency:** Handling the same event more than once without repeating its
+  financial effect.
+- **Ledger:** The durable financial entries used to explain a balance.
+- **Minor unit:** The integer storage unit for money. The configured amount is
+  always sent as an integer.
+- **Pending:** The application has not finished relevant background work.
+- **Scenario:** One named payment situation BachsProof sends to the webhook.

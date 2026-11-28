@@ -1,32 +1,15 @@
 ---
-title: "Running BachsProof in CI/CD"
-description: "Build a safe, repeatable payment correctness job."
+title: "CI/CD"
+description: "Run BachsProof safely in automated tests."
 ---
 
-Run BachsProof against a dedicated test application and database. The application
-may be a CI service, a preview deployment, or a local process started in the
-job.
+Use a dedicated test application, database, queue, and webhook secret in CI.
+Load the same `bachsproof.config.mjs` used locally, then run:
 
-```yaml
-# Illustrative CI steps
-- run: pnpm install --frozen-lockfile
-- run: pnpm exec bachsproof test --json > bachsproof-results.json
-  env:
-    BACHSPROOF_TARGET_URL: http://127.0.0.1:3000
-    BACHS_WEBHOOK_SECRET: ${{ secrets.BACHSPROOF_WEBHOOK_SECRET }}
+```bash
+pnpm exec bachsproof test --json
 ```
 
-Recommended controls:
-
-- create fresh payment records through `createPayment`;
-- use an isolated database or a scoped cleanup strategy;
-- use test-only secrets and synthetic provider-shaped events;
-- set `requireFinancialVerification: true`;
-- retain the JSON output as a CI artifact;
-- fail the job when the CLI exits non-zero;
-- never expose database URLs or webhook secrets in logs.
-
-The suite runs configured scenarios sequentially by default, reducing
-cross-scenario contamination. Concurrency still occurs inside scenarios that
-require it. A green delivery-only result is not a financial correctness result;
-make the verifier a required part of CI when committed state matters.
+The command exits non-zero when payment preparation, delivery, financial
+verification, or an invariant fails. Store the JSON output as a CI artifact.
+Never provide production credentials or production URLs to the job.

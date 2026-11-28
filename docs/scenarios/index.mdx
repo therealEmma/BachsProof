@@ -1,60 +1,25 @@
 ---
-title: "Payment test scenarios"
-description: "The 15 Bachs payment scenarios and the result each one expects."
+title: "Payment scenarios"
+description: "The eleven local scenarios that test financial correctness."
 ---
 
-A scenario is a ready-made payment situation. It tells BachsProof what event to
-create and how to deliver it. It does not inspect your database by itself. To
-prove the financial result, connect the `verify()` callback to your isolated
-application data.
+Every run creates fresh application payment records, sends signed simulated
+events, and verifies the saved financial state.
 
-## The four parts of a financially verified test
+| Scenario | What it checks |
+| --- | --- |
+| `sequential-duplicate-webhook` | Repeated delivery does not create two credits |
+| `concurrent-duplicate-credit` | Overlapping requests do not credit one payment twice |
+| `concurrent-unique-payments` | Different payments remain independent |
+| `cross-event-duplicate-payment` | Different events for one payment create one credit |
+| `out-of-order-events` | Older events cannot undo a newer financial outcome |
+| `incomplete-checkout` | An incomplete checkout creates no credit |
+| `expired-checkout` | An expired checkout creates no credit |
+| `incorrect-payment-amount` | A wrong amount creates no credit |
+| `incorrect-payment-currency` | A wrong currency creates no credit |
+| `underpaid-payment` | An underpaid collection creates no credit |
+| `failed-payment` | A failed collection creates no credit |
 
-1. **Prepare:** `createPayment()` creates a fresh payment or order record.
-2. **Send:** BachsProof creates a local Bachs-shaped event and sends it to your
-   normal webhook route.
-3. **Observe:** `verify()` reads the committed payment, credit, or ledger rows.
-4. **Check:** BachsProof compares the observed state with the expected result.
-
-For example, the concurrent duplicate scenario sends the same ₦5,000 event to
-two overlapping requests. A pass means the database contains one ₦5,000 credit,
-not two. An optional checkpoint can pause both requests after a payment read,
-but a checkpoint is only a test timing tool; it is not a database lock.
-
-## All 15 scenarios
-
-| Scenario | What BachsProof does | Passing financial result |
-| --- | --- | --- |
-| `sequential-duplicate-webhook` | Sends one eligible event twice in order | One credit |
-| `concurrent-duplicate-credit` | Sends the same eligible event concurrently | One credit |
-| `concurrent-unique-payments` | Sends different eligible payments concurrently | One credit for each reference |
-| `cross-event-duplicate-payment` | Sends checkout and collection events for one payment | One credit |
-| `out-of-order-events` | Sends newer success before older expiry | One credit; state does not regress |
-| `delayed-payment-confirmation` | Sends expiry, then a delayed valid success | One credit after processing |
-| `incomplete-checkout` | Completes checkout without a collected charge | Zero credits |
-| `expired-checkout` | Sends an expired checkout | Zero credits |
-| `tampered-webhook` | Changes a signed body after signing | Reject request; zero credits |
-| `invalid-webhook-signature` | Sends a valid body with a bad signature | Reject request; zero credits |
-| `malformed-webhook` | Sends invalid JSON | Reject request; zero credits |
-| `incorrect-payment-amount` | Sends a success-shaped event with the wrong amount | Zero credits |
-| `incorrect-payment-currency` | Sends a success-shaped event with the wrong currency | Zero credits |
-| `underpaid-payment` | Sends a collection with a shortfall | Zero credits |
-| `failed-payment` | Sends a failed collection | Zero credits |
-
-Each scenario page explains five things: what is tested, why it matters, what
-BachsProof sends, what your application should do, and what counts as pass or
-failure.
-
-## Choose a starting scenario
-
-- Start with `sequential-duplicate-webhook` to check basic idempotency.
-- Use `concurrent-duplicate-credit` when overlapping requests are a risk.
-- Use `incorrect-payment-amount` and `incorrect-payment-currency` to check that
-  the application matches the event with the stored order.
-- Use `tampered-webhook` and `invalid-webhook-signature` to check authentication.
-- Run the full suite before adding it to CI.
-
-All amounts are integer minor units. For NGN, `500_000` means ₦5,000. Use a
-fresh application reference for every independent scenario. Synthetic
-references are allowed only for fixture or HTTP tests and are not financial
-evidence.
+The concurrent scenario uses ordinary request concurrency. Operating-system,
+network, and database scheduling can differ between runs, so this test can
+expose a race without proving that every possible interleaving was exercised.

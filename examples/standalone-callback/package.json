@@ -7,14 +7,14 @@
     "test": "vitest run --config ./vitest.config.ts"
   },
   "dependencies": {
-    "@bachsproof/bachs": "file:../../reports/bachsproof-bachs-1.1.0.tgz",
-    "@bachsproof/core": "file:../../reports/bachsproof-core-1.1.0.tgz",
+    "@bachsproof/bachs": "file:../../reports/bachsproof-bachs-2.0.0.tgz",
+    "@bachsproof/cli": "file:../../reports/bachsproof-cli-2.0.0.tgz",
     "express": "^5.1.0",
     "vitest": "^2.1.9"
   },
   "pnpm": {
     "overrides": {
-      "@bachsproof/core": "file:../../reports/bachsproof-core-1.1.0.tgz"
+      "@bachsproof/core": "file:../../reports/bachsproof-core-2.0.0.tgz"
     }
   }
 }

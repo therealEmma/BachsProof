@@ -1,20 +1,14 @@
 ---
-title: "Security considerations"
-description: "Protect test environments, webhook secrets, and financial test data."
+title: "Security and safety"
+description: "Keep BachsProof test-only."
 ---
 
-BachsProof generates payment-shaped input. Treat it as privileged test traffic.
+- Use an isolated application, database, queue, and webhook secret.
+- Create fresh test payment records before each scenario.
+- Never use production URLs, keys, customer records, or payment references.
+- Keep the secret in environment variables and out of source control.
+- BachsProof sends local simulated events; it does not call Bachs or move money.
+- BachsProof never deletes your application data automatically.
 
-- Never send synthetic events to production.
-- Use a dedicated test webhook secret and rotate it normally.
-- Keep `DATABASE_URL`, signing secrets, and API credentials out of source and
-  CI logs.
-- Scope test database cleanup to references and customer IDs created by the run.
-- Do not expose a test data reader or preparation callback to untrusted callers.
-- Verify Bachs signatures against raw bodies before parsing.
-- Avoid logging full webhook payloads when they contain personal data.
-- Do not use synthetic references as evidence that a payment exists in your app.
-
-The optional checkpoint controller authenticates arrivals with a per-session
-token and participant allow-list. Keep it bound to the test process and do not
-enable request-header activation in an untrusted production environment.
+Webhook signing makes test requests authentic-looking. It does not make a
+production system safe, and a passing run is not a production certification.

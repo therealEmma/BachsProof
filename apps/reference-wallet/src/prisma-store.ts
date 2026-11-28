@@ -59,8 +59,7 @@ export class PrismaWalletStore implements WalletStore {
 
   /**
    * Avoid Prisma's concurrent upsert race by doing find/create inside a short
-   * transaction and retrying the unique-key loser. No application checkpoint
-   * is held during this transaction.
+   * transaction and retrying the unique-key loser.
    */
   async ensurePendingPayment(payment: IncomingPayment): Promise<PaymentSnapshot> {
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -155,8 +154,8 @@ export class PrismaWalletStore implements WalletStore {
   }
 
   /**
-   * The checkpoint is deliberately outside this transaction. The transaction
-   * contains event deduplication, the unique business idempotency insert, the
+   * The transaction contains event deduplication, the unique business
+   * idempotency insert, the
    * balance increment, and payment completion as one commit unit.
    */
   async processCorrected(payment: IncomingPayment, afterCheck: () => Promise<void>): Promise<boolean> {

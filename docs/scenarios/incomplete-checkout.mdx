@@ -1,37 +1,8 @@
 ---
 title: "Incomplete checkout"
-description: "Prevent fulfilment when checkout completed without a collected payment."
+description: "Check that a checkout without a collected payment creates no credit."
 ---
 
-## What is being tested?
-
-This test sends a completed checkout whose payment status is
-`no_payment_required` and whose charge is `null`.
-
-## Why does it matter?
-
-Finishing a checkout screen does not always mean that money was collected. A
-wallet must not credit ₦5,000 when the provider reports no charge.
-
-## What BachsProof does
-
-BachsProof sends one `checkout.completed` event in payment mode, but marks it
-ineligible because there is no collected charge. The normal expected HTTP
-response is 2xx: your application may safely record or acknowledge the event.
-
-Run it with:
-
-```bash
-pnpm exec bachsproof test --name "incomplete checkout"
-```
-
-## What the application should do
-
-Require a paid status and an actual charge before fulfilling the order. Treat a
-checkout screen state as information, not as proof that Bachs collected money.
-
-## Pass and failure
-
-A financially verified pass has zero credits. Any credit fails `INV-004`. If
-work is asynchronous, return `pending: true` while unfinished work can still
-change the state.
+BachsProof sends a completed checkout whose payment status is not paid and
+whose charge is absent. The application should save no credit. Any credit
+fails `INV-004`.

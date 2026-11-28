@@ -18,9 +18,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@bachsproof/sdk": resolve(__dirname, "packages/sdk/src/index.ts"),
       "@bachsproof/core": resolve(__dirname, "packages/core/src/index.ts"),
       "@bachsproof/bachs": resolve(__dirname, "packages/bachs/src/index.ts"),
+      "@bachsproof/cli": resolve(__dirname, "packages/cli/src/index.ts"),
       "@bachsproof/reference-wallet": resolve(__dirname, "apps/reference-wallet/src/index.ts")
     }
   }

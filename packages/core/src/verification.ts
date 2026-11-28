@@ -1,66 +1,93 @@
-import { z } from "zod";
-import type { FinancialVerificationContext, FinancialVerifier, ObservedPaymentState } from "./types.js";
+import type { FinancialVerificationContext, FinancialVerifier, MinorUnitValue, ObservedPaymentState } from "./types.js";
 
-/**
- * Runtime validation is important here because a malformed callback result
- * could otherwise make an incorrect financial state look like a passed test.
- */
-export const financialVerificationSchema = z.object({
-  reference: z.string().min(1),
-  creditCount: z.number().int().nonnegative(),
-  creditedAmountMinor: z.number().int().nonnegative(),
-  currency: z.string().length(3),
-  status: z.string().min(1).optional(),
-  pending: z.boolean().optional(),
-  ledgerEntries: z.array(z.object({
-    id: z.string().min(1),
-    type: z.string().min(1),
-    amountMinor: z.number().int().nonnegative(),
-    currency: z.string().length(3).optional()
-  })).optional()
-});
+const INTEGER = /^(?:0|[1-9]\d*)$/;
 
-function formatPath(path: (string | number)[]): string {
-  if (path.length === 0) return "the returned value";
-  return path.reduce<string>((result, segment) => (
-    typeof segment === "number" ? `${result}[${segment}]` : `${result}${result ? "." : ""}${segment}`
-  ), "");
+function safeMinorUnits(value: MinorUnitValue, path: string): number {
+  let normalized: bigint;
+  if (typeof value === "bigint") {
+    normalized = value;
+  } else if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`Financial verification callback returned invalid data at ${path}: expected a non-negative safe integer`);
+    }
+    return value;
+  } else if (typeof value === "string" && INTEGER.test(value)) {
+    normalized = BigInt(value);
+  } else {
+    throw new Error(`Financial verification callback returned invalid data at ${path}: expected a non-negative integer minor-unit amount`);
+  }
+  if (normalized < 0n || normalized > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`Financial verification callback returned invalid data at ${path}: amount exceeds JavaScript safe integer range`);
+  }
+  return Number(normalized);
 }
 
-function formatCallbackError(error: unknown): Error {
-  if (error instanceof z.ZodError) {
-    const issue = error.issues[0];
-    if (issue?.code === "invalid_type") {
-      return new Error(
-        `Financial verification callback returned invalid data at ${formatPath(issue.path)}: ` +
-        `expected ${issue.expected}, received ${issue.received}`
-      );
-    }
-    if (issue) {
-      return new Error(`Financial verification callback returned invalid data at ${formatPath(issue.path)}: ${issue.message}`);
-    }
-  }
+function callbackError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   return message.startsWith("Financial verification")
     ? new Error(message)
     : new Error(`Financial verification failed: ${message}`);
 }
 
+function assertObject(value: unknown): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Financial verification callback returned invalid data: expected an object");
+  }
+}
+
+function requiredString(value: unknown, path: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Financial verification callback returned invalid data at ${path}: expected a non-empty string`);
+  }
+  return value;
+}
+
+function optionalBoolean(value: unknown, path: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    throw new Error(`Financial verification callback returned invalid data at ${path}: expected boolean`);
+  }
+  return value;
+}
+
 /**
- * Convert the public callback shape into the core's normalized observation
- * shape. The default status keeps the callback API small while preserving the
- * status field used by the HTTP adapter and reports.
+ * Normalize the callback contract without converting monetary values through
+ * floating-point arithmetic. BigInt and integer database strings are accepted
+ * when they fit inside JavaScript's safe integer range.
  */
 export function normalizeCallbackState(value: unknown): ObservedPaymentState {
-  const parsed = financialVerificationSchema.parse(value);
+  assertObject(value);
+  const reference = requiredString(value.reference, "reference");
+  if (!Number.isSafeInteger(value.creditCount) || (value.creditCount as number) < 0) {
+    throw new Error("Financial verification callback returned invalid data at creditCount: expected a non-negative safe integer");
+  }
+  const currency = requiredString(value.currency, "currency").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new Error("Financial verification callback returned invalid data at currency: expected a three-letter ISO currency");
+  }
+  const ledgerEntries: ObservedPaymentState["ledgerEntries"] = [];
+  if (value.ledgerEntries !== undefined) {
+    if (!Array.isArray(value.ledgerEntries)) {
+      throw new Error("Financial verification callback returned invalid data at ledgerEntries: expected an array");
+    }
+    for (const [index, entryValue] of value.ledgerEntries.entries()) {
+      assertObject(entryValue);
+      ledgerEntries.push({
+        id: requiredString(entryValue.id, `ledgerEntries[${index}].id`),
+        type: requiredString(entryValue.type, `ledgerEntries[${index}].type`),
+        amountMinor: safeMinorUnits(entryValue.amountMinor as MinorUnitValue, `ledgerEntries[${index}].amountMinor`),
+        ...(entryValue.currency === undefined ? {} : { currency: requiredString(entryValue.currency, `ledgerEntries[${index}].currency`).toUpperCase() })
+      });
+    }
+  }
   return {
-    reference: parsed.reference,
-    status: parsed.status ?? "UNKNOWN",
-    currency: parsed.currency,
-    creditedAmountMinor: parsed.creditedAmountMinor,
-    creditCount: parsed.creditCount,
-    pending: parsed.pending,
-    ledgerEntries: parsed.ledgerEntries ?? []
+    reference,
+    status: value.status === undefined ? "UNKNOWN" : requiredString(value.status, "status"),
+    currency,
+    creditedAmountMinor: safeMinorUnits(value.creditedAmountMinor as MinorUnitValue, "creditedAmountMinor"),
+    creditCount: value.creditCount as number,
+    ...(value.pending === undefined ? {} : { pending: optionalBoolean(value.pending, "pending") }),
+    ledgerEntries
   };
 }
 
@@ -82,8 +109,8 @@ export async function verifyWithCallback(
   options: FinancialVerificationWaitOptions = {}
 ): Promise<ObservedPaymentState> {
   const deadline = Date.now() + timeoutMs;
-  let lastError: Error | undefined;
   let lastObserved: ObservedPaymentState | undefined;
+  let lastTimeout: Error | undefined;
   while (Date.now() <= deadline) {
     const remaining = Math.max(1, deadline - Date.now());
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -99,19 +126,18 @@ export async function verifyWithCallback(
       lastObserved = normalized;
       if (!options.isComplete || options.isComplete(normalized)) return normalized;
     } catch (error) {
-      const candidate = formatCallbackError(error);
-      // Callback exceptions and malformed callback values are configuration or
-      // application errors, not asynchronous "not ready" state. Developers
-      // should return pending: true while work is in flight so an unimplemented
-      // verifier fails immediately instead of waiting through every poll.
+      const candidate = callbackError(error);
       if (!candidate.message.startsWith("Financial verification timed out after ")) throw candidate;
-      lastError = candidate;
+      lastTimeout = candidate;
     } finally {
       if (timer) clearTimeout(timer);
     }
     const waitMs = Math.min(options.pollIntervalMs ?? 25, Math.max(1, deadline - Date.now()));
     if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
+  // A non-pending final state is usable evidence even if it violates a rule;
+  // the invariant evaluator will report that violation instead of hiding it as
+  // a timeout. A pending state is not a completed financial verification.
   if (lastObserved && !lastObserved.pending) return lastObserved;
-  throw lastError ?? new Error(`Financial verification timed out after ${timeoutMs}ms`);
+  throw lastTimeout ?? new Error(`Financial verification timed out after ${timeoutMs}ms`);
 }

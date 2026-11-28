@@ -1,189 +1,102 @@
 # BachsProof
 
-Test whether your payment webhook handles money correctly.
+Beyond webhook delivery. Verify financial correctness.
 
-BachsProof sends safe, test-only payment events to an isolated copy of your
-application. It then reads the payment and ledger records that your application
-saved and checks the result. It does not call Bachs, move money, or change your
-production database.
+BachsProof is an independent, unofficial test tool for applications that
+process Bachs payments. It sends simulated, signed payment webhooks to an
+isolated application and reads the payment and ledger records your application
+actually saved. It does not call Bachs, move money, or certify production
+readiness.
 
-BachsProof is an independent, unofficial project. Bachs is the first supported
-payment provider.
-
-## Why this matters
-
-An HTTP `200` only means that your webhook answered. It does not prove that the
-right amount of money was saved.
-
-For example, a customer pays ₦5,000. Two copies of the same webhook arrive at
-almost the same time. If both requests read `PENDING` before either request
-writes, the wallet may receive ₦10,000 instead of ₦5,000.
-
-BachsProof checks the saved result, not just the HTTP response:
-
-```text
-Expected: one credit of 500_000 NGN minor units
-Observed: two credits totalling 1_000_000 NGN minor units
-Result:   FAIL — the same payment was credited twice
-```
-
-## What BachsProof can test
-
-| Test area | Example question |
-| --- | --- |
-| Repeated webhooks | Does a retry create a second credit? |
-| Concurrent webhooks | What happens when two requests overlap? |
-| Payment lifecycle | Is an expired, failed, or incomplete payment rejected? |
-| Amount and currency | Is the stored order checked before fulfilment? |
-| Webhook security | Are invalid signatures, changed bodies, and bad JSON rejected? |
-| Financial state | Did the application save one correct credit, or no credit? |
-
-The Bachs adapter currently provides 15 scenarios. See the [scenario guide](docs/scenarios.md).
-
-## Quick start
-
-Use Node.js 22 or later and an isolated test application and database.
+## Install
 
 ```bash
-pnpm add -D @bachsproof/cli@1.1.0
+pnpm add -D @bachsproof/cli
 pnpm exec bachsproof init
 ```
 
-The command creates these files in the application repository:
+The command creates one file: `bachsproof.config.mjs`.
 
-```text
-bachsproof.config.mjs
-tests/
-  bachsproof.test.mjs
-  bachsproof.setup.mjs
-  bachsproof.verify.mjs
+## Configure two callbacks
+
+Set the webhook URL, a test-only secret, amount, and currency. Then implement
+the two callbacks in the generated file:
+
+```js
+import { defineConfig } from "@bachsproof/cli";
+
+export default defineConfig({
+  webhookUrl: "http://localhost:3000/webhooks/bachs",
+  secret: process.env.BACHS_WEBHOOK_SECRET,
+  amountMinor: 500000,
+  currency: "NGN",
+
+  async createPayment({ amountMinor, currency }) {
+    const payment = await testApplication.createPayment({ amountMinor, currency });
+    return payment.reference;
+  },
+
+  async verify(reference) {
+    const state = await testApplication.readFinancialState(reference);
+    return {
+      reference,
+      creditCount: state.credits.length,
+      creditedAmountMinor: state.credits.reduce((sum, credit) => sum + credit.amountMinor, 0),
+      currency: state.currency,
+      status: state.status,
+      pending: state.pending,
+      ledgerEntries: state.credits.map((credit) => ({
+        id: String(credit.id),
+        type: String(credit.type),
+        amountMinor: credit.amountMinor,
+        currency: credit.currency
+      }))
+    };
+  }
+});
 ```
 
-Then:
+`createPayment()` creates a fresh payment record before a webhook is sent.
+`verify()` reads committed records after delivery. Return what the database
+contains, not the values you expect to see.
 
-1. Start your application with its test database.
-2. Set `BACHSPROOF_TARGET_URL`, `BACHSPROOF_WEBHOOK_PATH`, and your test-only
-   `BACHS_WEBHOOK_SECRET`.
-3. Implement `createPayment()` so each test gets a fresh payment record.
-4. Implement `verify()` so BachsProof can read committed credits or ledger rows.
-5. Enable both callbacks in `bachsproof.config.mjs`.
-6. Run one scenario, then the full suite:
+Amounts are integer minor units. `500000` means `NGN 5,000.00` in this
+example. BigInt values are accepted when they fit JavaScript's safe integer
+range.
+
+## Run the tests
 
 ```bash
 pnpm exec bachsproof test --name "sequential duplicate webhook"
 pnpm exec bachsproof test
+pnpm exec bachsproof test --json
 ```
 
-The [beginner quickstart](docs/quickstart.md) shows the files, commands, and a
-Prisma example in detail.
+Without a `--name`, BachsProof runs all eleven scenarios. Every scenario must
+complete financial verification before it can pass. A successful HTTP response
+alone is never enough.
 
-## The two callbacks you must understand
-
-`createPayment()` prepares a payment record before BachsProof sends a webhook.
-It returns the reference that your webhook handler already understands.
-
-```js
-import { randomUUID } from "node:crypto";
-
-export async function createPayment({ scenario, amountMinor, currency }) {
-  const payment = await testDatabase.payment.create({
-    data: {
-      reference: `bachsproof-${randomUUID()}`,
-      amountMinor,
-      currency,
-      status: "PENDING",
-      testScenario: scenario
-    }
-  });
-
-  return payment.reference;
-}
-```
-
-`verify()` reads what the application actually committed. Do not copy expected
-values from the test configuration into this callback.
-
-```js
-export async function verify(reference) {
-  const payment = await testDatabase.payment.findUnique({ where: { reference } });
-  const credits = await testDatabase.credit.findMany({ where: { reference } });
-
-  return {
-    reference,
-    creditCount: credits.length,
-    creditedAmountMinor: credits.reduce((sum, credit) => sum + credit.amountMinor, 0),
-    currency: payment?.currency ?? "NGN",
-    ledgerEntries: credits.map((credit) => ({
-      id: String(credit.id),
-      type: String(credit.type),
-      amountMinor: credit.amountMinor,
-      currency: credit.currency
-    }))
-  };
-}
-```
-
-`testDatabase` in these examples is your application test database client. The
-complete reference-wallet test is in [Your first payment test](docs/first-payment-test.mdx),
-and the Prisma version is in the [quickstart](docs/quickstart.md). Amounts use
-integer minor units: `500_000` kobo means ₦5,000.
-
-## How a run works
+A failed result explains the expected and observed financial state, for example:
 
 ```text
-prepare payment → create local Bachs event → send webhook → read saved state → check rules → report
+FAIL  Concurrent duplicate credit
+      Payment reference: test-payment-123
+      Expected: one credit of 500000 NGN minor units when eligible
+      Observed: 2 credit(s) totalling 1000000 NGN minor units
+      Reason: The same payment was credited more than once.
 ```
-
-Your application still owns signature verification, order matching, database
-transactions, idempotency, retries, and fulfilment. BachsProof supplies the
-test event and checks the result your application saved.
-
-## Three testing levels
-
-| Level | What it proves | What you need |
-| --- | --- | --- |
-| Delivery-only | The route receives an event and returns the expected status | Provider, target, and tests |
-| Financially verified | The saved credit count, amount, currency, and payment state are correct | A real isolated reference and `verify()` |
-| Controlled concurrency | Requests pause at a named test point so a race is easier to reproduce | Optional `@bachsproof/sdk` instrumentation |
-
-Delivery-only testing is a useful first step. It is not financial proof. For CI,
-use `requireFinancialVerification: true` after `verify()` reads real committed
-state.
-
-## Packages
-
-| Package | Use it for |
-| --- | --- |
-| `@bachsproof/cli` | The normal `init` and `test` commands |
-| `@bachsproof/core` | Calling the runner from Vitest, Jest, or another tool |
-| `@bachsproof/bachs` | Bachs-shaped local events, signing, and money helpers |
-| `@bachsproof/sdk` | Optional test-only checkpoints for controlled concurrency |
-
-Most projects need only `@bachsproof/cli`.
 
 ## Safety
 
-Use a separate application process, database, queue, and webhook secret. Never
-send synthetic events to production. BachsProof does not reset or delete your
-application data, so your test setup must create isolated records and your test
-cleanup must remove them when appropriate.
+Use a separate test application, database, background worker, and webhook
+secret. Create fresh test payment records for every scenario. Never point
+BachsProof at production. BachsProof does not delete your application data.
 
-## More documentation
+Read the [documentation](docs/index.mdx) for the complete Prisma example,
+scenario explanations, programmatic API, CI setup, troubleshooting, and the
+[v1 migration guide](docs/reference/migrating-from-v1.mdx).
 
-- [Installation](docs/installation.mdx)
-- [Beginner quickstart](docs/quickstart.md)
-- [Payment scenarios](docs/scenarios.md)
-- [Financial invariants](docs/financial-invariants.md)
-- [Programmatic API](docs/advanced/programmatic-api.mdx)
-- [Troubleshooting](docs/resources/troubleshooting.mdx)
+## License and disclaimer
 
-## Development in this repository
-
-```bash
-pnpm install
-pnpm test
-```
-
-The reference wallet in `apps/reference-wallet` demonstrates both an unsafe
-handler and a corrected handler. It is a learning example, not a production
-payment application.
+MIT. BachsProof is an independent, unofficial project. It is not produced,
+endorsed, or certified by Bachs.

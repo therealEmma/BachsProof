@@ -1,41 +1,24 @@
 ---
-title: "Understanding test results"
-description: "Read CLI summaries and separate delivery, verification, and invariant failures."
+title: "Understanding results"
+description: "Read plain-language financial correctness results."
 ---
 
-The CLI prints one line per configured scenario and a consolidated summary:
+A scenario passes only when payment preparation, webhook delivery, financial
+verification, and all applicable financial rules succeed.
 
 ```text
-PASS sequential duplicate webhook (financial verification completed; 24ms; 0 financial violations)
-FAIL concurrent duplicate credit (financial verification completed; financial violations detected; 31ms; 1 financial violations)
-Summary: 1/2 passed, 1 failed, 2 financially verified, 0 unverified, 1 financial violations, 55ms
+PASS  Sequential duplicate webhook
+FAIL  Concurrent duplicate credit
+      Payment reference: test-payment-123
+      Expected: one credit of 500000 NGN minor units when eligible
+      Observed: 2 credit(s) totalling 1000000 NGN minor units
+      Reason: The same payment was credited more than once.
+
+Summary
+11 scenarios
+10 passed
+1 failed
 ```
 
-Read the result from left to right: delivery tells you whether the HTTP request
-worked, verification tells you what your callback read, and invariants tell you
-whether that saved state followed the money rules. A green delivery result is
-not automatically a green financial result.
-
-The verification phrase also tells you which stage was reached: not configured,
-configured but did not run, attempted but unable to complete, completed, or
-completed with financial violations. These are display labels; the report keeps
-the compatible `verificationMode`, `financiallyVerified`, `verification`, and
-`errors` fields.
-
-Investigate the failure by layer:
-
-| Symptom | Likely layer |
-| --- | --- |
-| Preparation failed | Test data or `createPayment` |
-| Connection error or unexpected status | Target URL, route, server, or webhook handler |
-| Expected 4xx did not occur | Signing, parser, or scenario expectation |
-| Verifier timeout | Async worker, verifier query, or missing `pending` handling |
-| `INV-001` | Duplicate financial effect or missing durable idempotency |
-| `INV-002` | Observed aggregate amount or currency differs from expected |
-| `INV-003` | Eligible payment was not credited by the deadline |
-| `INV-004` | Ineligible event created a credit |
-| `INV-005` | Eligible aggregate credit is wrong when the expected count is present |
-
-Use `--json` when a CI job needs the full delivery and verification evidence.
-Remember that `passed: true` without a verifier means delivery-only, not proof
-that a ₦5,000 credit was saved correctly.
+JSON output keeps the invariant identifiers (`INV-001` through `INV-005`) and
+the delivery and observed financial evidence for CI diagnostics.

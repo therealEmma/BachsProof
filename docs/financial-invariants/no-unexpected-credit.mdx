@@ -1,34 +1,7 @@
 ---
-title: "INV-004: No Unexpected Credit"
-description: "An ineligible payment must not create a financial credit."
+title: "No unexpected credit"
+description: "An ineligible payment must not create money."
 ---
 
-## What it means
-
-Expired, incomplete, failed, underpaid, tampered, or unauthenticated events
-must not create money in the application. For an incomplete checkout for a
-₦5,000 order, zero credits is the passing result.
-
-```text
-Passing: expected eligible false; observed creditCount 0
-Failing: expected eligible false; observed creditCount 1, amount 500000 NGN
-```
-
-The passing case means no ₦5,000 row exists. The failing case means the
-application created a ₦5,000 credit even though the event was not eligible.
-The amount could be `1` or `1_000_000`; any positive credit count fails this
-rule.
-
-## How BachsProof evaluates it
-
-If `expected.eligible` is false and `observed.creditCount > 0`, the invariant
-fails. HTTP rejection and financial observation are separate: even when a 4xx
-is expected, use `verify` to establish that no credit was committed.
-
-Investigate fulfilment based on checkout status alone, skipped signature
-verification, missing amount/currency matching, or treating an error state as a
-success. The negative observation window gives queued work a bounded chance to
-appear before this rule is evaluated. `incomplete-checkout`, `expired-checkout`,
-`tampered-webhook`, `invalid-webhook-signature`, `malformed-webhook`,
-`incorrect-payment-amount`, `incorrect-payment-currency`, `underpaid-payment`,
-and `failed-payment` all use this expected zero-credit outcome.
+`INV-004` fails when an incomplete, expired, underpaid, failed, or mismatched
+payment has any credit in the saved ledger.

@@ -1,0 +1,19 @@
+---
+title: "Configuration"
+description: "Reference for the small BachsProof v2 configuration object."
+---
+
+| Property | Required | Meaning |
+| --- | --- | --- |
+| `webhookUrl` | yes | Complete HTTP(S) URL of the isolated webhook route |
+| `secret` | yes | Test-only webhook signing secret |
+| `amountMinor` | yes | Non-negative safe integer amount in minor units |
+| `currency` | yes | Three-letter ISO currency code |
+| `createPayment` | yes | Creates a fresh application payment and returns its reference |
+| `verify` | yes | Reads committed financial state |
+| `scenarios` | no | Scenario identifiers to run; omitted means all eleven |
+| `verificationTimeoutMs` | no | Extra time for asynchronous financial processing |
+
+Provider adapters, signing objects, scenario definitions, replay settings,
+checkpoints, race controllers, and synthetic-reference switches are not part of
+the v2 configuration.

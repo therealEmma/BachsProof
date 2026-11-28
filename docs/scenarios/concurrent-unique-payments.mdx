@@ -1,49 +1,8 @@
 ---
 title: "Concurrent unique payments"
-description: "Check that separate payments stay separate when processed together."
+description: "Check that different payments remain independent."
 ---
 
-## What is being tested?
-
-This test processes two different payments at the same time. For example, two
-customers each pay ₦5,000 and each should receive one credit.
-
-## Why does it matter?
-
-Shared variables, incorrect database filters, or reused references can cause one
-customer's payment to credit another customer, or cause one payment to be lost.
-
-## What BachsProof does
-
-BachsProof creates one eligible `collection.succeeded` event for each distinct
-payment reference and delivers them concurrently:
-
-```js
-{
-  scenario: "concurrent-unique-payments",
-  references: ["payment-a", "payment-b"],
-  concurrency: 2,
-  amountMinor: 500_000,
-  currency: "NGN"
-}
-```
-
-When `createPayment()` is enabled, BachsProof calls it once per payment. Run it
-with:
-
-```bash
-pnpm exec bachsproof test --name "concurrent unique payments"
-```
-
-## What the application should do
-
-Use each event's own payment reference and customer or order association. A
-credit for `payment-a` must never be attached to `payment-b`. Keep each payment
-write scoped to its own record.
-
-## Pass and failure
-
-A pass has one `500_000`-kobo NGN credit for each reference. Missing credits fail
-`INV-003`; duplicate credits fail `INV-001`; wrong totals or currencies fail
-`INV-002` and possibly `INV-005`. BachsProof checks each reference separately,
-so an error for one payment cannot hide an error for another.
+BachsProof calls `createPayment()` once for each payment, then sends successful
+webhooks concurrently. Every distinct reference should receive one correct
+credit. A missing, mixed, or duplicated record fails the financial checks.

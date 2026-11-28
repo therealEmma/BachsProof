@@ -1,229 +1,99 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { BachsProof } from "./orchestrator.js";
-import type { PaymentEvent, ProviderAdapter } from "./types.js";
+import type { FinancialVerifier, PaymentEvent, ProviderAdapter } from "./types.js";
 
 const servers: Server[] = [];
 
 afterEach(async () => {
-  for (const server of servers.splice(0)) {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+  for (const server of servers.splice(0)) await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-describe("BachsProof concurrent duplicate delivery", () => {
-  it("rejects missing real references before creating or delivering a webhook", async () => {
-    let requests = 0;
-    const server = createServer((_request, response) => {
-      requests += 1;
-      response.end("unexpected");
-    });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("test webhook server did not start");
+function provider(): ProviderAdapter {
+  return {
+    name: "test-provider",
+    mode: "fixture",
+    createPayment(input) {
+      return { reference: input.reference, amountMinor: input.amountMinor, currency: input.currency, status: "SUCCEEDED", id: "evt-1" };
+    },
+    serialize(event) { return JSON.stringify(event); },
+    expectedState(event) { return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 }; }
+  };
+}
 
-    const provider: ProviderAdapter = {
-      name: "reference-validation-provider",
-      mode: "fixture",
-      createPayment() {
-        throw new Error("createPayment should not run before input validation");
-      },
-      serialize(event) {
-        return JSON.stringify(event);
-      },
-      expectedState(event) {
-        return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 };
-      }
-    };
+async function webhook(status = 200): Promise<{ url: string; requests: number[] }> {
+  const requests: number[] = [];
+  const server = createServer((_request, response) => {
+    requests.push(1);
+    response.statusCode = status;
+    response.end("accepted");
+  });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("test webhook server did not start");
+  return { url: `http://127.0.0.1:${address.port}/webhooks/payment`, requests };
+}
 
+const passingVerifier: FinancialVerifier = (reference, context) => ({
+  reference,
+  creditCount: context?.expectedOutcome.eligible ? 1 : 0,
+  creditedAmountMinor: context?.expectedOutcome.eligible ? context.expectedOutcome.amountMinor : 0,
+  currency: context?.expectedOutcome.currency ?? "NGN",
+  ledgerEntries: []
+});
+
+describe("BachsProof v2 runner", () => {
+  it("requires both application callbacks", () => {
+    expect(() => new BachsProof({ provider: provider(), webhookUrl: "http://127.0.0.1:1/hook", createPayment: () => "x" } as never)).toThrow("verify callback");
+  });
+
+  it("prepares a fresh reference and verifies financial state after delivery", async () => {
+    const target = await webhook();
+    const contexts: Array<{ paymentIndex: number; paymentCount: number }> = [];
     const result = await new BachsProof({
-      provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" }
-    }).run({ scenario: "concurrent-duplicate-credit", concurrency: 2 });
+      provider: provider(),
+      webhookUrl: target.url,
+      createPayment: (context) => {
+        contexts.push({ paymentIndex: context.paymentIndex, paymentCount: context.paymentCount });
+        return `PAY-${context.paymentIndex}`;
+      },
+      verify: passingVerifier
+    }).run({ scenario: "concurrent-unique-payments", amountMinor: 1_250, currency: "NGN" });
+
+    expect(result.passed).toBe(true);
+    expect(result.report.financiallyVerified).toBe(true);
+    expect(target.requests).toHaveLength(2);
+    expect(contexts).toEqual([{ paymentIndex: 0, paymentCount: 2 }, { paymentIndex: 1, paymentCount: 2 }]);
+    expect(result.report.payments).toHaveLength(2);
+  });
+
+  it("fails when HTTP delivery is unsuccessful even if financial evidence is available", async () => {
+    const target = await webhook(503);
+    const result = await new BachsProof({
+      provider: provider(),
+      webhookUrl: target.url,
+      createPayment: () => "PAY-HTTP-FAIL",
+      verify: passingVerifier
+    }).run({ scenario: "sequential-duplicate-webhook" });
 
     expect(result.passed).toBe(false);
-    expect(result.report.errors[0]).toContain("real application reference is required");
+    expect(result.report.financiallyVerified).toBe(true);
+    expect(result.report.failureType).toBe("unexpected-http-response");
+    expect(result.report.errors[0]).toContain("HTTP 503");
+  });
+
+  it("rejects duplicate references from payment preparation", async () => {
+    const target = await webhook();
+    const result = await new BachsProof({
+      provider: provider(),
+      webhookUrl: target.url,
+      createPayment: () => "PAY-DUPLICATE",
+      verify: passingVerifier
+    }).run({ scenario: "concurrent-unique-payments" });
+
+    expect(result.passed).toBe(false);
+    expect(result.report.failureType).toBe("payment-preparation");
     expect(result.report.deliveries).toEqual([]);
-    expect(requests).toBe(0);
-  });
-
-  it("runs without a checkpoint and preserves every delivery error", async () => {
-    let failDeliveries = false;
-    const bodies: string[] = [];
-    const server = createServer((request, response) => {
-      const chunks: Buffer[] = [];
-      request.on("data", (chunk: Buffer) => chunks.push(chunk));
-      request.on("end", () => {
-        bodies.push(Buffer.concat(chunks).toString("utf8"));
-        response.statusCode = failDeliveries ? 503 : 200;
-        response.end(failDeliveries ? "temporarily unavailable" : "accepted");
-      });
-    });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("test webhook server did not start");
-
-    const provider: ProviderAdapter = {
-      name: "regression-provider",
-      mode: "fixture",
-      createPayment(input = {}) {
-        return {
-          reference: input.reference ?? "PAY-CONCURRENT-NO-CHECKPOINT",
-          amountMinor: input.amountMinor ?? 1_000,
-          currency: input.currency ?? "NGN",
-          status: "SUCCEEDED"
-        };
-      },
-      serialize(event: PaymentEvent) {
-        return JSON.stringify(event);
-      },
-      expectedState(event: PaymentEvent) {
-        return {
-          reference: event.reference,
-          eligible: true,
-          amountMinor: event.amountMinor,
-          currency: event.currency,
-          expectedCreditCount: 1
-        };
-      }
-    };
-    const bachsproof = new BachsProof({
-      provider,
-      target: {
-        baseUrl: `http://127.0.0.1:${address.port}`,
-        webhookPath: "/webhooks/payment",
-      }
-    });
-
-    const successful = await bachsproof.run({
-      scenario: "concurrent-duplicate-credit",
-      concurrency: 3,
-      reference: "PAY-CONCURRENT-NO-CHECKPOINT"
-    });
-    expect(successful.passed).toBe(true);
-    expect(successful.report.replay.controlled).toBe(false);
-    expect(successful.report.deliveries).toHaveLength(3);
-    expect(new Set(bodies)).toHaveLength(1);
-
-    failDeliveries = true;
-    const failed = await bachsproof.run({
-      scenario: "concurrent-duplicate-credit",
-      concurrency: 3,
-      reference: "PAY-CONCURRENT-ERRORS"
-    });
-    expect(failed.passed).toBe(false);
-    expect(failed.report.replay.controlled).toBe(false);
-    expect(failed.report.deliveries).toHaveLength(3);
-    expect(failed.report.errors).toHaveLength(3);
-    expect(failed.report.errors.every((error) => error.includes("Webhook delivery"))).toBe(true);
-  });
-
-  it("prepares missing references for single and concurrent-unique scenarios", async () => {
-    let requests = 0;
-    const contexts: Array<{ scenario: string; amountMinor: number; currency: string; paymentIndex: number; paymentCount: number }> = [];
-    const server = createServer((_request, response) => {
-      requests += 1;
-      response.statusCode = 200;
-      response.end("accepted");
-    });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("test webhook server did not start");
-
-    const provider: ProviderAdapter = {
-      name: "preparation-provider",
-      mode: "fixture",
-      createPayment(input = {}) {
-        return {
-          reference: input.reference ?? "PREPARED-FALLBACK",
-          amountMinor: input.amountMinor ?? 2_500,
-          currency: input.currency ?? "NGN",
-          status: "SUCCEEDED"
-        };
-      },
-      serialize(event) {
-        return JSON.stringify(event);
-      },
-      expectedState(event) {
-        return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 };
-      }
-    };
-    let nextReference = 1;
-    const bachsproof = new BachsProof({
-      provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
-      createPayment: (context) => {
-        contexts.push(context);
-        return `PREPARED-${nextReference++}`;
-      }
-    });
-
-    const single = await bachsproof.run({
-      scenario: "sequential-duplicate-webhook",
-      amountMinor: 7_500,
-      currency: "USD"
-    });
-    const unique = await bachsproof.run({
-      scenario: "concurrent-unique-payments",
-      amountMinor: 8_500,
-      currency: "EUR",
-      concurrency: 2
-    });
-
-    expect(single.passed).toBe(true);
-    expect(unique.passed).toBe(true);
-    expect(contexts).toEqual([
-      { scenario: "sequential-duplicate-webhook", amountMinor: 7_500, currency: "USD", paymentIndex: 0, paymentCount: 1 },
-      { scenario: "concurrent-unique-payments", amountMinor: 8_500, currency: "EUR", paymentIndex: 0, paymentCount: 2 },
-      { scenario: "concurrent-unique-payments", amountMinor: 8_500, currency: "EUR", paymentIndex: 1, paymentCount: 2 }
-    ]);
-    expect(requests).toBe(4);
-  });
-
-  it("does not deliver when payment preparation fails and preserves manual and synthetic modes", async () => {
-    let requests = 0;
-    let preparations = 0;
-    const server = createServer((_request, response) => {
-      requests += 1;
-      response.statusCode = 200;
-      response.end("accepted");
-    });
-    servers.push(server);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("test webhook server did not start");
-
-    const provider: ProviderAdapter = {
-      name: "preparation-failure-provider",
-      mode: "fixture",
-      createPayment(input = {}) {
-        return { reference: input.reference ?? "SYNTHETIC-REFERENCE", amountMinor: 1_000, currency: "NGN", status: "SUCCEEDED" };
-      },
-      serialize(event) { return JSON.stringify(event); },
-      expectedState(event) { return { reference: event.reference, eligible: true, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 1 }; }
-    };
-    const bachsproof = new BachsProof({
-      provider,
-      target: { baseUrl: `http://127.0.0.1:${address.port}`, webhookPath: "/webhooks/payment" },
-      createPayment: () => {
-        preparations += 1;
-        throw new Error("test payment API unavailable");
-      }
-    });
-
-    const failed = await bachsproof.run({ scenario: "sequential-duplicate-webhook" });
-    const manual = await bachsproof.run({ scenario: "sequential-duplicate-webhook", reference: "MANUAL-001" });
-    const synthetic = await bachsproof.run({ scenario: "sequential-duplicate-webhook", syntheticReferences: true });
-
-    expect(failed.passed).toBe(false);
-    expect(failed.report.errors[0]).toContain("Payment preparation failed");
-    expect(failed.report.deliveries).toEqual([]);
-    expect(manual.passed).toBe(true);
-    expect(synthetic.passed).toBe(true);
-    expect(preparations).toBe(1);
-    expect(requests).toBe(4);
   });
 });

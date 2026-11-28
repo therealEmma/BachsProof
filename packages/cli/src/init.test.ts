@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,52 +11,29 @@ afterEach(async () => {
 });
 
 describe("BachsProof init", () => {
-  it("generates all scenario boilerplate and a hard-fail verifier template", async () => {
+  it("generates one configuration file with both hard-fail callbacks", async () => {
     const directory = await mkdtemp(join(tmpdir(), "bachsproof-init-"));
     directories.push(directory);
     const paths = await initProject(directory);
-    expect(paths).toHaveLength(4);
+    expect(paths).toHaveLength(1);
+    expect(await readdir(directory)).toEqual(["bachsproof.config.mjs"]);
+    const source = await readFile(join(directory, "bachsproof.config.mjs"), "utf8");
+    expect(source).toContain("webhookUrl");
+    expect(source).toContain("secret:");
+    expect(source).toContain("createPayment");
+    expect(source).toContain("verify");
+    expect(source).toContain("Implement createPayment");
+    expect(source).toContain("Implement verify");
+    expect(source).toContain("sequential-duplicate-webhook");
+    expect(source).not.toContain("syntheticReferences");
+    expect(source).not.toContain("checkpoint");
+    expect(source).not.toContain("replay");
+  });
 
-    const testSource = await readFile(join(directory, "tests", "bachsproof.test.mjs"), "utf8");
-    const configSource = await readFile(join(directory, "bachsproof.config.mjs"), "utf8");
-    expect(configSource).toContain("BachsProof test configuration");
-    expect(configSource).toContain("webhookPath");
-    expect(configSource).toContain("// createPayment,");
-    expect(configSource).not.toContain("resetPath");
-    expect(configSource).toContain("financialVerification");
-    for (const scenario of [
-      "sequential-duplicate-webhook",
-      "concurrent-duplicate-credit",
-      "concurrent-unique-payments",
-      "cross-event-duplicate-payment",
-      "out-of-order-events",
-      "delayed-payment-confirmation",
-      "incomplete-checkout",
-      "expired-checkout",
-      "tampered-webhook",
-      "invalid-webhook-signature",
-      "malformed-webhook",
-      "incorrect-payment-amount",
-      "incorrect-payment-currency",
-      "underpaid-payment",
-      "failed-payment"
-    ]) expect(testSource).toContain(scenario);
-
-    const verifierSource = await readFile(join(directory, "tests", "bachsproof.verify.mjs"), "utf8");
-    expect(verifierSource).toContain("HTTP 200 only proves");
-    expect(verifierSource).toContain("Implement verify in tests/bachsproof.verify.mjs");
-    const setupSource = await readFile(join(directory, "tests", "bachsproof.setup.mjs"), "utf8");
-    expect(setupSource).toContain("Implement createPayment in tests/bachsproof.setup.mjs");
-    expect(setupSource).toContain("fresh test payment or order");
-    expect(setupSource).toContain("paymentIndex");
-    expect(setupSource).toContain("paymentCount");
-    expect(setupSource).toContain("applicationTestApi.createPayment");
-    expect(verifierSource).toContain("creditedAmountMinor");
-    expect(verifierSource).toContain("pending");
-    expect(verifierSource).toContain("Minimal valid response");
-    expect(verifierSource).toContain("type: String(credit.type)");
-    expect(testSource).not.toContain("BACHSPROOF_REFERENCES");
-    expect(testSource).toContain("tests duplicate-credit races");
-    expect(testSource).toContain("pnpm exec bachsproof test --name");
+  it("protects an existing configuration", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "bachsproof-init-"));
+    directories.push(directory);
+    await initProject(directory);
+    await expect(initProject(directory)).rejects.toThrow("Refusing to overwrite");
   });
 });

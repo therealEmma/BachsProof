@@ -1,7 +1,7 @@
 {
   "name": "bachsproof",
   "private": true,
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "BachsProof is a financial correctness testing framework for applications integrating Bachs. It complements existing webhook testing tools by enabling developers to verify payment processing, idempotency, concurrency safety and financial integrity within their applications.",
   "license": "MIT",
   "repository": {
@@ -22,7 +22,7 @@
     "test:postgres": "vitest run apps/reference-wallet/tests/wallet.postgres.integration.test.ts",
     "test:watch": "vitest",
     "typecheck": "pnpm build && pnpm -r exec tsc --noEmit --pretty false",
-    "pack:check": "pnpm build && pnpm --filter @bachsproof/core pack --pack-destination ./reports && pnpm --filter @bachsproof/sdk pack --pack-destination ./reports && pnpm --filter @bachsproof/bachs pack --pack-destination ./reports && pnpm --filter @bachsproof/cli pack --pack-destination ./reports"
+    "pack:check": "pnpm build && pnpm --filter @bachsproof/core pack --pack-destination ./reports && pnpm --filter @bachsproof/bachs pack --pack-destination ./reports && pnpm --filter @bachsproof/cli pack --pack-destination ./reports"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

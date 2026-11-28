@@ -2,186 +2,41 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "BachsProof",
   "theme": "mint",
-  "colors": {
-    "primary": "#111111",
-    "light": "#F5F5F5",
-    "dark": "#666666"
-  },
+  "colors": { "primary": "#111111", "light": "#F5F5F5", "dark": "#666666" },
   "navigation": {
     "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "href": "https://github.com/therealEmma/BachsProof",
-          "icon": "github"
-        }
-      ]
+      "anchors": [{ "anchor": "GitHub", "href": "https://github.com/therealEmma/BachsProof", "icon": "github" }]
     },
     "groups": [
       {
-        "group": "Getting started",
+        "group": "Getting Started",
         "icon": "rocket",
-        "root": "index",
-        "pages": [
-          "index",
-          "why-bachsproof",
-          "installation",
-          "quickstart",
-          "first-payment-test"
-        ]
+        "pages": ["index", "installation", "quickstart"]
       },
       {
-        "group": "Understanding payment systems",
-        "icon": "book-open",
-        "pages": [
-          "concepts/how-digital-payments-work",
-          "concepts/webhooks",
-          "concepts/payment-lifecycle",
-          "concepts/ledger",
-          "concepts/idempotency",
-          "concepts/concurrency",
-          "concepts/financial-correctness"
-        ]
-      },
-      {
-        "group": "How BachsProof works",
-        "icon": "workflow",
-        "pages": [
-          "how-bachsproof-works/architecture",
-          "how-bachsproof-works/execution-lifecycle",
-          "how-bachsproof-works/payment-events",
-          "how-bachsproof-works/signing-and-delivery",
-          "how-bachsproof-works/payment-preparation",
-          "how-bachsproof-works/financial-verification",
-          "how-bachsproof-works/invariants",
-          "how-bachsproof-works/reports"
-        ]
-      },
-      {
-        "group": "Testing with BachsProof",
+        "group": "Testing",
         "icon": "flask-conical",
         "pages": [
-          "testing/configuration",
-          "testing/writing-tests",
-          "testing/automatic-payment-preparation",
-          "testing/manual-references",
-          "testing/synthetic-references",
-          "testing/financial-verification",
-          "testing/asynchronous-applications",
-          "testing/concurrent-webhooks",
-          "testing/http-expectations",
-          "testing/understanding-results",
-          "testing/ci-cd"
-        ]
-      },
-      {
-        "group": "Payment test scenarios",
-        "icon": "list-checks",
-        "root": "scenarios/index",
-        "pages": [
+          "testing/preparing-payments",
+          "testing/verifying-financial-records",
           "scenarios/index",
-          {
-            "group": "Duplicate and ordering",
-            "pages": [
-              "scenarios/sequential-duplicate-webhook",
-              "scenarios/concurrent-duplicate-credit",
-              "scenarios/concurrent-unique-payments",
-              "scenarios/cross-event-duplicate-payment",
-              "scenarios/out-of-order-events",
-              "scenarios/delayed-payment-confirmation"
-            ]
-          },
-          {
-            "group": "Eligibility and validation",
-            "pages": [
-              "scenarios/incomplete-checkout",
-              "scenarios/expired-checkout",
-              "scenarios/tampered-webhook",
-              "scenarios/invalid-webhook-signature",
-              "scenarios/malformed-webhook",
-              "scenarios/incorrect-payment-amount",
-              "scenarios/incorrect-payment-currency",
-              "scenarios/underpaid-payment",
-              "scenarios/failed-payment"
-            ]
-          }
+          "testing/understanding-results"
         ]
       },
       {
-        "group": "Financial invariants",
+        "group": "Integration",
+        "icon": "plug",
+        "pages": ["integration/cli", "integration/programmatic-api", "testing/ci-cd", "case-studies/reference-wallet"]
+      },
+      {
+        "group": "Reference",
+        "icon": "book-open",
+        "pages": ["reference/configuration", "resources/troubleshooting", "reference/migrating-from-v1", "financial-invariants/index"]
+      },
+      {
+        "group": "Safety and limits",
         "icon": "shield-check",
-        "root": "financial-invariants/index",
-        "pages": [
-          "financial-invariants/index",
-          "financial-invariants/unique-credit",
-          "financial-invariants/amount-integrity",
-          "financial-invariants/completion",
-          "financial-invariants/no-unexpected-credit",
-          "financial-invariants/aggregate-integrity"
-        ]
-      },
-      {
-        "group": "Bachs integration",
-        "icon": "credit-card",
-        "pages": [
-          "bachs/index",
-          "bachs/events",
-          "bachs/payloads",
-          "bachs/signing",
-          "bachs/money",
-          "bachs/eligibility",
-          "bachs/testing"
-        ]
-      },
-      {
-        "group": "Advanced testing",
-        "icon": "settings-2",
-        "pages": [
-          "advanced/index",
-          "advanced/programmatic-api",
-          "advanced/vitest-and-jest",
-          "advanced/controlled-concurrency",
-          "advanced/checkpoint-sdk",
-          "advanced/custom-adapters"
-        ]
-      },
-      {
-        "group": "Engineering case study",
-        "icon": "microscope",
-        "pages": [
-          "case-studies/index",
-          "case-studies/reference-wallet"
-        ]
-      },
-      {
-        "group": "API reference",
-        "icon": "square-terminal",
-        "pages": [
-          "api/index",
-          "api/cli",
-          "api/configuration",
-          "api/run-options",
-          "api/callbacks",
-          "api/programmatic",
-          "api/adapters",
-          "api/checkpoint",
-          "api/reports",
-          "api/errors"
-        ]
-      },
-      {
-        "group": "Resources",
-        "icon": "life-buoy",
-        "pages": [
-          "resources/index",
-          "resources/faq",
-          "resources/glossary",
-          "resources/troubleshooting",
-          "resources/security",
-          "resources/limitations",
-          "resources/contributing",
-          "resources/changelog"
-        ]
+        "pages": ["resources/security", "resources/limitations", "resources/faq"]
       }
     ]
   }

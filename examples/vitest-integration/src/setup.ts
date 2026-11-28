@@ -1,11 +1,18 @@
-import { BachsProof, type FinancialVerifier } from "@bachsproof/core";
-import { bachsAdapter } from "@bachsproof/bachs";
+import type { BachsProofConfig } from "@bachsproof/cli";
+import type { PaymentReferenceCreator, FinancialVerifier } from "@bachsproof/core";
 
-export function createVitestBachsProof(baseUrl: string, verify: FinancialVerifier): BachsProof {
-  return new BachsProof({
-    provider: bachsAdapter({ mode: "mock" }),
-    target: { baseUrl, webhookPath: "/webhooks/bachs" },
-    verify,
-    checkpoint: { name: "after-idempotency-check", timeoutMs: 2_000 }
-  });
+/** The same object can be passed to runConfig from Vitest, Jest, or a script. */
+export function createVitestBachsProof(
+  webhookUrl: string,
+  createPayment: PaymentReferenceCreator,
+  verify: FinancialVerifier
+): BachsProofConfig {
+  return {
+    webhookUrl,
+    secret: "vitest-test-secret",
+    amountMinor: 5_000_000,
+    currency: "NGN",
+    createPayment,
+    verify
+  };
 }

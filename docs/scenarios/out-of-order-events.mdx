@@ -1,38 +1,8 @@
 ---
 title: "Out-of-order events"
-description: "Check that an older event cannot undo a newer successful payment."
+description: "Check that an older event cannot undo a newer outcome."
 ---
 
-## What is being tested?
-
-This test sends a newer successful collection event first and an older checkout
-expiry event second. The network delivered the events in the opposite order to
-their event times.
-
-## Why does it matter?
-
-Networks retry and reorder messages. If an old expiry changes a completed
-payment back to an unpaid state, the application may remove access or create an
-incorrect ledger state.
-
-## What BachsProof does
-
-BachsProof sends an eligible `collection.succeeded` event, then an older
-`checkout.expired` event for the same payment. The events have different IDs and
-timestamps. Run it with:
-
-```bash
-pnpm exec bachsproof test --name "out-of-order events"
-```
-
-## What the application should do
-
-Store the event time or another ordering value and prevent an older event from
-replacing a newer completed state. Do not use arrival order alone.
-
-## Pass and failure
-
-A pass keeps one `500_000`-kobo NGN credit and a completed payment state. A
-missing credit fails `INV-003`; duplicate or incorrect credits fail the
-corresponding uniqueness and amount rules. A payment state that regresses is a
-failure even if the final credit count looks correct.
+BachsProof sends a newer successful event and then an older non-fulfilling
+event. The application should keep the completed payment and one correct
+credit. An older event must not move a completed payment backwards.

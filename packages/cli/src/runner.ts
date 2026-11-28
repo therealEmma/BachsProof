@@ -1,20 +1,64 @@
 import { createJiti } from "jiti";
 import { resolve } from "node:path";
-import { BachsProof, type PaymentEvent, type PaymentReferenceCreator, type ProviderAdapter } from "@bachsproof/core";
-import { signBachsWebhook } from "@bachsproof/bachs";
+import { BachsProof, SUPPORTED_SCENARIOS, type PaymentEvent, type PaymentReferenceCreator, type ProviderAdapter, type ScenarioName } from "@bachsproof/core";
+import { bachsAdapter, signBachsWebhook } from "@bachsproof/bachs";
 import type { BachsProofCliRun, BachsProofConfig, BachsProofSummary, RunConfigOptions } from "./types.js";
+
+const SCENARIO_LABELS: Record<ScenarioName, string> = {
+  "sequential-duplicate-webhook": "Sequential duplicate webhook",
+  "concurrent-duplicate-credit": "Concurrent duplicate credit",
+  "concurrent-unique-payments": "Concurrent unique payments",
+  "cross-event-duplicate-payment": "Cross-event duplicate payment",
+  "out-of-order-events": "Out-of-order events",
+  "incomplete-checkout": "Incomplete checkout",
+  "expired-checkout": "Expired checkout",
+  "incorrect-payment-amount": "Incorrect payment amount",
+  "incorrect-payment-currency": "Incorrect payment currency",
+  "underpaid-payment": "Underpaid payment",
+  "failed-payment": "Failed payment"
+};
+
+export function scenarioLabel(scenario: ScenarioName): string {
+  return SCENARIO_LABELS[scenario];
+}
 
 function assertConfig(value: unknown): asserts value is BachsProofConfig {
   if (!value || typeof value !== "object") throw new Error("BachsProof config must export a default object");
   const config = value as Partial<BachsProofConfig>;
-  if (!config.provider || typeof config.provider !== "object") throw new Error("BachsProof config requires a provider adapter");
-  if (!config.target || typeof config.target !== "object" || typeof config.target.baseUrl !== "string" || typeof config.target.webhookPath !== "string") {
-    throw new Error("BachsProof config requires target.baseUrl and target.webhookPath");
+  if (typeof config.webhookUrl !== "string" || config.webhookUrl.trim().length === 0) {
+    throw new Error("BachsProof config requires a complete webhookUrl");
   }
-  if (!Array.isArray(config.tests) || config.tests.length === 0) throw new Error("BachsProof config requires at least one test");
+  try {
+    const url = new URL(config.webhookUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("webhookUrl must use http or https");
+  } catch (error) {
+    throw new Error(`BachsProof config webhookUrl is invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (typeof config.secret !== "string" || config.secret.trim().length === 0) {
+    throw new Error("BachsProof config requires a non-empty test webhook secret");
+  }
+  if (!Number.isSafeInteger(config.amountMinor) || (config.amountMinor as number) < 0) {
+    throw new Error("BachsProof config amountMinor must be a non-negative safe integer");
+  }
+  if (typeof config.currency !== "string" || !/^[A-Z]{3}$/.test(config.currency)) {
+    throw new Error("BachsProof config currency must be a three-letter ISO currency code");
+  }
+  if (typeof config.createPayment !== "function") throw new Error("BachsProof config requires a createPayment callback");
+  if (typeof config.verify !== "function") throw new Error("BachsProof config requires a verify callback");
+  if (config.verificationTimeoutMs !== undefined && (!Number.isSafeInteger(config.verificationTimeoutMs) || config.verificationTimeoutMs < 1)) {
+    throw new Error("BachsProof config verificationTimeoutMs must be a positive safe integer");
+  }
+  if (config.scenarios !== undefined) {
+    if (!Array.isArray(config.scenarios) || config.scenarios.length === 0) throw new Error("BachsProof config scenarios must contain at least one scenario");
+    for (const scenario of config.scenarios) {
+      if (!(SUPPORTED_SCENARIOS as readonly string[]).includes(scenario)) {
+        throw new Error(`Unknown BachsProof scenario: ${String(scenario)}`);
+      }
+    }
+  }
 }
 
-/** Load .mjs, .js, .cjs, or TypeScript config without requiring a repo-local loader. */
+/** Load a JavaScript, MJS, CJS, or TypeScript config file. */
 export async function loadConfig(configPath = "bachsproof.config.mjs"): Promise<BachsProofConfig> {
   const absolutePath = resolve(process.cwd(), configPath);
   const jiti = createJiti(absolutePath, { interopDefault: true });
@@ -23,89 +67,63 @@ export async function loadConfig(configPath = "bachsproof.config.mjs"): Promise<
   return loaded;
 }
 
-function withBachsSigning<TEvent extends PaymentEvent>(provider: ProviderAdapter<TEvent>, config: BachsProofConfig<TEvent>): ProviderAdapter<TEvent> {
-  if (!config.signing) return provider;
-  if (config.signing.type !== "bachs") throw new Error(`Unsupported signing type ${String(config.signing.type)}`);
-  if (!config.signing.secret) throw new Error("Bachs signing is configured but its secret is empty");
+function withBachsSigning(provider: ProviderAdapter, secret: string): ProviderAdapter {
   return {
     ...provider,
     headers(event) {
-      const rawBody = provider.serialize(event);
+      const body = provider.serialize(event);
       return {
         ...(provider.headers?.(event) ?? {}),
-        ...signBachsWebhook(rawBody, config.signing?.secret ?? "", config.signing?.timestamp)
+        ...signBachsWebhook(body, secret)
       };
     },
     headersForBody(event, body) {
       return {
         ...(provider.headersForBody?.(event, body) ?? provider.headers?.(event) ?? {}),
-        ...signBachsWebhook(body, config.signing?.secret ?? "", config.signing?.timestamp)
+        ...signBachsWebhook(body, secret)
       };
     }
   };
 }
 
-export async function runConfig(config: BachsProofConfig, options: RunConfigOptions = {}): Promise<BachsProofCliRun[]> {
-  const tests = options.testName ? config.tests.filter((test) => test.name === options.testName) : config.tests;
-  if (tests.length === 0) throw new Error(options.testName ? `No BachsProof test named ${options.testName}` : "BachsProof config contains no tests");
-  if (config.requireFinancialVerification && !config.verify) {
-    throw new Error("Financial verification is required, but the config has no verify callback");
-  }
+function selectedScenarios(config: BachsProofConfig, testName?: string): ScenarioName[] {
+  const scenarios = config.scenarios ?? [...SUPPORTED_SCENARIOS];
+  if (!testName) return scenarios;
+  const selected = scenarios.find((scenario) => scenarioLabel(scenario) === testName || scenario === testName);
+  if (!selected) throw new Error(`Unknown BachsProof scenario or test name "${testName}". Use one of: ${scenarios.map(scenarioLabel).join(", ")}`);
+  return [selected];
+}
 
-  const provider = withBachsSigning(config.provider, config);
-  const results: BachsProofCliRun[] = [];
+export async function runConfig(config: BachsProofConfig, options: RunConfigOptions = {}): Promise<BachsProofCliRun[]> {
+  assertConfig(config);
+  const scenarios = selectedScenarios(config, options.testName);
+  const provider = withBachsSigning(bachsAdapter({ mode: "mock" }), config.secret);
   const usedReferences = new Set<string>();
-  for (const test of tests) {
-    const { name, ...runOptions } = test;
-    const normalizedRunOptions = {
-      ...runOptions,
-      ...(runOptions.reference !== undefined ? { reference: typeof runOptions.reference === "string" ? runOptions.reference.trim() : runOptions.reference } : {}),
-      ...(runOptions.references !== undefined ? { references: runOptions.references.map((reference) => typeof reference === "string" ? reference.trim() : reference) } : {})
-    };
-    const explicitReferences = normalizedRunOptions.scenario === "concurrent-unique-payments"
-      ? normalizedRunOptions.references ?? []
-      : normalizedRunOptions.reference ? [normalizedRunOptions.reference] : [];
-    const normalizedExplicitReferences = explicitReferences.map((reference) => typeof reference === "string" ? reference.trim() : reference);
-    const conflictingReference = normalizedExplicitReferences.find((reference) => typeof reference === "string" && usedReferences.has(reference));
-    let preparationFailure: string | undefined;
-    if (conflictingReference) {
-      preparationFailure = `Payment preparation failed for ${runOptions.scenario}: reference ${conflictingReference} is already assigned to another selected scenario`;
-    } else {
-      for (const reference of normalizedExplicitReferences) {
-        if (typeof reference === "string" && reference.trim().length > 0) usedReferences.add(reference.trim());
-      }
+  const createPayment: PaymentReferenceCreator = async (context) => {
+    const reference = await config.createPayment(context);
+    if (typeof reference !== "string" || reference.trim().length === 0) return reference as string;
+    const normalized = reference.trim();
+    if (usedReferences.has(normalized)) {
+      throw new Error(`createPayment returned reference ${normalized}, which was already used by another selected scenario`);
     }
-    const createPayment: PaymentReferenceCreator | undefined = preparationFailure
-      ? async () => { throw new Error(preparationFailure); }
-      : config.createPayment
-        ? async (context) => {
-          const reference = await config.createPayment?.(context);
-          if (typeof reference !== "string" || reference.trim().length === 0) return reference as string;
-          const normalized = reference.trim();
-          if (usedReferences.has(normalized)) {
-            throw new Error(`reference ${normalized} is already assigned to another selected scenario`);
-          }
-          usedReferences.add(normalized);
-          return normalized;
-        }
-        : undefined;
-    const runner = new BachsProof({
-      provider,
-      target: config.target,
-      createPayment,
-      verify: config.verify,
-      financialVerification: config.financialVerification,
-      checkpoint: config.checkpoint
+    usedReferences.add(normalized);
+    return normalized;
+  };
+  const runner = new BachsProof({
+    provider,
+    webhookUrl: config.webhookUrl,
+    createPayment,
+    verify: config.verify,
+    financialVerification: config.verificationTimeoutMs === undefined ? undefined : { completionDeadlineMs: config.verificationTimeoutMs }
+  });
+  const results: BachsProofCliRun[] = [];
+  for (const scenario of scenarios) {
+    const result = await runner.run({
+      scenario,
+      amountMinor: config.amountMinor,
+      currency: config.currency
     });
-    const input = preparationFailure
-      ? { ...normalizedRunOptions, reference: undefined, references: undefined, syntheticReferences: false }
-      : normalizedRunOptions;
-    const result = await runner.run(input);
-    if (config.requireFinancialVerification && !result.report.financiallyVerified) {
-      result.report.errors.push("Financial verification was required but did not run");
-      result.passed = false;
-    }
-    results.push({ name, result });
+    results.push({ name: scenarioLabel(scenario), scenario, result });
   }
   return results;
 }
@@ -126,3 +144,4 @@ export function summarizeRuns(results: BachsProofCliRun[]): BachsProofSummary {
   };
 }
 
+export { bachsAdapter, signBachsWebhook } from "@bachsproof/bachs";

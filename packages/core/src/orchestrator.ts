@@ -1,51 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { fetch } from "undici";
-import { RaceController } from "./race-controller.js";
 import { verifyPaymentState } from "./invariants.js";
 import { preparePaymentReferences } from "./preparation.js";
-import { normalizeCallbackState, verifyWithCallback } from "./verification.js";
+import { verifyWithCallback } from "./verification.js";
 import type {
-  DeliveryRecord,
-  FinancialVerificationContext,
-  ObservedPaymentState,
   BachsProofOptions,
   BachsProofReport,
   BachsProofResult,
+  DeliveryRecord,
+  ExpectedHttpStatus,
+  FinancialVerificationContext,
+  ObservedPaymentState,
   PaymentEvent,
   ProviderScenario,
   ProviderScenarioDelivery,
-  RunOptions
+  RunOptions,
+  ScenarioName
 } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_NEGATIVE_OBSERVATION_MS = 250;
-
-function validateRunOptions(input: RunOptions, canPreparePayment = false): string | undefined {
-  if (input.concurrency !== undefined && (!Number.isInteger(input.concurrency) || input.concurrency < 1)) {
-    return "concurrency must be a positive integer";
-  }
-  if (input.scenario === "concurrent-unique-payments") {
-    if (input.reference !== undefined && input.references !== undefined) return "concurrent-unique-payments accepts references, not both reference and references";
-    if (input.references !== undefined) {
-      if (input.references.length < 2) return "concurrent-unique-payments requires at least two distinct references";
-      if (input.references.some((reference) => typeof reference !== "string" || reference.trim().length === 0)) return "all payment references must be non-empty strings";
-      if (new Set(input.references).size !== input.references.length) return "payment references must be distinct for concurrent-unique-payments";
-      if (input.concurrency !== undefined && input.references.length !== input.concurrency) return "concurrency must match the number of supplied payment references";
-    } else if (!input.syntheticReferences && !canPreparePayment && !input.replay?.event?.reference) {
-      return "real application references are required; provide references or explicitly set syntheticReferences: true";
-    }
-  } else {
-    if (input.references !== undefined) return `${input.scenario} accepts one reference; use references only with concurrent-unique-payments`;
-    const replayReference = input.replay?.event?.reference;
-    if (input.reference !== undefined && (typeof input.reference !== "string" || input.reference.trim().length === 0)) {
-      return `reference must be a non-empty string for ${input.scenario}`;
-    }
-    if ((!input.reference || input.reference.trim().length === 0) && (!replayReference || replayReference.trim().length === 0) && !input.syntheticReferences && !canPreparePayment) {
-      return `real application reference is required for ${input.scenario}; explicitly set syntheticReferences: true to use generated fixtures`;
-    }
-  }
-  return undefined;
-}
 
 function eventId(event: PaymentEvent): string | undefined {
   for (const key of ["id", "eventId", "providerEventId"]) {
@@ -59,15 +33,7 @@ function eventType(event: PaymentEvent): string | undefined {
   return typeof event.type === "string" ? event.type : undefined;
 }
 
-function observedStateComplete(expected: import("./types.js").ExpectedPaymentState, state: ObservedPaymentState, negativeDeadline: number): boolean {
-  if (state.pending) return false;
-  const verification = verifyPaymentState(expected, state);
-  if (expected.eligible) return verification.passed;
-  if (state.creditCount > 0) return true;
-  return Date.now() >= negativeDeadline;
-}
-
-function matchesExpectedStatus(status: number, expected: import("./types.js").ExpectedHttpStatus): boolean {
+function matchesExpectedStatus(status: number, expected: ExpectedHttpStatus): boolean {
   if (Array.isArray(expected)) return expected.includes(status);
   if (expected === "2xx") return status >= 200 && status < 300;
   if (expected === "4xx") return status >= 400 && status < 500;
@@ -75,350 +41,300 @@ function matchesExpectedStatus(status: number, expected: import("./types.js").Ex
   return status === expected;
 }
 
-function formatExpectedStatus(expected: import("./types.js").ExpectedHttpStatus): string {
+function formatExpectedStatus(expected: ExpectedHttpStatus): string {
   return Array.isArray(expected) ? expected.join(", ") : String(expected);
 }
 
+function validateRunOptions(input: RunOptions): string | undefined {
+  if (input.concurrency !== undefined && (!Number.isInteger(input.concurrency) || input.concurrency < 1)) {
+    return "concurrency must be a positive integer";
+  }
+  if (input.amountMinor !== undefined && (!Number.isSafeInteger(input.amountMinor) || input.amountMinor < 0)) {
+    return "amountMinor must be a non-negative safe integer in minor units";
+  }
+  if (input.currency !== undefined && !/^[A-Z]{3}$/.test(input.currency)) {
+    return "currency must be a three-letter ISO currency code";
+  }
+  return undefined;
+}
+
+function verificationComplete(expected: import("./types.js").ExpectedPaymentState, state: ObservedPaymentState, negativeDeadline: number): boolean {
+  if (state.pending) return false;
+  if (expected.eligible) return state.creditCount > 0;
+  return state.creditCount > 0 || Date.now() >= negativeDeadline;
+}
+
+function failureTypeFor(error: unknown): "financial-verification" | "financial-verification-timeout" {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("timed out") ? "financial-verification-timeout" : "financial-verification";
+}
+
 /**
- * High-level BachsProof runner. It owns only test orchestration; the application
- * remains responsible for webhook authentication and business persistence.
+ * High-level v2 runner. It prepares real application payments, sends signed
+ * local events, and always evaluates committed financial state before passing.
  */
 export class BachsProof<TEvent extends PaymentEvent = PaymentEvent> {
-  /** Store the immutable configuration used by every run and replay. */
-  constructor(private readonly options: BachsProofOptions<TEvent>) {}
+  constructor(private readonly options: BachsProofOptions<TEvent>) {
+    if (!options.createPayment) throw new Error("BachsProof requires a createPayment callback");
+    if (!options.verify) throw new Error("BachsProof requires a verify callback");
+    try {
+      const url = new URL(options.webhookUrl);
+      if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("webhookUrl must use http or https");
+    } catch (error) {
+      throw new Error(`BachsProof requires a complete webhookUrl: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   async run(input: RunOptions): Promise<BachsProofResult> {
     const requestedInput = input;
-    const validationError = validateRunOptions(input, Boolean(this.options.createPayment));
+    const validationError = validateRunOptions(input);
     if (validationError) return this.invalidInputResult(input, validationError);
-    try {
-      input = await preparePaymentReferences(input, this.options.createPayment);
-    } catch (error) {
-      return this.invalidInputResult(requestedInput, error instanceof Error ? error.message : String(error));
-    }
-    const preparedValidationError = validateRunOptions(input);
-    if (preparedValidationError) return this.invalidInputResult(input, preparedValidationError);
-    // A run creates one logical event and then chooses a delivery schedule.
-    // Replay replaces event generation with the serialized event from a report.
+
     const startedAt = new Date().toISOString();
-    const concurrency = Math.max(1, input.references?.length ?? input.concurrency ?? (input.scenario === "concurrent-duplicate-credit" || input.scenario === "concurrent-unique-payments" ? 2 : 1));
-    const seed = input.seed ?? input.replay?.replay.seed ?? randomUUID();
-    let generatedEvent: TEvent;
-    let scenarioPlan: ProviderScenario<TEvent> | undefined;
+    const amountMinor = input.amountMinor ?? 500_000;
+    const currency = input.currency ?? "NGN";
+    const concurrency = input.concurrency ?? (input.scenario === "concurrent-duplicate-credit" || input.scenario === "concurrent-unique-payments" ? 2 : 1);
+
+    let references: string[];
     try {
-      generatedEvent = (input.replay?.event as TEvent | undefined) ?? this.options.provider.createPayment({
-        reference: input.reference ?? input.references?.[0],
-        amountMinor: input.amountMinor,
-        currency: input.currency,
-        syntheticReferences: input.syntheticReferences
-      });
-      scenarioPlan = input.replay ? undefined : this.options.provider.createScenario?.(input.scenario, input);
+      references = await preparePaymentReferences({ ...input, amountMinor, currency }, this.options.createPayment);
     } catch (error) {
-      return this.invalidInputResult(input, `Payment preparation failed for ${input.scenario}: ${error instanceof Error ? error.message : String(error)}`);
+      return this.invalidInputResult(requestedInput, error instanceof Error ? error.message : String(error), "payment-preparation");
     }
-    const event = scenarioPlan?.deliveries.find((delivery) => delivery.event)?.event ?? generatedEvent;
-    const verificationCases = scenarioPlan?.verification?.map((item) => ({
-      event: item.event,
-      expected: item.expected ?? this.options.provider.expectedState(item.event)
-    })) ?? [{ event, expected: this.options.provider.expectedState(event) }];
-    const expected = verificationCases[0]?.expected ?? this.options.provider.expectedState(event);
-    let scenarioEvents: TEvent[] = Array.from(new Set([
-      event,
-      ...(scenarioPlan?.deliveries.map((delivery) => delivery.event).filter((candidate): candidate is TEvent => Boolean(candidate)) ?? []),
-      ...(scenarioPlan?.verification?.map((item) => item.event) ?? [])
-    ]));
-    const checkpoint = input.scenario === "concurrent-duplicate-credit" ? this.options.checkpoint?.name : undefined;
-    let eventsForVerification = verificationCases;
-    // The report is initialized before network work so preparation/controller
-    // failures produce a useful artifact.
+
+    let primaryEvent: TEvent;
+    let scenarioPlan: ProviderScenario<TEvent> | undefined;
+    let scenarioEvents: TEvent[];
+    let verificationCases: Array<{ event: TEvent; expected: import("./types.js").ExpectedPaymentState }>;
+    try {
+      const baseEvent = this.options.provider.createPayment({
+        reference: references[0]!,
+        amountMinor,
+        currency
+      });
+      const providerInput = {
+        ...input,
+        amountMinor,
+        currency,
+        concurrency,
+        reference: references[0]!,
+        references
+      };
+      scenarioPlan = this.options.provider.createScenario?.(input.scenario, providerInput);
+      primaryEvent = scenarioPlan?.deliveries.find((delivery) => delivery.event)?.event ?? baseEvent;
+      verificationCases = scenarioPlan?.verification?.map((item) => ({
+        event: item.event,
+        expected: item.expected ?? this.options.provider.expectedState(item.event)
+      })) ?? [{ event: primaryEvent, expected: this.options.provider.expectedState(primaryEvent) }];
+      scenarioEvents = Array.from(new Set([
+        primaryEvent,
+        ...(scenarioPlan?.deliveries.map((delivery) => delivery.event).filter((event): event is TEvent => Boolean(event)) ?? []),
+        ...(scenarioPlan?.verification?.map((item) => item.event) ?? [])
+      ]));
+
+      if (input.scenario === "concurrent-unique-payments") {
+        const uniqueEvents = references.map((reference) => this.options.provider.createPayment({ reference, amountMinor, currency }));
+        primaryEvent = uniqueEvents[0]!;
+        scenarioEvents = uniqueEvents;
+        verificationCases = uniqueEvents.map((event) => ({ event, expected: this.options.provider.expectedState(event) }));
+      }
+    } catch (error) {
+      return this.invalidInputResult(input, `Payment preparation failed for ${input.scenario}: ${error instanceof Error ? error.message : String(error)}`, "payment-preparation");
+    }
+
+    const expected = verificationCases[0]?.expected ?? this.options.provider.expectedState(primaryEvent);
     const report: BachsProofReport = {
-      reportVersion: "1.1",
+      reportVersion: "2.0",
       scenario: input.scenario,
       provider: this.options.provider.name,
-      mode: this.options.provider.mode,
-      paymentReference: event.reference,
-      event,
+      paymentReference: primaryEvent.reference,
+      event: primaryEvent,
       expected,
-      verificationMode: this.options.verify ? "callback" : "none",
       financiallyVerified: false,
       deliveries: [],
-      checkpoints: [],
       errors: [],
-      replay: {
-        seed,
-        concurrency,
-        checkpoint,
-        controlled: checkpoint !== undefined,
-        note: "Replay controls explicitly instrumented checkpoints when configured; it does not claim deterministic OS, network, or database scheduling."
-      },
       startedAt
     };
 
-    let controller: RaceController | undefined;
-    let sessionId: string | undefined;
     try {
       if (scenarioPlan) {
-        await this.runScenarioPlan(scenarioPlan, event, report);
-      } else if (checkpoint) {
-        // Controlled-concurrency mode registers every participant before any
-        // webhook is sent, removing dependence on random request timing.
-        controller = new RaceController();
-        const participants = Array.from({ length: concurrency }, (_, index) => `participant-${index + 1}`);
-        const session = await controller.registerSession({ participants });
-        sessionId = session.id;
-        const deliveries = participants.map((participantId) => this.deliver(event, participantId, session, report));
-        try {
-          await controller.waitForArrivals(session.id, checkpoint, concurrency, this.options.checkpoint?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-          controller.release(session.id, checkpoint);
-        } catch (error) {
-          report.errors.push(error instanceof Error ? error.message : String(error));
-          controller.abort(session.id, "arrival-timeout");
-        }
-        await this.settleConcurrentDeliveries(deliveries, report);
-        report.checkpoints = controller.getTrace(session.id);
+        await this.runScenarioPlan(scenarioPlan, primaryEvent, report);
       } else if (input.scenario === "concurrent-duplicate-credit") {
         const participants = Array.from({ length: concurrency }, (_, index) => `participant-${index + 1}`);
-        await this.settleConcurrentDeliveries(participants.map((participantId) => this.deliver(event, participantId, undefined, report)), report);
+        await Promise.all(participants.map((participant) => this.deliver(primaryEvent, participant, report)));
       } else if (input.scenario === "sequential-duplicate-webhook") {
-        // Sequential mode intentionally leaves the checkpoint disabled; it
-        // verifies ordinary idempotency without a race barrier.
-        await this.deliver(event, "sequential-1", undefined, report);
-        await this.deliver(event, "sequential-2", undefined, report);
+        await this.deliver(primaryEvent, "sequential-1", report);
+        await this.deliver(primaryEvent, "sequential-2", report);
       } else if (input.scenario === "concurrent-unique-payments") {
-        // Unique events share a delivery wave but use distinct references, so
-        // the verifier can validate each payment individually.
-        const references = input.references ?? Array.from({ length: concurrency }, (_, index) => `${event.reference}-${index + 1}`);
-        if (references.length !== concurrency) throw new Error("references must contain exactly one entry per concurrent unique payment");
-        const events = references.map((reference) => this.options.provider.createPayment({
-          amountMinor: input.amountMinor,
-          currency: input.currency,
-          reference,
-          syntheticReferences: input.syntheticReferences
-        }));
-        await this.settleConcurrentDeliveries(events.map((uniqueEvent) => this.deliver(uniqueEvent, `unique-${uniqueEvent.reference}`, undefined, report)), report);
-        eventsForVerification = events.map((uniqueEvent) => ({
-          event: uniqueEvent,
-          expected: this.options.provider.expectedState(uniqueEvent)
-        }));
-        scenarioEvents = events;
+        await Promise.all(scenarioEvents.map((event) => this.deliver(event, `unique-${event.reference}`, report)));
       } else {
         report.errors.push(`Unsupported scenario ${input.scenario}`);
+        report.failureType = "webhook-delivery";
       }
 
-      // Level 1 intentionally stops after delivery. It is useful for webhook
-      // contract testing, but it cannot prove that money was persisted safely.
-      if (!this.options.verify) {
-        report.financiallyVerified = false;
-      } else {
-        // Inspect each reference separately. Aggregate balance checks alone
-        // could miss one over-credit and one under-credit cancelling out.
-        const paymentResults = await Promise.all(eventsForVerification.map(async ({ event: paymentEvent, expected: paymentExpected }) => {
-          const relatedEvents = scenarioEvents.filter((scenarioEvent) => scenarioEvent.reference === paymentEvent.reference);
-          const context: FinancialVerificationContext = {
-            scenario: input.scenario,
-            paymentReference: paymentEvent.reference,
-            expected: paymentExpected,
-            expectedOutcome: {
-              eligible: paymentExpected.eligible,
-              expectedCreditCount: paymentExpected.expectedCreditCount,
-              amountMinor: paymentExpected.amountMinor,
-              currency: paymentExpected.currency
-            },
-            events: relatedEvents,
-            eventIdentifiers: relatedEvents.map(eventId).filter((identifier): identifier is string => Boolean(identifier)),
-            deliveries: report.deliveries.filter((delivery) => delivery.reference === paymentEvent.reference)
-          };
-          const paymentObserved = await this.inspect(paymentEvent.reference, paymentExpected, context);
-          return {
-            event: paymentEvent,
-            expected: paymentExpected,
-            observed: paymentObserved,
-            verification: verifyPaymentState(paymentExpected, paymentObserved)
-          };
-        }));
-        report.financiallyVerified = true;
-        report.observed = paymentResults[0]?.observed;
-        report.verification = {
-          passed: paymentResults.every((payment) => payment.verification.passed),
-          violations: paymentResults.flatMap((payment) => payment.verification.violations)
-        };
-        if (paymentResults.length > 1) report.payments = paymentResults;
-        if (!report.verification.passed) {
-          report.errors.push(...report.verification.violations.map((violation) => `${violation.id}: ${violation.message}`));
-        }
-      }
+      await this.verifyPayments(input.scenario, scenarioEvents, verificationCases, report);
     } catch (error) {
       report.errors.push(error instanceof Error ? error.message : String(error));
+      report.failureType ??= "webhook-delivery";
     } finally {
-      if (controller && sessionId) {
-        report.checkpoints = controller.getTrace(sessionId);
-        controller.cleanupSession(sessionId);
-      }
-      if (controller) await controller.close();
       report.completedAt = new Date().toISOString();
     }
-    const financialPass = !report.financiallyVerified || report.verification?.passed === true;
-    return { passed: report.errors.length === 0 && financialPass, report };
-  }
 
-  async replay(report: BachsProofReport): Promise<BachsProofResult> {
-    // Application-owned preparation/isolation is delegated to the caller;
-    // replay only supplies the prior event and schedule metadata.
-    return this.run({
-      scenario: report.scenario,
-      concurrency: report.replay.concurrency,
-      seed: report.replay.seed,
-      replay: report
-    });
-  }
-
-  private invalidInputResult(input: RunOptions, message: string): BachsProofResult {
-    const startedAt = new Date().toISOString();
-    const reference = input.reference ?? input.references?.[0] ?? "<missing-reference>";
-    const event: PaymentEvent = {
-      reference,
-      amountMinor: input.amountMinor ?? 0,
-      currency: input.currency ?? "NGN",
-      status: "INVALID_INPUT"
+    return {
+      passed: report.errors.length === 0 && report.financiallyVerified && report.verification?.passed === true,
+      report
     };
-    const report: BachsProofReport = {
-      reportVersion: "1.1",
-      scenario: input.scenario,
-      provider: this.options.provider.name,
-      mode: this.options.provider.mode,
-      paymentReference: reference,
-      event,
-      expected: { reference, eligible: false, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 0 },
-      verificationMode: this.options.verify ? "callback" : "none",
-      financiallyVerified: false,
-      deliveries: [],
-      checkpoints: [],
-      errors: [message],
-      replay: {
-        seed: input.seed ?? randomUUID(),
-        concurrency: input.concurrency ?? 1,
-        controlled: false,
-        note: "No webhook was sent because payment preparation or run configuration validation failed."
-      },
-      startedAt,
-      completedAt: new Date().toISOString()
-    };
-    return { passed: false, report };
   }
 
-  private async runScenarioPlan(
-    plan: ProviderScenario<TEvent>,
-    primaryEvent: TEvent,
-    report: BachsProofReport
-  ): Promise<void> {
+  private async runScenarioPlan(plan: ProviderScenario<TEvent>, primaryEvent: TEvent, report: BachsProofReport): Promise<void> {
     if (plan.concurrent) {
-      await this.settleConcurrentDeliveries(plan.deliveries.map((delivery, index) => this.deliver(
+      await Promise.all(plan.deliveries.map((delivery, index) => this.deliver(
         delivery.event ?? primaryEvent,
         delivery.participantId ?? `scenario-${index + 1}`,
-        undefined,
         report,
         delivery
-      )), report);
+      )));
       return;
     }
     for (const [index, delivery] of plan.deliveries.entries()) {
-      try {
-        await this.deliver(
-          delivery.event ?? primaryEvent,
-          delivery.participantId ?? `scenario-${index + 1}`,
-          undefined,
-          report,
-          delivery
-        );
-      } catch (error) {
-        report.errors.push(error instanceof Error ? error.message : String(error));
-      }
-    }
-  }
-
-  private async settleConcurrentDeliveries(deliveries: Promise<void>[], report: BachsProofReport): Promise<void> {
-    const settled = await Promise.allSettled(deliveries);
-    for (const result of settled) {
-      if (result.status === "rejected") {
-        report.errors.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
-      }
+      await this.deliver(
+        delivery.event ?? primaryEvent,
+        delivery.participantId ?? `scenario-${index + 1}`,
+        report,
+        delivery
+      );
     }
   }
 
   private async deliver(
     event: TEvent,
     participantId: string,
-    session: { id: string; token: string; controllerUrl: string } | undefined,
     report: BachsProofReport,
     scenarioDelivery: ProviderScenarioDelivery<TEvent> = {}
   ): Promise<void> {
-    // Delivery records are created before fetch so connection errors still have
-    // a participant, start time, and eventual error entry in the report.
     const delivery: DeliveryRecord = {
       deliveryId: randomUUID(),
       participantId,
       reference: event.reference,
-      startedAt: new Date().toISOString(),
       eventId: eventId(event),
       eventType: eventType(event),
+      startedAt: new Date().toISOString(),
       expectedStatus: scenarioDelivery.expectedStatus
     };
-    const body = scenarioDelivery.body ?? this.options.provider.serialize(event);
-    const signingBody = scenarioDelivery.signingBody ?? body;
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      ...this.options.target.headers,
-      ...(this.options.provider.headersForBody?.(event, signingBody) ?? this.options.provider.headers?.(event) ?? {}),
-      ...scenarioDelivery.headers
-    };
-    if (session) {
-      headers["x-bachsproof-enabled"] = "true";
-      headers["x-bachsproof-controller"] = session.controllerUrl;
-      headers["x-bachsproof-session"] = session.id;
-      headers["x-bachsproof-participant"] = participantId;
-      headers["x-bachsproof-token"] = session.token;
-    }
     try {
       if (scenarioDelivery.delayMs && scenarioDelivery.delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, scenarioDelivery.delayMs));
       }
-      const response = await fetch(this.url(this.options.target.webhookPath), {
-        method: "POST",
-        headers,
-        body
-      });
+      const body = this.options.provider.serialize(event);
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+        ...(this.options.provider.headersForBody?.(event, body) ?? this.options.provider.headers?.(event) ?? {})
+      };
+      const response = await fetch(this.options.webhookUrl, { method: "POST", headers, body });
       delivery.status = response.status;
       delivery.responseBody = await response.text();
-      if (scenarioDelivery.expectedStatus !== undefined) {
-        if (!matchesExpectedStatus(response.status, scenarioDelivery.expectedStatus)) {
-          throw new Error(`Webhook delivery ${participantId} expected HTTP ${formatExpectedStatus(scenarioDelivery.expectedStatus)} but received HTTP ${response.status}: ${delivery.responseBody}`);
-        }
-      } else if (!response.ok) {
-        throw new Error(`Webhook delivery ${participantId} failed with HTTP ${response.status}: ${delivery.responseBody}`);
+      const expectedStatus = scenarioDelivery.expectedStatus;
+      const accepted = expectedStatus === undefined ? response.ok : matchesExpectedStatus(response.status, expectedStatus);
+      if (!accepted) {
+        const expectedText = expectedStatus === undefined ? "a successful HTTP response" : `HTTP ${formatExpectedStatus(expectedStatus)}`;
+        delivery.error = `Webhook delivery ${participantId} expected ${expectedText} but received HTTP ${response.status}`;
+        report.errors.push(delivery.error);
+        report.failureType ??= "unexpected-http-response";
       }
     } catch (error) {
       delivery.error = error instanceof Error ? error.message : String(error);
-      throw error;
+      report.errors.push(`Webhook delivery ${participantId} failed: ${delivery.error}`);
+      report.failureType ??= "webhook-delivery";
     } finally {
       delivery.completedAt = new Date().toISOString();
-      // Delivery records are appended after each request so reports retain failures.
       report.deliveries.push(delivery);
     }
   }
 
+  private async verifyPayments(
+    scenario: ScenarioName,
+    scenarioEvents: TEvent[],
+    verificationCases: Array<{ event: TEvent; expected: import("./types.js").ExpectedPaymentState }>,
+    report: BachsProofReport
+  ): Promise<void> {
+    const results: Array<{
+      event: TEvent;
+      expected: import("./types.js").ExpectedPaymentState;
+      observed: ObservedPaymentState;
+      verification: import("./types.js").VerificationResult;
+    }> = [];
+    for (const { event, expected } of verificationCases) {
+      const relatedEvents = scenarioEvents.filter((candidate) => candidate.reference === event.reference);
+      const context: FinancialVerificationContext = {
+        scenario,
+        paymentReference: event.reference,
+        expected,
+        expectedOutcome: {
+          eligible: expected.eligible,
+          expectedCreditCount: expected.expectedCreditCount,
+          amountMinor: expected.amountMinor,
+          currency: expected.currency
+        },
+        events: relatedEvents,
+        eventIdentifiers: relatedEvents.map(eventId).filter((value): value is string => Boolean(value)),
+        deliveries: report.deliveries.filter((delivery) => delivery.reference === event.reference)
+      };
+      try {
+        const observed = await this.inspect(event.reference, expected, context);
+        results.push({ event, expected, observed, verification: verifyPaymentState(expected, observed) });
+      } catch (error) {
+        report.errors.push(error instanceof Error ? error.message : String(error));
+        report.failureType ??= failureTypeFor(error);
+      }
+    }
+
+    if (results.length !== verificationCases.length) return;
+    report.financiallyVerified = true;
+    report.observed = results[0]?.observed;
+    report.verification = {
+      passed: results.every((result) => result.verification.passed),
+      violations: results.flatMap((result) => result.verification.violations)
+    };
+    if (results.length > 1) report.payments = results;
+    if (!report.verification.passed) {
+      report.failureType ??= "invariant-violation";
+      report.errors.push(...report.verification.violations.map((violation) => `${violation.id}: ${violation.message}`));
+    }
+  }
+
   private async inspect(reference: string, expected: import("./types.js").ExpectedPaymentState, context: FinancialVerificationContext): Promise<ObservedPaymentState> {
-    const financialVerification = this.options.financialVerification;
-    const completionDeadlineMs = financialVerification?.completionDeadlineMs ?? DEFAULT_TIMEOUT_MS;
-    const negativeDeadline = Date.now() + (expected.eligible ? 0 : financialVerification?.negativeObservationWindowMs ?? DEFAULT_NEGATIVE_OBSERVATION_MS);
-    const isComplete = (state: ObservedPaymentState) => observedStateComplete(expected, state, negativeDeadline);
-    if (!this.options.verify) throw new Error("Financial verification was requested without a verify callback");
-    return verifyWithCallback(this.options.verify, reference, completionDeadlineMs, context, {
-      pollIntervalMs: financialVerification?.pollIntervalMs,
-      isComplete
+    const settings = this.options.financialVerification;
+    const timeoutMs = settings?.completionDeadlineMs ?? DEFAULT_TIMEOUT_MS;
+    const negativeDeadline = Date.now() + (expected.eligible ? 0 : settings?.negativeObservationWindowMs ?? DEFAULT_NEGATIVE_OBSERVATION_MS);
+    return verifyWithCallback(this.options.verify, reference, timeoutMs, context, {
+      pollIntervalMs: settings?.pollIntervalMs,
+      isComplete: (state) => verificationComplete(expected, state, negativeDeadline)
     });
   }
 
-  private url(path: string): string {
-    return new URL(path, this.options.target.baseUrl).toString();
+  private invalidInputResult(input: RunOptions, message: string, failureType: "payment-preparation" | "webhook-delivery" = "webhook-delivery"): BachsProofResult {
+    const startedAt = new Date().toISOString();
+    const reference = "<payment-not-prepared>";
+    const event: PaymentEvent = {
+      reference,
+      amountMinor: input.amountMinor ?? 0,
+      currency: input.currency ?? "NGN",
+      status: "NOT_PREPARED"
+    };
+    const report: BachsProofReport = {
+      reportVersion: "2.0",
+      scenario: input.scenario,
+      provider: this.options.provider.name,
+      paymentReference: reference,
+      event,
+      expected: { reference, eligible: false, amountMinor: event.amountMinor, currency: event.currency, expectedCreditCount: 0 },
+      financiallyVerified: false,
+      deliveries: [],
+      errors: [message],
+      failureType,
+      startedAt,
+      completedAt: new Date().toISOString()
+    };
+    return { passed: false, report };
   }
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ExpectedPaymentState, PaymentEvent, ProviderScenario, RunOptions, ScenarioName } from "@bachsproof/core";
+import type { ExpectedPaymentState, PaymentEvent, ProviderScenario, ProviderScenarioInput, ScenarioName } from "@bachsproof/core";
 import { formatBachsMoney, parseBachsMoney, safeNumberMoney, toBachsMinorUnits } from "./money.js";
 
 const customerSchema = z.object({
@@ -123,12 +123,11 @@ export interface BachsPaymentEvent extends PaymentEvent {
 }
 
 export interface BachsFixtureOptions {
-  reference?: string;
+  reference: string;
   amountMinor?: number;
   currency?: string;
   eligible?: boolean;
   customerId?: string;
-  syntheticReferences?: boolean;
 }
 
 function isoAt(baseMs: number, offsetMs = 0): string {
@@ -179,10 +178,9 @@ function checkoutFixture(
   };
 }
 
-function delivery(event: BachsPaymentEvent, input: RunOptions, overrides: Partial<import("@bachsproof/core").ProviderScenarioDelivery<BachsPaymentEvent>> = {}) {
+function delivery(event: BachsPaymentEvent, _input: ProviderScenarioInput, overrides: Partial<import("@bachsproof/core").ProviderScenarioDelivery<BachsPaymentEvent>> = {}) {
   return {
     event,
-    expectedStatus: input.expectedStatus,
     ...overrides
   };
 }
@@ -192,10 +190,9 @@ function delivery(event: BachsPaymentEvent, input: RunOptions, overrides: Partia
  * synthetic webhook deliveries for isolated, authorized test environments;
  * they do not call Bachs or create real payment state.
  */
-export function createBachsScenario(scenario: ScenarioName, input: RunOptions, customerId?: string): ProviderScenario<BachsPaymentEvent> | undefined {
+export function createBachsScenario(scenario: ScenarioName, input: ProviderScenarioInput, customerId?: string): ProviderScenario<BachsPaymentEvent> | undefined {
   if (["concurrent-duplicate-credit", "sequential-duplicate-webhook", "concurrent-unique-payments"].includes(scenario)) return undefined;
-  if (!input.reference && !input.syntheticReferences) throw new Error(`Real application reference is required for ${scenario}`);
-  const reference = input.reference ?? `BACHSPROOF-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const reference = input.reference;
   const amountMinor = input.amountMinor ?? 5_000_000;
   const currency = input.currency ?? "NGN";
   const base = createBachsMockFixture({ reference, amountMinor, currency, customerId });
@@ -235,24 +232,6 @@ export function createBachsScenario(scenario: ScenarioName, input: RunOptions, c
     };
   }
 
-  if (scenario === "delayed-payment-confirmation") {
-    const expired = checkoutFixture(base, "checkout.expired", {
-      createdAt: isoAt(now),
-      paymentStatus: null,
-      charge: false,
-      eligible: false,
-      status: "expired"
-    });
-    const delayedSuccess = { ...base, created_at: isoAt(now + 1_000) };
-    return {
-      deliveries: [
-        delivery(expired, input, { participantId: "checkout-expired" }),
-        delivery(delayedSuccess, input, { participantId: "delayed-collection", delayMs: input.delayMs ?? 25 })
-      ],
-      verification: [{ event: delayedSuccess, expected: expectedBachsState(delayedSuccess) }]
-    };
-  }
-
   if (scenario === "incomplete-checkout") {
     const incomplete = checkoutFixture(base, "checkout.completed", {
       createdAt: isoAt(now),
@@ -273,32 +252,6 @@ export function createBachsScenario(scenario: ScenarioName, input: RunOptions, c
       status: "expired"
     });
     return { deliveries: [delivery(expired, input)], verification: [{ event: expired, expected: expectedNoCredit(expired) }] };
-  }
-
-  if (scenario === "tampered-webhook") {
-    const originalBody = serializeBachsPaymentEvent(base);
-    const tamperedBody = originalBody.replace(formatBachsMoney(BigInt(amountMinor), 2), formatBachsMoney(BigInt(amountMinor + 1), 2));
-    return {
-      deliveries: [delivery(base, input, { body: tamperedBody, signingBody: originalBody, expectedStatus: input.expectedStatus ?? "4xx" })],
-      verification: [{ event: base, expected: expectedNoCredit(base) }]
-    };
-  }
-
-  if (scenario === "invalid-webhook-signature") {
-    return {
-      deliveries: [delivery(base, input, {
-        headers: { "x-bachs-signature-v2": `t=0,v1=${"0".repeat(64)}` },
-        expectedStatus: input.expectedStatus ?? "4xx"
-      })],
-      verification: [{ event: base, expected: expectedNoCredit(base) }]
-    };
-  }
-
-  if (scenario === "malformed-webhook") {
-    return {
-      deliveries: [delivery(base, input, { body: "{\"invalid\":", expectedStatus: input.expectedStatus ?? "4xx" })],
-      verification: [{ event: base, expected: expectedNoCredit(base) }]
-    };
   }
 
   if (scenario === "incorrect-payment-amount") {
@@ -372,9 +325,9 @@ export function createBachsScenario(scenario: ScenarioName, input: RunOptions, c
 }
 
 /** Generate a deterministic local fixture with the documented collection envelope. */
-export function createBachsMockFixture(options: BachsFixtureOptions = {}): BachsPaymentEvent {
+export function createBachsMockFixture(options: BachsFixtureOptions): BachsPaymentEvent {
   const eligible = options.eligible !== false;
-  const reference = options.reference ?? `PAY-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const reference = options.reference;
   const currency = options.currency ?? "NGN";
   const amountMinor = options.amountMinor ?? 5_000_000;
   const amount = formatBachsMoney(BigInt(amountMinor), 2);

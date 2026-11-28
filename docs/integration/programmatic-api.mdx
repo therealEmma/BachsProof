@@ -1,0 +1,19 @@
+---
+title: "Programmatic API"
+description: "Run the same configuration from Vitest, Jest, or a script."
+---
+
+The CLI and programmatic API use the same runner:
+
+```js
+import { loadConfig, runConfig, summarizeRuns } from "@bachsproof/cli";
+
+const config = await loadConfig("bachsproof.config.mjs");
+const results = await runConfig(config);
+console.log(summarizeRuns(results));
+if (results.some(({ result }) => !result.passed)) process.exitCode = 1;
+```
+
+You can also pass a configuration object directly to `runConfig(config)`. This
+is useful for Vitest and Jest. There is no separate Direct Core API onboarding
+workflow in v2.

@@ -19,10 +19,7 @@ export function bachsAdapter(options: BachsAdapterOptions): ProviderAdapter<Bach
     // These values are copied into reports and help distinguish provider modes.
     name: "Bachs",
     mode: "mock",
-    createPayment(input?: BachsFixtureOptions) {
-      if (!input?.reference && !input?.syntheticReferences) {
-        throw new Error("A real application payment reference is required. Add reference or createPayment, or set syntheticReferences: true only for an isolated fixture test.");
-      }
+    createPayment(input) {
       return createBachsMockFixture({ customerId: options.customerId, ...input });
     },
     serialize(event) {

@@ -1,0 +1,26 @@
+---
+title: "Preparing payments"
+description: "Create the isolated payment record that each simulated event references."
+---
+
+Before BachsProof sends a webhook, your application needs a payment record.
+`createPayment()` creates that record and returns its unique reference.
+
+```js
+async createPayment({ scenario, amountMinor, currency, paymentIndex, paymentCount }) {
+  const payment = await testDb.payment.create({
+    data: { scenario, amountMinor, currency, status: "PENDING" }
+  });
+  if (!payment.reference) throw new Error("test payment was created without a reference");
+  return payment.reference;
+}
+```
+
+BachsProof calls the callback once for most scenarios. The concurrent unique
+payments scenario calls it once per payment with distinct `paymentIndex` values.
+Every selected scenario gets fresh records. If the callback throws, returns an
+empty value, or returns a reference already used by another selected scenario,
+the run fails before a webhook is sent.
+
+Do not generate a fallback reference. Do not reuse a production record. The
+callback can use Prisma, SQL, an HTTP test helper, or any other database layer.
