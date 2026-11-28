@@ -8,7 +8,8 @@ integrating Bachs.
 ## Product promise
 
 Install one package, generate one config file, implement two callbacks, and run
-eleven local simulated payment scenarios. BachsProof signs each webhook,
+five default local simulated payment scenarios. Six additional scenarios are
+available when an integration supports their provider events. BachsProof signs each webhook,
 delivers it to an isolated application, reads committed financial records, and
 checks five financial invariants.
 
@@ -29,15 +30,20 @@ selecting scenarios and extending asynchronous verification time.
 
 ## Supported scenarios
 
+### Default scenarios
+
 1. Sequential duplicate webhook
 2. Concurrent duplicate credit
 3. Concurrent unique payments
-4. Cross-event duplicate payment
-5. Out-of-order events
-6. Incomplete checkout
-7. Expired checkout
-8. Incorrect payment amount
-9. Incorrect payment currency
+4. Incorrect payment amount
+5. Incorrect payment currency
+
+### Optional scenarios
+
+6. Cross-event duplicate payment
+7. Out-of-order events
+8. Checkout completed without payment
+9. Expired checkout
 10. Underpaid payment
 11. Failed payment
 

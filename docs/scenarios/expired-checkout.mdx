@@ -17,7 +17,9 @@ is useful; treating expiry as payment is not.
 ## What the application should do
 
 Record the expiry if your application needs it, but do not create a successful
-credit for the reference.
+credit for the reference. Expiry is not always final in Bachs: a late payment
+can still be followed by `checkout.completed`, so keep the order available for
+that later event.
 
 ## Pass and fail
 

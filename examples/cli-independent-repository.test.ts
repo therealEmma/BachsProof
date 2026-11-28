@@ -28,7 +28,7 @@ describe("BachsProof CLI in an independent repository", () => {
     for (const directory of temporaryDirectories.splice(0)) await rm(directory, { recursive: true, force: true });
   });
 
-  it("installs the CLI archive, initializes one file, and runs all eleven scenarios", async () => {
+  it("installs the CLI archive, initializes one file, and runs the five default scenarios", async () => {
     const fixture = await mkdtemp(join(process.env.TEMP ?? process.env.TMP ?? ".", "bachsproof-cli-independent-"));
     temporaryDirectories.push(fixture);
     const archives = join(fixture, "archives");
@@ -130,7 +130,7 @@ export default defineConfig({
     const individual = await run(pnpm, ["exec", "bachsproof", "test", "--name", "underpaid-payment", "--json"], fixture, env);
     const result = JSON.parse(tested.stdout) as Array<{ result: { passed: boolean; report: { financiallyVerified: boolean } } }>;
     const one = JSON.parse(individual.stdout) as Array<{ result: { passed: boolean } }>;
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(5);
     expect(result.every((entry) => entry.result.passed && entry.result.report.financiallyVerified)).toBe(true);
     expect(one).toHaveLength(1);
     expect(one[0]?.result.passed).toBe(true);

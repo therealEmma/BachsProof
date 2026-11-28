@@ -1,7 +1,39 @@
 ---
-title: "Changelog: v1.1.0 to v2.0.0"
-description: "A concise record of the breaking BachsProof v2 transition."
+title: "Changelog: v1.1.0 to v2.1.0"
+description: "A concise record of the BachsProof v2 transition and v2.1 refinements."
 ---
+
+## v2.1.0
+
+The v2.1 release keeps the v2 architecture and makes the default test run more
+focused and the Bachs-shaped fixtures more accurate.
+
+### Scenario changes
+
+- Five scenarios now run by default: sequential duplicate webhook, concurrent
+  duplicate credit, concurrent unique payments, incorrect payment amount, and
+  incorrect payment currency.
+- Cross-event duplicate payment, out-of-order events, checkout completed
+  without payment, expired checkout, underpaid payment, and failed payment are
+  optional. Use `scenarios` or run any supported identifier with `--name`.
+- The checkout-without-payment fixture now models a free completed checkout:
+  amount `0`, `no_payment_required`, no charge, and a completion timestamp.
+- The underpaid fixture remains limited to the documented crypto partial-payment
+  event. Amount and currency scenarios are deliberately modified, valid-shaped
+  events for application-side validation.
+
+### Reporting and compatibility
+
+- Human-readable reports now show delivery results, financial verification,
+  exact expected and observed counts and amounts, discrepancies, invariant
+  identifiers, explanations, and duration.
+- Ineligible outcomes are reported as zero expected credits totaling zero in the
+  configured currency. Missing evidence is never displayed as zero.
+- JSON result objects, secret redaction, exit codes, callbacks, signing, and the
+  five invariant identifiers remain compatible with v2.0.0.
+- The publishable packages affected by this release are `@bachsproof/core`,
+  `@bachsproof/bachs`, and `@bachsproof/cli`; they are marked `2.1.0` locally
+  but have not been published.
 
 ## v2.0.0
 
@@ -15,7 +47,8 @@ BachsProof became a focused application-side financial correctness tool.
 - Implement only `createPayment()` and `verify()`.
 - Signing, the Bachs adapter, the default scenario suite, polling, and reports
   are handled by the CLI.
-- All eleven scenarios run by default; `scenarios` or `--name` selects a subset.
+- At the v2.0 release, all eleven scenarios ran by default; v2.1 narrows the
+  default suite to five and keeps the other six selectable.
 
 ### Removed functionality
 

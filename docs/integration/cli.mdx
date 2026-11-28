@@ -1,6 +1,6 @@
 ---
 title: "CLI"
-description: "Run the eleven scenarios from the command line."
+description: "Run the default and optional scenarios from the command line."
 ---
 
 ```bash
@@ -11,7 +11,9 @@ pnpm exec bachsproof test --json
 ```
 
 `--name` accepts a plain-language scenario name or its identifier. Unknown
-names fail clearly. The default command runs all eleven supported scenarios.
+names fail clearly. The default command runs five standard scenarios. Use the
+config `scenarios` property to select additional scenarios, or use `--name` to
+run any supported scenario directly.
 
 ## Automated runs
 

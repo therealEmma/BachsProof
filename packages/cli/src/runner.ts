@@ -4,18 +4,30 @@ import { BachsProof, SUPPORTED_SCENARIOS, type PaymentEvent, type PaymentReferen
 import { bachsAdapter, signBachsWebhook } from "@bachsproof/bachs";
 import type { BachsProofCliRun, BachsProofConfig, BachsProofSummary, RunConfigOptions } from "./types.js";
 
+export const DEFAULT_SCENARIOS: ScenarioName[] = [
+  "sequential-duplicate-webhook",
+  "concurrent-duplicate-credit",
+  "concurrent-unique-payments",
+  "incorrect-payment-amount",
+  "incorrect-payment-currency"
+];
+
 const SCENARIO_LABELS: Record<ScenarioName, string> = {
   "sequential-duplicate-webhook": "Sequential duplicate webhook",
   "concurrent-duplicate-credit": "Concurrent duplicate credit",
   "concurrent-unique-payments": "Concurrent unique payments",
   "cross-event-duplicate-payment": "Cross-event duplicate payment",
   "out-of-order-events": "Out-of-order events",
-  "incomplete-checkout": "Incomplete checkout",
+  "incomplete-checkout": "Checkout completed without payment",
   "expired-checkout": "Expired checkout",
   "incorrect-payment-amount": "Incorrect payment amount",
   "incorrect-payment-currency": "Incorrect payment currency",
   "underpaid-payment": "Underpaid payment",
   "failed-payment": "Failed payment"
+};
+
+const LEGACY_SCENARIO_LABELS: Partial<Record<ScenarioName, string[]>> = {
+  "incomplete-checkout": ["Incomplete checkout"]
 };
 
 export function scenarioLabel(scenario: ScenarioName): string {
@@ -87,10 +99,12 @@ function withBachsSigning(provider: ProviderAdapter, secret: string): ProviderAd
 }
 
 function selectedScenarios(config: BachsProofConfig, testName?: string): ScenarioName[] {
-  const scenarios = config.scenarios ?? [...SUPPORTED_SCENARIOS];
+  const scenarios = config.scenarios ?? DEFAULT_SCENARIOS;
   if (!testName) return scenarios;
-  const selected = scenarios.find((scenario) => scenarioLabel(scenario) === testName || scenario === testName);
-  if (!selected) throw new Error(`Unknown BachsProof scenario or test name "${testName}". Use one of: ${scenarios.map(scenarioLabel).join(", ")}`);
+  const selected = SUPPORTED_SCENARIOS.find((scenario) => scenarioLabel(scenario) === testName
+    || scenario === testName
+    || LEGACY_SCENARIO_LABELS[scenario]?.includes(testName));
+  if (!selected) throw new Error(`Unknown BachsProof scenario or test name "${testName}". Use one of: ${SUPPORTED_SCENARIOS.map(scenarioLabel).join(", ")}`);
   return [selected];
 }
 

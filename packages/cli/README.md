@@ -11,7 +11,7 @@ pnpm exec bachsproof test
 `init` creates one `bachsproof.config.mjs` file. The file contains the complete
 webhook URL, test signing secret, amount, currency, `createPayment()`, and
 `verify()` callbacks. The CLI configures the Bachs adapter, webhook signing,
-the eleven scenarios, ordinary concurrent delivery, and mandatory financial
+the five default scenarios, optional scenarios, ordinary concurrent delivery, and mandatory financial
 verification automatically.
 
 The same config object works in Vitest, Jest, or a custom script:

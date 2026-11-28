@@ -58,7 +58,7 @@ export default defineConfig({
     // };
   }
 
-  // Optional: run only selected scenario identifiers. Omit to run all eleven.
+  // Optional: run only selected scenario identifiers. Omit to run the five standard scenarios.
   // scenarios: ["sequential-duplicate-webhook"],
 
   // Optional: increase this only when your isolated application processes

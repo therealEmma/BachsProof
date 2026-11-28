@@ -77,18 +77,22 @@ pnpm exec bachsproof test
 pnpm exec bachsproof test --json
 ```
 
-Without a `--name`, BachsProof runs all eleven scenarios. Every scenario must
+Without a `--name`, BachsProof runs the five default scenarios. Optional
+scenarios can be selected through the `scenarios` config property or `--name`.
+Every scenario must
 complete financial verification before it can pass. A successful HTTP response
 alone is never enough.
 
 A failed result explains the expected and observed financial state, for example:
 
 ```text
+BachsProof v2.1.0
+
 FAIL  Concurrent duplicate credit
-      Payment reference: test-payment-123
-      Expected: one credit of 500000 NGN minor units when eligible
-      Observed: 2 credit(s) totalling 1000000 NGN minor units
-      Reason: The same payment was credited more than once.
+  Expected: 1 credit(s), totalling NGN 5,000.00 (500000 minor units) (eligible)
+  Observed: 2 credit(s), totalling NGN 10,000.00 (1000000 minor units)
+  Financial invariant violations:
+    - INV-001 Unique Credit: Payment test-payment-123 created 2 credits
 ```
 
 ## Safety

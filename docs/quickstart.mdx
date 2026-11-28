@@ -65,10 +65,14 @@ pnpm exec bachsproof test --name "sequential duplicate webhook"
 This creates one payment, sends the same signed webhook twice, reads the saved
 records, and checks that one credit exists.
 
-## 4. Run all eleven scenarios
+## 4. Run the default scenarios
 
 ```bash
 pnpm exec bachsproof test
 ```
 
 Use `--json` in CI or when saving a report for debugging.
+
+The default suite contains five common application-side checks. To add the six
+optional provider-dependent scenarios, set `scenarios` in the config, or run an
+individual scenario by identifier with `--name`.

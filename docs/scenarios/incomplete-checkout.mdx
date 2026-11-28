@@ -1,13 +1,14 @@
 ---
-title: "Incomplete checkout"
+title: "Checkout completed without payment"
 description: "Check that a checkout without a collected payment creates no credit."
 ---
 
 ## What it tests
 
-BachsProof sends a checkout-completed event without evidence that money was
-collected. The official [checkout.completed event](https://docs.bachs.io/guides/webhooks/events/checkout-completed)
-can describe a completed checkout even when a payment was not collected.
+BachsProof sends a documented `checkout.completed` event for a free payment
+checkout: `payment_status` is `no_payment_required`, the amount is `0`, and no
+charge exists. The official [checkout.completed event](https://docs.bachs.io/guides/webhooks/events/checkout-completed)
+can describe a completed checkout even when no payment was collected.
 
 ## Why it matters
 
@@ -16,8 +17,9 @@ proof that your application may grant money or access.
 
 ## What the application should do
 
-Keep the payment incomplete or pending and create no successful wallet credit.
-The handler may record the event for audit purposes.
+Keep the application payment unpaid and create no successful wallet credit. The
+handler may record the completed checkout for audit purposes, but it must not
+treat the checkout itself as money received.
 
 ## Pass and fail
 

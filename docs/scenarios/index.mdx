@@ -1,6 +1,6 @@
 ---
 title: "Payment scenarios"
-description: "The eleven local scenarios that test financial correctness."
+description: "Five default and six optional local scenarios for financial correctness."
 ---
 
 Every run creates fresh application payment records, sends signed simulated
@@ -11,20 +11,40 @@ checkout API. The official [Bachs payment events](https://docs.bachs.io/guides/w
 define what the provider event means; BachsProof checks whether your handler
 made the correct ledger decision.
 
+### Default scenarios
+
+These five scenarios run when `scenarios` is omitted. They cover the most common
+fixed-amount, fixed-currency payment integration risks.
+
 | Scenario | What it checks |
 | --- | --- |
 | `sequential-duplicate-webhook` | Repeated delivery does not create two credits |
 | `concurrent-duplicate-credit` | Overlapping requests do not credit one payment twice |
 | `concurrent-unique-payments` | Different payments remain independent |
-| `cross-event-duplicate-payment` | Different events for one payment create one credit |
-| `out-of-order-events` | Older events cannot undo a newer financial outcome |
-| `incomplete-checkout` | An incomplete checkout creates no credit |
-| `expired-checkout` | An expired checkout creates no credit |
 | `incorrect-payment-amount` | A wrong amount creates no credit |
 | `incorrect-payment-currency` | A wrong currency creates no credit |
+
+### Optional scenarios
+
+Select these with `scenarios` in the config or run any one directly with
+`--name`. They depend on the corresponding Bachs event or payment method being
+part of your integration.
+
+| Scenario | What it checks |
+| --- | --- |
+| `cross-event-duplicate-payment` | Different events for one payment create one credit |
+| `out-of-order-events` | Older events cannot undo a newer financial outcome |
+| `incomplete-checkout` | A completed checkout with no payment creates no credit |
+| `expired-checkout` | An expired checkout creates no credit |
 | `underpaid-payment` | An underpaid collection creates no credit |
 | `failed-payment` | A failed collection creates no credit |
 
 The concurrent scenario uses ordinary request concurrency. Operating-system,
 network, and database scheduling can differ between runs, so this test can
 expose a race without proving that every possible interleaving was exercised.
+
+The amount and currency scenarios use valid-shaped synthetic events with an
+intentionally changed financial field. They test your application's validation;
+they are not claims that Bachs emits an invalid successful event. See the
+official [Bachs webhook events](https://docs.bachs.io/guides/webhooks/events/collection-succeeded)
+for provider event semantics.

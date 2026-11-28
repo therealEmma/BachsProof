@@ -19,7 +19,7 @@ export interface BachsProofConfig<TEvent extends PaymentEvent = PaymentEvent> {
   createPayment: PaymentReferenceCreator;
   /** Reads the committed payment and ledger state for a prepared reference. */
   verify: FinancialVerifier;
-  /** Run a subset; omitted means all eleven scenarios. */
+  /** Run a subset; omitted means the five standard scenarios. */
   scenarios?: ScenarioName[];
   /** Increase the default asynchronous financial observation deadline if needed. */
   verificationTimeoutMs?: number;

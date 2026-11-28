@@ -10,6 +10,43 @@ afterEach(async () => {
 });
 
 describe("CLI configuration runner", () => {
+  it("runs the five standard scenarios by default and can select an optional scenario by name", async () => {
+    const server = createServer((_request, response) => {
+      response.statusCode = 200;
+      response.end("accepted");
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("default scenario server did not start");
+
+    const config: BachsProofConfig = {
+      webhookUrl: `http://127.0.0.1:${address.port}/webhooks/bachs`,
+      secret: "test-secret",
+      amountMinor: 1_250,
+      currency: "NGN",
+      createPayment: ({ scenario, paymentIndex }) => `DEFAULT-${scenario}-${paymentIndex}`,
+      verify: (reference, context) => ({
+        reference,
+        creditCount: context?.expectedOutcome.expectedCreditCount ?? 0,
+        creditedAmountMinor: context?.expectedOutcome.amountMinor ?? 0,
+        currency: context?.expectedOutcome.currency ?? "NGN"
+      })
+    };
+
+    const defaults = await runConfig(config);
+    expect(defaults.map((result) => result.scenario)).toEqual([
+      "sequential-duplicate-webhook",
+      "concurrent-duplicate-credit",
+      "concurrent-unique-payments",
+      "incorrect-payment-amount",
+      "incorrect-payment-currency"
+    ]);
+    const optional = await runConfig(config, { testName: "underpaid-payment" });
+    expect(optional.map((result) => result.scenario)).toEqual(["underpaid-payment"]);
+    expect(optional[0]?.result.passed).toBe(true);
+  });
+
   it("uses the automatic Bachs adapter, signs requests, and runs selected scenarios", async () => {
     const requests: Array<{ body: string; signature?: string }> = [];
     const server = createServer((request, response) => {

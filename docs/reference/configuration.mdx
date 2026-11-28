@@ -11,7 +11,7 @@ description: "Reference for the small BachsProof v2 configuration object."
 | `currency` | yes | Three-letter ISO currency code |
 | `createPayment` | yes | Creates a fresh application payment and returns its reference |
 | `verify` | yes | Reads committed financial state |
-| `scenarios` | no | Scenario identifiers to run; omitted means all eleven |
+| `scenarios` | no | Scenario identifiers to run; omitted means the five default scenarios |
 | `verificationTimeoutMs` | no | Extra time for asynchronous financial processing |
 
 Provider adapters, signing objects, scenario definitions, replay settings,
@@ -23,3 +23,10 @@ verify Bachs webhook signatures as described in the official
 [webhook guide](https://docs.bachs.io/guides/webhooks/overview). The Bachs API
 key and the API's [Idempotency-Key](https://docs.bachs.io/guides/idempotency)
 are separate provider-side concerns.
+
+The default suite is sequential duplicate webhook, concurrent duplicate credit,
+concurrent unique payments, incorrect payment amount, and incorrect payment
+currency. Add optional scenarios such as `underpaid-payment` or
+`failed-payment` when your integration supports those provider states. The
+`--name` CLI option can run any supported scenario, even when it is not in the
+configured subset.

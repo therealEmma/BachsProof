@@ -134,12 +134,12 @@ function isoAt(baseMs: number, offsetMs = 0): string {
   return new Date(baseMs + offsetMs).toISOString();
 }
 
-function expectedNoCredit(event: BachsPaymentEvent): ExpectedPaymentState {
+function expectedNoCredit(event: BachsPaymentEvent, expectedCurrency = event.currency): ExpectedPaymentState {
   return {
     reference: event.reference,
     eligible: false,
-    amountMinor: event.amountMinor,
-    currency: event.currency,
+    amountMinor: 0,
+    currency: expectedCurrency,
     expectedCreditCount: 0
   };
 }
@@ -147,9 +147,37 @@ function expectedNoCredit(event: BachsPaymentEvent): ExpectedPaymentState {
 function checkoutFixture(
   base: BachsPaymentEvent,
   type: "checkout.completed" | "checkout.expired",
-  options: { createdAt: string; paymentStatus: string | null; charge: boolean; eligible: boolean; status: string }
+  options: {
+    createdAt: string;
+    paymentStatus: string | null;
+    charge: boolean;
+    eligible: boolean;
+    status: string;
+    amountMinor?: number;
+    completedAt?: string | null;
+    expiresAt?: string | null;
+  }
 ): BachsPaymentEvent {
-  const charge = options.charge ? { id: base.providerPaymentId } : null;
+  const amountMinor = options.amountMinor ?? base.amountMinor;
+  const eventCreatedAt = Date.parse(options.createdAt);
+  const expiresAt = options.expiresAt ?? isoAt(eventCreatedAt, type === "checkout.expired" ? -1_000 : 3_600_000);
+  const completedAt = options.completedAt === undefined
+    ? type === "checkout.completed" ? options.createdAt : null
+    : options.completedAt;
+  const amount = amountMinor === 0 ? "0" : formatBachsMoney(BigInt(amountMinor), 2);
+  const charge = options.charge ? {
+    id: base.providerPaymentId,
+    organization_id: base.organization_id,
+    customer_id: base.customerId,
+    amount,
+    currency: base.currency,
+    settlement_currency: base.currency,
+    settlement_amount: amount,
+    status: "succeeded",
+    metadata: {},
+    created_at: options.createdAt,
+    updated_at: options.createdAt
+  } : null;
   return {
     ...base,
     id: `evt_${randomUUID().replaceAll("-", "")}`,
@@ -160,21 +188,26 @@ function checkoutFixture(
       status: options.status,
       mode: "payment",
       payment_status: options.paymentStatus,
-      amount: formatBachsMoney(BigInt(base.amountMinor), 2),
+      amount,
+      subtotal: amount,
+      discount: null,
       currency: base.currency,
       reference: base.reference,
-      customer: { id: base.customerId, email: "synthetic@example.com", name: "Synthetic Customer" },
+      customer: { customer_id: base.customerId, email: "synthetic@example.com", name: "Synthetic Customer" },
+      customer_details: { email: "synthetic@example.com", name: "Synthetic Customer" },
       charge,
       success_url: "https://example.test/success",
       cancel_url: "https://example.test/cancel",
       subscription: null,
-      completed_at: options.eligible ? options.createdAt : null,
-      expires_at: options.createdAt,
+      completed_at: completedAt,
+      expires_at: expiresAt,
+      created_at: isoAt(eventCreatedAt, -60_000),
       metadata: { order_id: base.reference }
     } as BachsPaymentEvent["data"],
-    amountMinor: base.amountMinor,
+    amountMinor,
     status: options.eligible ? "SUCCEEDED" : options.status,
-    eligible: options.eligible
+    eligible: options.eligible,
+    providerPaymentId: options.charge ? base.providerPaymentId : ""
   };
 }
 
@@ -238,9 +271,10 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       paymentStatus: "no_payment_required",
       charge: false,
       eligible: false,
-      status: "completed"
+      status: "completed",
+      amountMinor: 0
     });
-    return { deliveries: [delivery(incomplete, input)], verification: [{ event: incomplete, expected: expectedNoCredit(incomplete) }] };
+    return { deliveries: [delivery(incomplete, input)], verification: [{ event: incomplete, expected: expectedNoCredit(incomplete, currency) }] };
   }
 
   if (scenario === "expired-checkout") {
@@ -251,18 +285,23 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       eligible: false,
       status: "expired"
     });
-    return { deliveries: [delivery(expired, input)], verification: [{ event: expired, expected: expectedNoCredit(expired) }] };
+    return { deliveries: [delivery(expired, input)], verification: [{ event: expired, expected: expectedNoCredit(expired, currency) }] };
   }
 
   if (scenario === "incorrect-payment-amount") {
+    // This is intentionally modified after fixture creation. It is a valid
+    // event shape used to test application-side amount validation, not a claim
+    // that Bachs emits a successful event for an unknown amount.
     const incorrect = createBachsMockFixture({ reference, amountMinor: amountMinor + 1, currency, customerId });
-    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect) }] };
+    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
   }
 
   if (scenario === "incorrect-payment-currency") {
+    // This is intentionally modified after fixture creation. It tests the
+    // application's currency check rather than a documented Bachs lifecycle.
     const incorrectCurrency = currency === "USD" ? "EUR" : "USD";
     const incorrect = createBachsMockFixture({ reference, amountMinor, currency: incorrectCurrency, customerId });
-    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect) }] };
+    return { deliveries: [delivery(incorrect, input)], verification: [{ event: incorrect, expected: expectedNoCredit(incorrect, currency) }] };
   }
 
   if (scenario === "underpaid-payment") {
@@ -289,7 +328,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       status: "UNDERPAID",
       eligible: false
     };
-    return { deliveries: [delivery(underpaid, input)], verification: [{ event: underpaid, expected: expectedNoCredit(underpaid) }] };
+    return { deliveries: [delivery(underpaid, input)], verification: [{ event: underpaid, expected: expectedNoCredit(underpaid, currency) }] };
   }
 
   if (scenario === "failed-payment") {
@@ -304,8 +343,8 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
         status: "FAILED",
         amount: formatBachsMoney(BigInt(amountMinor), 2),
         currency,
-        settlement_amount: null,
-        settlement_currency: null,
+        settlement_amount: formatBachsMoney(BigInt(amountMinor), 2),
+        settlement_currency: currency,
         processing_fee: null,
         processing_fee_currency: null,
         fee_bearer: "merchant",
@@ -318,7 +357,7 @@ export function createBachsScenario(scenario: ScenarioName, input: ProviderScena
       status: "FAILED",
       eligible: false
     };
-    return { deliveries: [delivery(failed, input)], verification: [{ event: failed, expected: expectedNoCredit(failed) }] };
+    return { deliveries: [delivery(failed, input)], verification: [{ event: failed, expected: expectedNoCredit(failed, currency) }] };
   }
 
   return successful();
@@ -480,8 +519,8 @@ export function expectedBachsState(event: BachsPaymentEvent): ExpectedPaymentSta
   return {
     reference: event.reference,
     eligible: event.eligible,
-    amountMinor: event.amountMinor,
+    amountMinor: event.eligible ? event.amountMinor : 0,
     currency: event.currency,
-    expectedCreditCount: 1
+    expectedCreditCount: event.eligible ? 1 : 0
   };
 }

@@ -5,9 +5,10 @@ description: "Check that an underpaid collection creates no credit."
 
 ## What it tests
 
-BachsProof sends an underpaid collection with the amount paid and the amount
-still due. The official [collection.underpaid event](https://docs.bachs.io/guides/webhooks/events/collection-underpaid)
-describes this provider-side payment state.
+BachsProof sends the documented crypto partial-payment event with the amount
+paid and the amount still due. The official [collection.underpaid event](https://docs.bachs.io/guides/webhooks/events/collection-underpaid)
+is specific to a crypto payment; a short bank transfer does not produce this
+event.
 
 ## Why it matters
 
